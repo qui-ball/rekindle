@@ -7,7 +7,7 @@ from app.core.config import Settings
 
 class TestSettings(Settings):
     """Test settings with default values"""
-    
+
     # Override required fields with test defaults
     SECRET_KEY: str = "test_secret_key_for_testing_only"
     DATABASE_URL: str = "sqlite:///:memory:"
@@ -21,5 +21,5 @@ class TestSettings(Settings):
     AWS_SECRET_ACCESS_KEY: str = "test_aws_secret"
     S3_BUCKET: str = "test-bucket"
     CLOUDFRONT_DOMAIN: str = "test.cloudfront.net"
-    
+
     model_config = {"env_file": None}  # Don't load from .env in tests

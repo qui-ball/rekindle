@@ -17,7 +17,11 @@ class TestRestorationAPI:
     """Test suite for restoration API endpoints"""
 
     async def test_create_restoration_job_success(
-        self, async_client: AsyncClient, mock_s3_service, mock_celery_task, test_image_bytes
+        self,
+        async_client: AsyncClient,
+        mock_s3_service,
+        mock_celery_task,
+        test_image_bytes,
     ):
         """Test successful restoration job creation"""
         # Arrange
@@ -25,7 +29,9 @@ class TestRestorationAPI:
         data = {"denoise": 0.8}
 
         # Act
-        response = await async_client.post("/api/v1/restoration/restore", files=files, data=data)
+        response = await async_client.post(
+            "/api/v1/restoration/restore", files=files, data=data
+        )
 
         # Assert
         assert response.status_code == 200
@@ -33,7 +39,7 @@ class TestRestorationAPI:
         assert "job_id" in result
         assert result["status"] == "pending"
         assert result["message"] == "Restoration job created and queued for processing"
-        
+
         # Verify S3 upload was called
         mock_s3_service.upload_image.assert_called_once()
         # Verify Celery task was queued
@@ -67,15 +73,22 @@ class TestRestorationAPI:
         assert response.status_code == 413
         assert "File size exceeds 50MB limit" in response.json()["detail"]
 
-    @pytest.mark.parametrize("file_type", [
-        ("image/jpeg", "test.jpg"),
-        ("image/png", "test.png"),
-        ("image/heic", "test.heic"),
-        ("image/webp", "test.webp")
-    ])
+    @pytest.mark.parametrize(
+        "file_type",
+        [
+            ("image/jpeg", "test.jpg"),
+            ("image/png", "test.png"),
+            ("image/heic", "test.heic"),
+            ("image/webp", "test.webp"),
+        ],
+    )
     async def test_create_restoration_job_supported_formats(
-        self, async_client: AsyncClient, mock_s3_service, mock_celery_task, 
-        test_image_bytes, file_type
+        self,
+        async_client: AsyncClient,
+        mock_s3_service,
+        mock_celery_task,
+        test_image_bytes,
+        file_type,
     ):
         """Test all supported image formats are accepted"""
         # Arrange
@@ -89,7 +102,11 @@ class TestRestorationAPI:
         assert response.status_code == 200
 
     async def test_create_restoration_job_custom_denoise(
-        self, async_client: AsyncClient, mock_s3_service, mock_celery_task, test_image_bytes
+        self,
+        async_client: AsyncClient,
+        mock_s3_service,
+        mock_celery_task,
+        test_image_bytes,
     ):
         """Test restoration job creation with custom denoise parameter"""
         # Arrange
@@ -97,7 +114,9 @@ class TestRestorationAPI:
         data = {"denoise": 0.5}
 
         # Act
-        response = await async_client.post("/api/v1/restoration/restore", files=files, data=data)
+        response = await async_client.post(
+            "/api/v1/restoration/restore", files=files, data=data
+        )
 
         # Assert
         assert response.status_code == 200
@@ -108,14 +127,16 @@ class TestRestorationAPI:
         """Test denoise parameter validation"""
         # Arrange
         files = {"file": ("test.jpg", test_image_bytes, "image/jpeg")}
-        
+
         # Test invalid denoise values
         for invalid_value in [-0.1, 1.1, "invalid"]:
             data = {"denoise": invalid_value}
-            
+
             # Act
-            response = await async_client.post("/api/v1/restoration/restore", files=files, data=data)
-            
+            response = await async_client.post(
+                "/api/v1/restoration/restore", files=files, data=data
+            )
+
             # Assert
             assert response.status_code == 422
 
@@ -124,12 +145,14 @@ class TestRestorationAPI:
     ):
         """Test handling of S3 upload failures"""
         # Arrange
-        with patch('app.services.s3.s3_service') as mock_s3:
+        with patch("app.services.s3.s3_service") as mock_s3:
             mock_s3.upload_image.side_effect = Exception("S3 upload failed")
             files = {"file": ("test.jpg", test_image_bytes, "image/jpeg")}
 
             # Act
-            response = await async_client.post("/api/v1/restoration/restore", files=files)
+            response = await async_client.post(
+                "/api/v1/restoration/restore", files=files
+            )
 
             # Assert
             assert response.status_code == 500
@@ -195,7 +218,7 @@ class TestRestorationAPI:
         assert response.status_code == 200
         jobs = response.json()
         assert len(jobs) == 2
-        
+
         # Should be ordered by created_at desc
         job_ids = [job["id"] for job in jobs]
         assert str(job2.id) in job_ids
@@ -231,13 +254,12 @@ class TestRestorationAPI:
         # Remove authentication override
         from app.main import app
         from app.api.deps import get_current_user
-        
+
         if get_current_user in app.dependency_overrides:
             del app.dependency_overrides[get_current_user]
 
         async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test"
+            transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             # Test all endpoints require auth
             endpoints = [
@@ -245,11 +267,13 @@ class TestRestorationAPI:
                 ("GET", f"/api/v1/restoration/jobs/{uuid4()}"),
                 ("GET", "/api/v1/restoration/jobs"),
             ]
-            
+
             for method, endpoint in endpoints:
                 if method == "POST":
-                    response = await client.post(endpoint, files={"file": ("test.jpg", b"data", "image/jpeg")})
+                    response = await client.post(
+                        endpoint, files={"file": ("test.jpg", b"data", "image/jpeg")}
+                    )
                 else:
                     response = await client.get(endpoint)
-                
+
                 assert response.status_code == 403
