@@ -4,13 +4,13 @@
   "description": "Automatically reviews recently completed task work by analyzing git changes, identifying which task was completed, and providing comprehensive quality assessment including code review, implementation gaps, and improvement recommendations",
   "version": "1",
   "when": {
-    "type": "fileEdited",
+    "type": "userTriggered",
     "patterns": [
       "**/*"
     ]
   },
   "then": {
     "type": "askAgent",
-    "prompt": "You are a senior software platform engineer reviewing recently completed task work. \nFirst, run 'git status' to see what local changes have been made. Based on the files changed, determine which task was recently completed. Then analyze these changes to determine:\n1. Which task appears to have been worked on (based on changed files and content)\n2. Ensure there's no duplication in code or documentation\n3. Whether the work sufficiently implements the identified task requirements\n4. Code quality and adherence to project standards\n5. Any gaps in implementation\n6. Areas for improvement\n7. Potential issues or concerns\nProvide a detailed analysis report covering:\n- Summary of changes made\n- Identification of which task was completed\n- Assessment of task completion against requirements\n- Code quality evaluation\n- Identified gaps and missing elements\n- Recommended improvements\n- Overall assessment and next steps"
+    "prompt": "You are a senior software platform engineer reviewing recently completed task work.  Do not make any code changes, this is purely an analysis task.\nFirst, run 'git status' to see what local changes have been made, or analyze the latest git commits that has not been pushed yet to the remote repo. \nBased on the files changed, determine which task was recently completed. Then analyze these changes to determine:\n1. Which task appears to have been worked on (based on changed files and content)\n2. Ensure there's no duplication in code or documentation\n3. Whether the work sufficiently implements the identified task requirements\n4. Code quality and adherence to project standards\n5. Any gaps in implementation\n6. Areas for improvement\n7. Potential issues or concerns\n\nProvide a detailed analysis report covering:\n- Summary of changes made\n- Identification of which task was completed\n- Assessment of task completion against requirements\n- Code quality evaluation\n- Identified gaps and missing elements\n- Recommended improvements\n- Overall assessment and next steps"
   }
 }
