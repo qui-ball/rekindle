@@ -1,13 +1,25 @@
 {
   "id": "restoration-workflow-tests",
   "started": "2025-09-24T11:33:00Z",
-  "lastUpdated": "2025-09-24T11:33:00Z",
-  "status": "active",
-  "phase": "discovery",
+  "lastUpdated": "2025-09-24T11:33:45Z",
+  "status": "complete",
+  "phase": "complete",
   "progress": {
-    "discovery": { "answered": 0, "total": 5 },
-    "detail": { "answered": 0, "total": 0 }
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 5, "total": 5 }
   },
-  "contextFiles": [],
-  "relatedFeatures": []
+  "contextFiles": [
+    "backend/app/api/v1/restoration.py",
+    "backend/app/workers/tasks/restoration.py",
+    "backend/app/services/comfyui.py",
+    "backend/app/models/restoration.py",
+    "backend/pyproject.toml"
+  ],
+  "relatedFeatures": [
+    "Image upload and validation",
+    "Celery async task processing",
+    "ComfyUI integration",
+    "S3 file storage",
+    "Database job tracking"
+  ]
 }

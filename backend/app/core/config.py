@@ -54,9 +54,7 @@ class Settings(BaseSettings):
         default=["image/jpeg", "image/png", "image/heic", "image/webp"]
     )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {"env_file": ".env", "case_sensitive": True}
 
 
 # Global settings instance
