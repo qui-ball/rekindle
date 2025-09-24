@@ -1,0 +1,107 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+build/
+dist/
+*.tgz
+*.tar.gz
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+
+# Docker
+.dockerignore
+
+# AWS
+.aws/
+
+# Secrets
+secrets/
+*.key
+*.pem
+*.crt
+
+# AI/ML
+models/
+*.pkl
+*.joblib
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend specific
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Backend specific
+*.egg-info/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Kiro specific (keep steering docs but ignore other Kiro files)
+.kiro/settings/
+.kiro/cache/
