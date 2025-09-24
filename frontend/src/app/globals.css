@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .upload-zone {
+    @apply border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors duration-200;
+  }
+  
+  .upload-zone.active {
+    @apply border-primary-500 bg-primary-50;
+  }
+  
+  .camera-overlay {
+    @apply absolute inset-0 pointer-events-none;
+  }
+  
+  .crop-container {
+    @apply relative w-full h-96 bg-black rounded-lg overflow-hidden;
+  }
+}
+
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* PWA specific styles */
+@media (display-mode: standalone) {
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+/* Camera specific styles */
+.camera-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Cropping interface styles */
+.crop-area {
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.crop-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: #3b82f6;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: grab;
+}
+
+.crop-handle:active {
+  cursor: grabbing;
+}
+
+/* Upload progress styles */
+.upload-progress {
+  @apply w-full bg-gray-200 rounded-full h-2;
+}
+
+.upload-progress-bar {
+  @apply bg-primary-600 h-2 rounded-full transition-all duration-300 ease-out;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .upload-zone {
+    @apply p-4;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    @apply py-3 px-6 text-lg;
+    min-height: 44px; /* iOS touch target minimum */
+  }
+}

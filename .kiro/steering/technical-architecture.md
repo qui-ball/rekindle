@@ -108,7 +108,7 @@ This document outlines the technical architecture standards and recommendations 
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                              FRONTEND LAYER                                     │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│                    React PWA + TypeScript + Tailwind                           │
+│                    Next.js PWA + TypeScript + Tailwind                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                │
 │  │ Upload Manager  │  │ Processing UI   │  │ Results Viewer  │                │
 │  │ • File Validate │  │ • Queue Status  │  │ • Image Display │                │
@@ -306,8 +306,8 @@ User Upload → S3 → Queue Job → RunPod Worker → Process → Store Result 
 ### Frontend Architecture
 
 **Technology Stack:**
-- **Framework:** React with TypeScript
-- **PWA Tools:** Workbox for service workers
+- **Framework:** Next.js 14 with TypeScript (App Router)
+- **PWA Tools:** next-pwa with Workbox for service workers
 - **State Management:** Zustand (lightweight)
 - **UI Components:** Tailwind CSS + Headless UI
 - **Camera Integration:** Native browser APIs with PWA enhancements
@@ -491,7 +491,7 @@ class CostTracker:
 
 ### Environment Setup
 - **Development:** Local Docker Compose with hot reload
-- **Staging:** Vercel (frontend) + AWS ECS (backend)
+- **Staging:** Vercel (Next.js frontend) + AWS ECS (backend)
 - **Production:** AWS ECS Fargate with auto-scaling
 
 ### Infrastructure as Code

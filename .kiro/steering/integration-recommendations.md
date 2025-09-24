@@ -24,7 +24,7 @@ This document provides specific service recommendations for our MVP photo restor
 ```typescript
 import { loadStripe } from '@stripe/stripe-js';
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 // Subscription creation
 const createSubscription = async (priceId: string, userId: string) => {
@@ -70,8 +70,8 @@ import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <Auth0Provider
-      domain={process.env.REACT_APP_AUTH0_DOMAIN}
-      clientId={process.env.REACT_APP_AUTH0_CLIENT_ID}
+      domain={process.env.NEXT_PUBLIC_AUTH0_DOMAIN!}
+      clientId={process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID!}
       redirectUri={window.location.origin}
       scope="openid profile email"
     >
@@ -109,7 +109,7 @@ const SocialLogin: React.FC = () => {
 ```typescript
 // CDN URL generation
 const getCDNUrl = (fileKey: string, contentType: 'processed' | 'thumbnail') => {
-  const baseUrl = process.env.REACT_APP_CDN_BASE_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_CDN_BASE_URL;
   
   switch (contentType) {
     case 'processed':

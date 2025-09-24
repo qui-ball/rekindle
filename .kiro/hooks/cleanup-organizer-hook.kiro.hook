@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "File Cleanup & Organization",
+  "description": "Monitors file changes to automatically identify unnecessary files, duplicates, and reorganization opportunities. Cleans up redundant documents, removes unused scripts, and suggests better file organization based on project structure standards.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered",
+    "patterns": [
+      "**/*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the current file structure and recent changes to identify:\n\n1. **Unnecessary Files**: Look for redundant files, temporary files, build artifacts, or files that don't serve the project's purpose\n2. **Duplicate Content**: Find files with similar or identical content that could be consolidated\n3. **Organization Issues**: Identify files that are in the wrong directories based on the project structure standards\n4. **Cleanup Opportunities**: Suggest removal of unused scripts, outdated documentation, or deprecated files\n\nBased on the technical architecture and development standards, recommend specific cleanup actions:\n- Files to delete (with reasons)\n- Files to consolidate or merge\n- Files to move to better locations\n- Directory structure improvements\n\nFocus on maintaining the MVP-first approach while ensuring clean, maintainable code organization. Consider the project's focus on photo restoration service and ensure all remaining files serve that core purpose."
+  }
+}
