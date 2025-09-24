@@ -105,3 +105,6 @@ dmypy.json
 # Kiro specific (keep steering docs but ignore other Kiro files)
 .kiro/settings/
 .kiro/cache/
+
+# Screenshots and design files
+screenshots/
