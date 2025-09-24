@@ -3,10 +3,10 @@
   "started": "2025-01-24T14:42:00Z",
   "lastUpdated": "2025-01-24T14:42:00Z",
   "status": "active",
-  "phase": "detail",
+  "phase": "complete",
   "progress": {
     "discovery": { "answered": 5, "total": 5 },
-    "detail": { "answered": 0, "total": 0 }
+    "detail": { "answered": 5, "total": 5 }
   },
   "contextFiles": [],
   "relatedFeatures": []

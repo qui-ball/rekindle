@@ -82,7 +82,6 @@ secrets/
 certs/
 
 # AI/ML
-models/
 *.pkl
 *.joblib
 
