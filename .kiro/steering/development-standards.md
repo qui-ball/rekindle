@@ -6,7 +6,7 @@ Development standards optimized for AI-assisted development with Kiro. Focus on 
 ## Project Structure
 ```
 rekindle/
-├── frontend/                 # React PWA
+├── frontend/                 # Next.js PWA
 │   ├── src/
 │   │   ├── components/       # UI components
 │   │   ├── pages/           # Route components
