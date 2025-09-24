@@ -13,20 +13,23 @@ from PIL import Image
 
 # Set up test configuration before importing app
 import os
-os.environ.update({
-    "SECRET_KEY": "test_secret_key_for_testing_only",
-    "DATABASE_URL": "sqlite:///:memory:",
-    "REDIS_URL": "redis://localhost:6379/1",
-    "AUTH0_DOMAIN": "test.auth0.com",
-    "AUTH0_AUDIENCE": "test_audience", 
-    "STRIPE_SECRET_KEY": "sk_test_test_key",
-    "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
-    "RUNPOD_API_KEY": "test_runpod_key",
-    "AWS_ACCESS_KEY_ID": "test_aws_key",
-    "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
-    "S3_BUCKET": "test-bucket",
-    "CLOUDFRONT_DOMAIN": "test.cloudfront.net"
-})
+
+os.environ.update(
+    {
+        "SECRET_KEY": "test_secret_key_for_testing_only",
+        "DATABASE_URL": "sqlite:///:memory:",
+        "REDIS_URL": "redis://localhost:6379/1",
+        "AUTH0_DOMAIN": "test.auth0.com",
+        "AUTH0_AUDIENCE": "test_audience",
+        "STRIPE_SECRET_KEY": "sk_test_test_key",
+        "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
+        "RUNPOD_API_KEY": "test_runpod_key",
+        "AWS_ACCESS_KEY_ID": "test_aws_key",
+        "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
+        "S3_BUCKET": "test-bucket",
+        "CLOUDFRONT_DOMAIN": "test.cloudfront.net",
+    }
+)
 
 from app.main import app
 from app.core.database import Base, get_db
@@ -48,10 +51,12 @@ def test_db_session(test_engine):
     """Create test database session with transaction rollback"""
     connection = test_engine.connect()
     transaction = connection.begin()
-    
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=connection)
+
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=connection
+    )
     session = TestingSessionLocal()
-    
+
     try:
         yield session
     finally:
@@ -63,9 +68,10 @@ def test_db_session(test_engine):
 @pytest.fixture
 def override_get_db(test_db_session):
     """Override database dependency"""
+
     def _get_test_db():
         yield test_db_session
-    
+
     app.dependency_overrides[get_db] = _get_test_db
     yield
     del app.dependency_overrides[get_db]
@@ -80,9 +86,10 @@ def mock_user():
 @pytest.fixture
 def override_get_current_user(mock_user):
     """Override authentication dependency"""
+
     def _get_test_user():
         return mock_user
-    
+
     app.dependency_overrides[get_current_user] = _get_test_user
     yield
     del app.dependency_overrides[get_current_user]
@@ -92,8 +99,7 @@ def override_get_current_user(mock_user):
 async def async_client(override_get_db, override_get_current_user):
     """Async test client with overridden dependencies"""
     async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
+        transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
         yield ac
 
@@ -101,9 +107,9 @@ async def async_client(override_get_db, override_get_current_user):
 @pytest.fixture
 def test_image_bytes():
     """Create test image bytes for upload testing"""
-    img = Image.new('RGB', (100, 100), color='red')
+    img = Image.new("RGB", (100, 100), color="red")
     img_bytes = io.BytesIO()
-    img.save(img_bytes, format='JPEG')
+    img.save(img_bytes, format="JPEG")
     img_bytes.seek(0)
     return img_bytes.read()
 
@@ -112,9 +118,9 @@ def test_image_bytes():
 def test_large_image_bytes():
     """Create large test image (>50MB) for size limit testing"""
     # Create a large image that exceeds 50MB
-    img = Image.new('RGB', (8000, 8000), color='blue')
+    img = Image.new("RGB", (8000, 8000), color="blue")
     img_bytes = io.BytesIO()
-    img.save(img_bytes, format='JPEG', quality=100)
+    img.save(img_bytes, format="JPEG", quality=100)
     img_bytes.seek(0)
     return img_bytes.read()
 
@@ -122,12 +128,13 @@ def test_large_image_bytes():
 @pytest.fixture
 def restoration_job_factory(test_db_session, mock_user):
     """Factory for creating restoration jobs"""
+
     def _create_job(**kwargs):
         defaults = {
-            'user_id': mock_user,
-            'status': JobStatus.PENDING,
-            'original_image_url': 'https://test.cloudfront.net/original/test.jpg',
-            'denoise': 0.7
+            "user_id": mock_user,
+            "status": JobStatus.PENDING,
+            "original_image_url": "https://test.cloudfront.net/original/test.jpg",
+            "denoise": 0.7,
         }
         defaults.update(kwargs)
         job = RestorationJob(**defaults)
@@ -135,23 +142,26 @@ def restoration_job_factory(test_db_session, mock_user):
         test_db_session.commit()
         test_db_session.refresh(job)
         return job
+
     return _create_job
 
 
 @pytest.fixture
 def mock_s3_service():
     """Mock S3 service"""
-    with patch('app.services.s3.s3_service') as mock:
-        mock.upload_image.return_value = 'https://test.cloudfront.net/processed/test.jpg'
-        mock.download_file.return_value = b'fake_image_data'
+    with patch("app.services.s3.s3_service") as mock:
+        mock.upload_image.return_value = (
+            "https://test.cloudfront.net/processed/test.jpg"
+        )
+        mock.download_file.return_value = b"fake_image_data"
         yield mock
 
 
 @pytest.fixture
 def mock_celery_task():
     """Mock Celery task"""
-    with patch('app.workers.tasks.restoration.process_restoration') as mock:
-        mock.delay.return_value = Mock(id='test_task_id')
+    with patch("app.workers.tasks.restoration.process_restoration") as mock:
+        mock.delay.return_value = Mock(id="test_task_id")
         yield mock
 
 
@@ -159,10 +169,10 @@ def mock_celery_task():
 def celery_config():
     """Celery configuration for testing"""
     return {
-        'broker_url': 'memory://',
-        'result_backend': 'cache+memory://',
-        'task_always_eager': True,
-        'task_eager_propagates': True,
+        "broker_url": "memory://",
+        "result_backend": "cache+memory://",
+        "task_always_eager": True,
+        "task_eager_propagates": True,
     }
 
 
@@ -170,5 +180,6 @@ def celery_config():
 def celery_app(celery_config):
     """Celery app fixture for testing"""
     from app.workers.celery_app import celery_app
+
     celery_app.config_from_object(celery_config)
     return celery_app
