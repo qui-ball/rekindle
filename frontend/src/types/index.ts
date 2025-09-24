@@ -1,5 +1,4 @@
-// Basic types for the application - will be expanded as features are implemented
-
+// Core application types
 export interface User {
   id: string;
   email: string;
@@ -10,3 +9,6 @@ export interface User {
 export type Result<T, E = Error> = 
   | { success: true; data: T }
   | { success: false; error: E };
+
+// Upload system types
+export * from './upload';

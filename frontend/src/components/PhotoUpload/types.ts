@@ -1,4 +1,2 @@
-// Simplified types for basic PhotoUpload component
-export interface PhotoUploadContainerProps {
-  className?: string;
-}
+// Re-export upload types for component use
+export * from '../../types/upload';
