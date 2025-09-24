@@ -1,3 +1,5 @@
+'use client';
+
 import { PhotoUploadContainer } from '@/components/PhotoUpload/PhotoUploadContainer';
 
 export default function HomePage() {
@@ -14,7 +16,10 @@ export default function HomePage() {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          <PhotoUploadContainer />
+          <PhotoUploadContainer 
+            onUploadComplete={(result) => console.log('Upload complete:', result)}
+            onError={(error) => console.error('Upload error:', error)}
+          />
         </div>
       </div>
     </main>
