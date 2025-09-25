@@ -199,7 +199,7 @@ export class FileValidator {
     - _Requirements: 3.6, 5.1, 5.2, 5.6_
 
 - [ ] 4. Implement mobile camera capture functionality
-  - [ ] 4.1 Set up react-camera-pro integration for PWA camera access
+  - [x] 4.1 Set up react-camera-pro integration for PWA camera access
     - Install and configure react-camera-pro library
     - Create CameraCapture component with back camera default
     - Implement camera permission handling and error states

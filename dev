@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Convenience wrapper for development scripts
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+case "$1" in
+  "start"|"")
+    exec "$SCRIPT_DIR/frontend/scripts/dev-simple.sh" "${@:2}"
+    ;;
+  "https")
+    echo "🔒 Starting HTTPS development server for mobile camera testing..."
+    cd "$SCRIPT_DIR/frontend"
+    exec "./scripts/dev-https.sh"
+    ;;
+  "stop")
+    exec "$SCRIPT_DIR/frontend/scripts/stop.sh" "${@:2}"
+    ;;
+  *)
+    echo "Usage: $0 [start|https|stop] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  start (default)  Start development environment (HTTP)"
+    echo "  https           Start HTTPS server for mobile camera testing"
+    echo "  stop            Stop all development services"
+    echo ""
+    echo "Examples:"
+    echo "  $0              # Start HTTP development server"
+    echo "  $0 start        # Start HTTP development server"
+    echo "  $0 https        # Start HTTPS server for mobile camera testing"
+    echo "  $0 stop         # Stop everything"
+    echo ""
+    echo "📱 For mobile camera testing:"
+    echo "   Use '$0 https' to enable HTTPS with local certificates"
+    exit 1
+    ;;
+esac

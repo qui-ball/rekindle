@@ -9,5 +9,13 @@
     "react-hooks/exhaustive-deps": "warn",
     "prefer-const": "error",
     "no-var": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.tsx", "**/*.test.ts"],
+      "rules": {
+        "react/display-name": "off"
+      }
+    }
+  ]
 }
