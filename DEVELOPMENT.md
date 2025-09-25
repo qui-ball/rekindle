@@ -194,42 +194,7 @@ frontend/scripts/tunnel.sh
 ./dev tunnel
 ```
 
-## 📝 Commit Guidelines
 
-### Format
-```
-<type>: <subject> (max 50 chars)
-
-<body> (optional, wrap at 72 chars)
-
-<footer> (optional)
-```
-
-### Types
-- **feat**: New feature
-- **fix**: Bug fix  
-- **docs**: Documentation changes
-- **style**: Code style changes (formatting, etc.)
-- **refactor**: Code refactoring
-- **test**: Adding or updating tests
-- **chore**: Build process, dependencies, etc.
-
-### Examples
-```bash
-# Good
-git commit -m "feat: add camera capture component"
-git commit -m "fix: resolve mobile HTTPS certificate issue"
-git commit -m "docs: update setup instructions for mkcert"
-
-# Too long/verbose
-git commit -m "feat: implement comprehensive camera capture functionality with react-camera-pro integration, HTTPS development server setup, mobile testing support, and complete test coverage including unit tests for all camera states and error handling scenarios"
-```
-
-### Tips
-- Use imperative mood ("add" not "added")
-- No period at end of subject
-- Keep subject under 50 characters
-- Use body to explain "what" and "why", not "how"
 
 ---
 
