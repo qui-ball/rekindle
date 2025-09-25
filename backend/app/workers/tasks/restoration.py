@@ -6,8 +6,7 @@ from celery import current_task
 from sqlalchemy.orm import Session
 from uuid import UUID
 from loguru import logger
-import io
-from PIL import Image
+from urllib.parse import urlparse
 
 from app.workers.celery_app import celery_app
 from app.core.database import SessionLocal
@@ -40,10 +39,13 @@ def process_restoration(self, job_id: str):
         logger.info(f"Starting restoration for job {job_id}")
 
         # Download original image from S3
-        original_key = job.original_image_url.split("/")[
-            -4:
-        ]  # Get key from CloudFront URL
-        original_key = "/".join(original_key)
+        # Extract S3 key from CloudFront URL robustly
+        parsed = urlparse(job.original_image_url)
+        original_key = parsed.path.lstrip("/")
+        if not original_key:
+            raise ValueError(
+                f"Could not extract S3 key from URL: {job.original_image_url}"
+            )
         original_image_data = s3_service.download_file(original_key)
 
         # Process with ComfyUI

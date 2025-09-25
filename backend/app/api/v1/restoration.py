@@ -9,10 +9,11 @@ from typing import List
 import uuid
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import settings
 from app.models.restoration import RestorationJob, JobStatus
 from app.schemas.restoration import RestorationResponse, JobStatusResponse
-from app.services.s3 import s3_service
-from app.workers.tasks.restoration import process_restoration
+from app.services import s3 as s3_module
+from app.workers.tasks import restoration as restoration_tasks
 
 router = APIRouter()
 
@@ -27,8 +28,8 @@ async def create_restoration_job(
     """
     Create a new image restoration job
     """
-    # Validate file type
-    if file.content_type not in ["image/jpeg", "image/png", "image/heic", "image/webp"]:
+    # Validate file type using settings
+    if file.content_type not in settings.ALLOWED_FILE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported file type: {file.content_type}",
@@ -37,20 +38,30 @@ async def create_restoration_job(
     # Read file content
     file_content = await file.read()
 
-    # Check file size (50MB limit)
-    if len(file_content) > 50 * 1024 * 1024:
+    # Check file size from settings
+    if len(file_content) > settings.MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File size exceeds 50MB limit",
+            detail=f"File size exceeds {settings.MAX_FILE_SIZE // (1024*1024)}MB limit",
         )
 
     try:
         # Upload original image to S3
-        original_url = s3_service.upload_image(
+        # Preserve extension and content type based on upload
+        mime_to_ext = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/heic": "heic",
+            "image/webp": "webp",
+        }
+        extension = mime_to_ext.get(file.content_type, "jpg")
+
+        original_url = s3_module.s3_service.upload_image(
             image_content=file_content,
             user_id=current_user,
             prefix="original",
-            extension="jpg",
+            extension=extension,
+            content_type=file.content_type,
         )
 
         # Create job record in database
@@ -65,7 +76,7 @@ async def create_restoration_job(
         db.refresh(job)
 
         # Queue the restoration task
-        process_restoration.delay(str(job.id))
+        restoration_tasks.process_restoration.delay(str(job.id))
 
         return RestorationResponse(
             job_id=job.id,
