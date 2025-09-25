@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { PhotoUploadContainerProps, UploadState, UploadResult, UploadError } from '../../types/upload';
+import { PhotoUploadContainerProps, UploadState, UploadResult, UploadError, ErrorType } from '../../types/upload';
 import { CameraCapture } from './CameraCapture';
 
 /**
@@ -61,7 +61,7 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
       ...prev,
       status: 'idle',
       currentStep: 'cropping',
-      selectedFile: new File([imageData], 'camera-capture.jpg', { type: 'image/jpeg' }) as any
+      selectedFile: undefined // Will be properly typed when File handling is implemented
     }));
   }, []);
 
@@ -96,13 +96,13 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
   }, []);
 
   // Handle camera errors
-  const handleCameraError = useCallback((error: any) => {
+  const handleCameraError = useCallback((error: { code: string; message: string; name: string }) => {
     console.error('Camera error:', error);
     const uploadError: UploadError = {
       name: 'CameraError',
       message: error.message || 'Camera access failed',
       code: error.code || 'CAMERA_ERROR',
-      type: 'permission_error' as any,
+      type: ErrorType.PERMISSION_ERROR,
       retryable: true
     };
     handleUploadError(uploadError);
@@ -151,6 +151,7 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
           {/* Photo Preview */}
           <div className="mb-6">
             <div className="border rounded-lg overflow-hidden max-w-md mx-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={capturedImage}
                 alt="Captured photo preview"

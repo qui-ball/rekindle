@@ -13,7 +13,7 @@ export default function CameraPage() {
     setError(null);
   };
 
-  const handleError = (cameraError: any) => {
+  const handleError = (cameraError: { code: string; message: string }) => {
     console.error('Camera error:', cameraError);
     setError(`${cameraError.code}: ${cameraError.message}`);
     setCapturedImage(null);
@@ -77,6 +77,7 @@ export default function CameraPage() {
             </div>
             
             <div className="border rounded-lg overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={capturedImage}
                 alt="Captured photo"

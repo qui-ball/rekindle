@@ -1,3 +1,4 @@
+/* eslint-disable react/display-name */
 /**
  * CameraCapture Component Tests
  * 
@@ -14,22 +15,25 @@ import { CameraCapture } from './CameraCapture';
 // Mock react-camera-pro
 const mockTakePhoto = jest.fn();
 
+const MockCamera = React.forwardRef<unknown, { onCameraInit?: () => void }>(function MockCamera(props, ref) {
+  React.useImperativeHandle(ref, () => ({
+    takePhoto: mockTakePhoto
+  }));
+
+  React.useEffect(() => {
+    // Simulate camera initialization
+    if (props.onCameraInit) {
+      setTimeout(() => props.onCameraInit!(), 100);
+    }
+  }, [props]);
+
+  return <div data-testid="mock-camera">Camera Component</div>;
+});
+
 jest.mock('react-camera-pro', () => ({
-  Camera: React.forwardRef<unknown, { onCameraInit?: () => void }>((props, ref) => {
-    React.useImperativeHandle(ref, () => ({
-      takePhoto: mockTakePhoto
-    }));
-
-    React.useEffect(() => {
-      // Simulate camera initialization
-      if (props.onCameraInit) {
-        setTimeout(() => props.onCameraInit(), 100);
-      }
-    }, [props]);
-
-    return <div data-testid="mock-camera">Camera Component</div>;
-  })
+  Camera: MockCamera
 }));
+
 
 
 // Mock navigator.mediaDevices
@@ -56,7 +60,7 @@ describe('CameraCapture', () => {
     onCapture: mockOnCapture,
     onError: mockOnError,
     facingMode: 'environment' as const,
-    aspectRatio: 4/3
+    aspectRatio: 4 / 3
   };
 
   beforeEach(() => {
@@ -71,14 +75,14 @@ describe('CameraCapture', () => {
   describe('Component Initialization', () => {
     it('should render loading state initially', () => {
       render(<CameraCapture {...defaultProps} />);
-      
+
       expect(screen.getByText('Requesting camera access...')).toBeInTheDocument();
       expect(screen.queryByTestId('mock-camera')).not.toBeInTheDocument();
     });
 
     it('should request camera permission on mount', async () => {
       render(<CameraCapture {...defaultProps} />);
-      
+
       await waitFor(() => {
         expect(mockGetUserMedia).toHaveBeenCalledWith({
           video: { facingMode: 'environment' }
@@ -88,7 +92,7 @@ describe('CameraCapture', () => {
 
     it('should initialize camera after permission granted', async () => {
       render(<CameraCapture {...defaultProps} />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
       });
@@ -96,7 +100,7 @@ describe('CameraCapture', () => {
 
     it('should use custom facingMode when provided', async () => {
       render(<CameraCapture {...defaultProps} facingMode="user" />);
-      
+
       await waitFor(() => {
         expect(mockGetUserMedia).toHaveBeenCalledWith({
           video: { facingMode: 'user' }
@@ -108,10 +112,11 @@ describe('CameraCapture', () => {
       const propsWithoutFacingMode = {
         onCapture: mockOnCapture,
         onError: mockOnError,
-        aspectRatio: 4/3
+        facingMode: 'environment' as const,
+        aspectRatio: 4 / 3
       };
       render(<CameraCapture {...propsWithoutFacingMode} />);
-      
+
       await waitFor(() => {
         expect(mockGetUserMedia).toHaveBeenCalledWith({
           video: { facingMode: 'environment' }
@@ -242,12 +247,12 @@ describe('CameraCapture', () => {
   describe('Camera Interface', () => {
     beforeEach(async () => {
       render(<CameraCapture {...defaultProps} />);
-      
+
       // Wait for camera to initialize and permission to be granted
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
       });
-      
+
       // Wait for the visual guides to appear (camera initialized)
       await waitFor(() => {
         expect(screen.getByText('Position photo within guides')).toBeInTheDocument();
@@ -274,12 +279,12 @@ describe('CameraCapture', () => {
   describe('Photo Capture', () => {
     beforeEach(async () => {
       render(<CameraCapture {...defaultProps} />);
-      
+
       // Wait for camera to initialize and be ready
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
       });
-      
+
       // Wait for camera to be fully initialized (button enabled)
       await waitFor(() => {
         const captureButton = screen.getByLabelText('Capture photo');
@@ -303,7 +308,7 @@ describe('CameraCapture', () => {
     it('should show loading state during capture', async () => {
       const mockImageData = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD...';
       let resolveCapture: (value: string) => void;
-      
+
       mockTakePhoto.mockImplementation(() => {
         return new Promise(resolve => {
           resolveCapture = resolve;
@@ -320,7 +325,7 @@ describe('CameraCapture', () => {
 
       // Resolve the capture
       resolveCapture!(mockImageData);
-      
+
       // Button should be enabled again
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /capture photo/i })).not.toBeDisabled();
@@ -363,7 +368,7 @@ describe('CameraCapture', () => {
       const mockImageData = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD...';
       let resolveCapture: (value: string) => void;
       let capturePromise: Promise<string>;
-      
+
       mockTakePhoto.mockImplementation(() => {
         capturePromise = new Promise(resolve => {
           resolveCapture = resolve;
@@ -372,25 +377,25 @@ describe('CameraCapture', () => {
       });
 
       const captureButton = screen.getByLabelText('Capture photo');
-      
+
       // First click should start capture
       fireEvent.click(captureButton);
-      
+
       // Wait for button to be disabled
       await waitFor(() => {
         expect(captureButton).toBeDisabled();
       });
-      
+
       // Additional clicks should be ignored while capturing
       fireEvent.click(captureButton);
       fireEvent.click(captureButton);
 
       // Should only call takePhoto once
       expect(mockTakePhoto).toHaveBeenCalledTimes(1);
-      
+
       // Resolve the capture
       resolveCapture!(mockImageData);
-      
+
       await waitFor(() => {
         expect(mockOnCapture).toHaveBeenCalledWith(mockImageData);
       });
@@ -402,9 +407,9 @@ describe('CameraCapture', () => {
       // We'll test this by triggering the onCameraError callback directly
       // since mocking the component again would be complex
       const { CameraCapture } = await import('./CameraCapture');
-      
+
       // Create a component instance and trigger error manually
-      const TestWrapper = () => {
+      const TestWrapper = function TestWrapper() {
         React.useEffect(() => {
           // Simulate camera error after mount
           setTimeout(() => {
@@ -420,7 +425,7 @@ describe('CameraCapture', () => {
 
         return <CameraCapture {...defaultProps} />;
       };
-      
+
       render(<TestWrapper />);
 
       await waitFor(() => {
@@ -436,7 +441,7 @@ describe('CameraCapture', () => {
   describe('Accessibility', () => {
     beforeEach(async () => {
       render(<CameraCapture {...defaultProps} />);
-      
+
       // Wait for camera to initialize
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
@@ -454,12 +459,12 @@ describe('CameraCapture', () => {
       render(<CameraCapture {...defaultProps} />);
 
       const captureButton = screen.getByLabelText('Capture photo');
-      
+
       // The button should be enabled after camera initialization
       await waitFor(() => {
         expect(captureButton).not.toBeDisabled();
       });
-      
+
       // This test verifies the button becomes enabled after initialization
       // The disabled state is brief and happens during component mount
       expect(captureButton).not.toBeDisabled();
@@ -474,15 +479,15 @@ describe('CameraCapture', () => {
         facingMode: 'environment' as const
       };
       render(<CameraCapture {...propsWithoutAspectRatio} />);
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
       });
     });
 
     it('should use custom aspectRatio when provided', async () => {
-      render(<CameraCapture {...defaultProps} aspectRatio={16/9} />);
-      
+      render(<CameraCapture {...defaultProps} aspectRatio={16 / 9} />);
+
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
       });

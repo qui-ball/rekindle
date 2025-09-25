@@ -24,7 +24,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [isCapturing, setIsCapturing] = useState(false);
-  const cameraRef = useRef<any>(null);
+  const cameraRef = useRef<{ takePhoto: () => string | null } | null>(null);
 
   // Handle camera errors
   const handleCameraError = useCallback((error: Error & { name?: string }) => {
