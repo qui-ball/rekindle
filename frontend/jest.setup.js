@@ -43,10 +43,42 @@ global.File = class MockFile {
 
 global.FileReader = class MockFileReader {
   constructor() {
-    this.readAsDataURL = jest.fn();
-    this.readAsArrayBuffer = jest.fn();
     this.result = null;
     this.onload = null;
     this.onerror = null;
   }
+  
+  readAsDataURL(file) {
+    setTimeout(() => {
+      this.result = 'data:image/jpeg;base64,mock-data';
+      if (this.onload) this.onload();
+    }, 0);
+  }
+  
+  readAsArrayBuffer(file) {
+    setTimeout(() => {
+      this.result = new ArrayBuffer(8);
+      if (this.onload) this.onload();
+    }, 0);
+  }
+};
+
+// Mock Worker for heic2any library
+global.Worker = class MockWorker {
+  constructor(url) {
+    this.url = url;
+    this.onmessage = null;
+    this.onerror = null;
+  }
+  
+  postMessage(data) {
+    // Mock worker behavior
+    setTimeout(() => {
+      if (this.onmessage) {
+        this.onmessage({ data: 'mock-result' });
+      }
+    }, 0);
+  }
+  
+  terminate() {}
 };
