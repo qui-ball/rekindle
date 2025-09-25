@@ -1,0 +1,10 @@
+# <type>: <subject> (max 50 chars)
+#
+# <body> (wrap at 72 chars)
+#
+# <footer>
+#
+# Types: feat, fix, docs, style, refactor, test, chore
+# Subject: imperative mood, no period, lowercase
+# Body: explain what and why, not how
+# Footer: reference issues/tasks
