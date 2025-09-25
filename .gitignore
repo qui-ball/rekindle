@@ -79,7 +79,6 @@ secrets/
 *.crt
 
 # AI/ML
-models/
 *.pkl
 *.joblib
 
