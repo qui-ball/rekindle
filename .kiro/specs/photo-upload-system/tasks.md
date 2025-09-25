@@ -7,7 +7,7 @@
   - _Requirements: 1.1, 2.1, 3.1, 5.1_
 
 - [ ] 2. Implement file validation and processing utilities
-  - [ ] 2.1 Create file validation service with type and size checking
+  - [x] 2.1 Create file validation service with type and size checking
     - Write FileValidator class with methods for format, size, and dimension validation
     - Implement HEIC to JPEG conversion utility
     - Create unit tests for all validation scenarios
@@ -19,6 +19,167 @@
     - Write image compression utility for large files
     - _Requirements: 6.5, 5.1_
 
+  - [x] 2.3 Implement format-specific conversion libraries
+    - Replace canvas-based conversion with dedicated libraries per format
+    - HEIC files: Use heic2any library for HEIC → JPEG conversion
+    - PNG/JPEG/WebP files: Use browser-image-compression for optimization and standardization
+    - Add format detection and route to appropriate conversion library
+    - Implement quality settings and format options for each converter
+    - Add comprehensive tests for all format conversion scenarios
+    - _Requirements: 6.6, Performance, Browser Compatibility, Format Optimization_
+
+  - [ ] 2.4 Optimize file validation performance
+    - Implement streaming validation for large files to reduce memory usage
+    - Add validation result caching to avoid repeated validations
+    - Optimize dimension checking with progressive loading techniques
+    - Add file size pre-checks before full validation
+    - _Requirements: Performance, Memory Optimization, User Experience_
+
+## Task Details
+
+### Task 2.3: Format-Specific Conversion Implementation
+**Priority**: High (affects all uploaded image formats)
+**Estimated Time**: 6-8 hours
+**Dependencies**: Task 2.1 (FileValidator)
+
+**Detailed Requirements:**
+
+**Format-Specific Libraries:**
+- **HEIC files**: `heic2any` library (MIT, 1M+ downloads) for HEIC → JPEG conversion
+- **PNG/JPEG/WebP files**: `browser-image-compression` (MIT, 9M+ downloads) for optimization
+- **Format detection**: Automatic routing to appropriate conversion library
+- **Unified interface**: Single conversion service that handles all formats
+
+**Implementation Strategy:**
+- Create `FormatConverter` service with format-specific handlers
+- HEIC conversion: heic2any with 0.92 quality for AI processing
+- Standard formats: browser-image-compression for size/quality optimization
+- Fallback strategies for unsupported browsers or conversion failures
+- Web Worker integration for non-blocking conversion
+- Progress tracking for large file conversions
+- Memory management and cleanup for all converters
+
+**Quality Settings by Format:**
+- HEIC → JPEG: 0.92 quality (high detail for AI processing)
+- PNG optimization: Lossless compression with size reduction
+- JPEG optimization: 0.9 quality with resolution optimization
+- WebP handling: Convert to JPEG for maximum AI compatibility
+
+**Acceptance Criteria:**
+- All supported formats convert reliably across browsers
+- HEIC files convert to high-quality JPEG suitable for AI processing
+- PNG/JPEG files are optimized without quality loss for AI processing
+- Large files (>20MB) convert without blocking UI
+- Conversion maintains metadata when possible
+- Proper error handling and user feedback for all formats
+- Test coverage includes real files from various sources (iOS, Android, cameras)
+
+### Task 2.4: File Validation Performance Optimization
+**Priority**: Medium (improves user experience for large files)
+**Estimated Time**: 6-8 hours
+**Dependencies**: Task 2.1 (FileValidator)
+
+**Detailed Requirements:**
+- Implement streaming file validation to reduce memory footprint
+- Add LRU cache for validation results (keyed by file hash)
+- Optimize image dimension checking with progressive loading
+- Add file size pre-validation before expensive operations
+- Implement validation result memoization for repeated files
+- Add performance monitoring and metrics collection
+- Create configurable validation strategies (fast vs. thorough)
+- Implement lazy loading for dimension validation
+
+**Performance Targets:**
+- Validate 50MB files without exceeding 100MB memory usage
+- Dimension checking completes in <2 seconds for typical photos
+- Cache hit rate >80% for repeated file validations
+- UI remains responsive during validation of large files
+
+**Acceptance Criteria:**
+- Memory usage stays below 100MB for 50MB file validation
+- Validation performance improves by 50% for repeated files
+- Large file validation doesn't block UI interactions
+- Performance metrics are collected and reportable
+- Graceful degradation for low-memory devices
+
+## Implementation Notes
+
+### Task 2.3 Technical Approach:
+```typescript
+// Format-specific conversion service
+import heic2any from 'heic2any';
+import imageCompression from 'browser-image-compression';
+
+export class FormatConverter {
+  async convertToOptimalFormat(file: File): Promise<File> {
+    const fileType = this.detectFileType(file);
+    
+    switch (fileType) {
+      case 'heic':
+        return this.convertHeicToJpeg(file);
+      case 'png':
+      case 'jpeg':
+      case 'webp':
+        return this.optimizeStandardFormat(file);
+      default:
+        throw new Error(`Unsupported format: ${fileType}`);
+    }
+  }
+  
+  private async convertHeicToJpeg(file: File): Promise<File> {
+    const convertedBlob = await heic2any({
+      blob: file,
+      toType: 'image/jpeg',
+      quality: 0.92, // High quality for AI processing
+    }) as Blob;
+    
+    return new File([convertedBlob], 
+      file.name.replace(/\.heic$/i, '.jpg'), 
+      { type: 'image/jpeg' }
+    );
+  }
+  
+  private async optimizeStandardFormat(file: File): Promise<File> {
+    const options = {
+      maxSizeMB: 50, // Respect our upload limit
+      maxWidthOrHeight: 8000, // Respect our dimension limits
+      useWebWorker: true,
+      fileType: 'image/jpeg', // Standardize to JPEG for AI processing
+      quality: 0.9
+    };
+    
+    return await imageCompression(file, options);
+  }
+}
+```
+
+### Task 2.4 Technical Approach:
+```typescript
+// Performance-optimized validation
+export class FileValidator {
+  private validationCache = new LRUCache<string, ValidationResult>(100);
+  
+  async validateFile(file: File): Promise<ValidationResult> {
+    // Quick pre-validation
+    const preCheck = this.preValidateFile(file);
+    if (!preCheck.valid) return preCheck;
+    
+    // Check cache
+    const cacheKey = await this.generateFileHash(file);
+    const cached = this.validationCache.get(cacheKey);
+    if (cached) return cached;
+    
+    // Streaming validation for large files
+    const result = file.size > 10 * 1024 * 1024 
+      ? await this.validateFileStreaming(file)
+      : await this.validateFileStandard(file);
+    
+    this.validationCache.set(cacheKey, result);
+    return result;
+  }
+}
+```
+
 - [ ] 3. Create drag-and-drop upload interface for desktop
   - [ ] 3.1 Build DragDropZone component with visual feedback
     - Create React component with drag-and-drop event handlers
@@ -28,6 +189,10 @@
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
   - [ ] 3.2 Integrate file validation with drag-and-drop interface
+    - Connect FileValidator service with drag-and-drop component
+    - Display validation errors and warnings in the UI
+    - Handle HEIC conversion workflow in drag-and-drop context
+    - _Requirements: 3.1, 2.1, 2.3_
     - Connect FileValidator service to DragDropZone component
     - Implement error display for invalid files
     - Add progress tracking for file processing
