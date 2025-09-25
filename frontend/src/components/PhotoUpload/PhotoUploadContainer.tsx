@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { PhotoUploadContainerProps, UploadState, UploadResult, UploadError } from '../../types/upload';
+import { CameraCapture } from './CameraCapture';
 
 /**
  * Main orchestration component for photo upload system
@@ -21,6 +22,10 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
     progress: 0,
     currentStep: 'method_selection'
   });
+
+  // Camera state
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   // Handle upload completion
   const handleUploadComplete = useCallback((result: UploadResult) => {
@@ -43,7 +48,67 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
     onError(error);
   }, [onError]);
 
-  // TODO: Connect handleUploadComplete and handleUploadError to actual upload methods (Task 3.2, 4.2, 6.2)
+  // Handle camera capture
+  const handleCameraCapture = useCallback((imageData: string) => {
+    console.log('Photo captured from camera:', imageData.substring(0, 50) + '...');
+    
+    // Store the captured image and show preview
+    setCapturedImage(imageData);
+    setShowCamera(false);
+    
+    // Update upload state to show we have a selected file
+    setUploadState(prev => ({
+      ...prev,
+      status: 'idle',
+      currentStep: 'cropping',
+      selectedFile: new File([imageData], 'camera-capture.jpg', { type: 'image/jpeg' }) as any
+    }));
+  }, []);
+
+  // Handle proceeding with the captured image (for future cropping step)
+  const handleProceedWithImage = useCallback(() => {
+    if (!capturedImage) return;
+    
+    // Convert base64 to mock upload result for now
+    const mockResult: UploadResult = {
+      uploadId: `camera-${Date.now()}`,
+      fileKey: `camera-capture-${Date.now()}.jpg`,
+      thumbnailUrl: capturedImage,
+      originalFileName: `camera-capture-${Date.now()}.jpg`,
+      fileSize: Math.floor(capturedImage.length * 0.75), // Approximate file size
+      dimensions: { width: 1920, height: 1080 }, // Default camera dimensions
+      processingStatus: 'queued'
+    };
+    
+    handleUploadComplete(mockResult);
+  }, [capturedImage, handleUploadComplete]);
+
+  // Handle retaking photo
+  const handleRetakePhoto = useCallback(() => {
+    setCapturedImage(null);
+    setShowCamera(true);
+    setUploadState(prev => ({
+      ...prev,
+      status: 'idle',
+      currentStep: 'method_selection',
+      selectedFile: undefined
+    }));
+  }, []);
+
+  // Handle camera errors
+  const handleCameraError = useCallback((error: any) => {
+    console.error('Camera error:', error);
+    const uploadError: UploadError = {
+      name: 'CameraError',
+      message: error.message || 'Camera access failed',
+      code: error.code || 'CAMERA_ERROR',
+      type: 'permission_error' as any,
+      retryable: true
+    };
+    handleUploadError(uploadError);
+  }, [handleUploadError]);
+
+  // TODO: Connect handleUploadComplete and handleUploadError to actual upload methods (Task 3.2, 6.2)
   console.log('Upload handlers ready:', { handleUploadComplete, handleUploadError }); // Temporary to avoid unused warnings
 
   return (
@@ -52,16 +117,19 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         Upload Your Photo
       </h2>
       
-      {uploadState.status === 'idle' && (
+      {uploadState.status === 'idle' && !showCamera && !capturedImage && (
         <div>
           <p className="text-gray-600 mb-6">
             Choose how you&apos;d like to upload your photo for restoration
           </p>
           
-          {/* Upload method selection will be implemented in subsequent tasks */}
+          {/* Upload method selection */}
           <div className="space-y-4">
-            <button className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-              📷 Take Photo (Coming Soon)
+            <button 
+              onClick={() => setShowCamera(true)}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              📷 Take Photo
             </button>
             <button className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
               📁 Choose from Gallery (Coming Soon)
@@ -70,6 +138,68 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
               💻 Upload from Computer (Coming Soon)
             </button>
           </div>
+        </div>
+      )}
+
+      {uploadState.status === 'idle' && !showCamera && capturedImage && (
+        <div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Photo Preview</h3>
+          <p className="text-gray-600 mb-4">
+            Review your photo before proceeding to cropping
+          </p>
+          
+          {/* Photo Preview */}
+          <div className="mb-6">
+            <div className="border rounded-lg overflow-hidden max-w-md mx-auto">
+              <img
+                src={capturedImage}
+                alt="Captured photo preview"
+                className="w-full h-auto"
+              />
+            </div>
+          </div>
+          
+          {/* Action buttons */}
+          <div className="space-y-3">
+            <button
+              onClick={handleProceedWithImage}
+              className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              ✓ Continue with this Photo
+            </button>
+            <button
+              onClick={handleRetakePhoto}
+              className="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              📷 Retake Photo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {uploadState.status === 'idle' && showCamera && (
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-gray-800">Take a Photo</h3>
+            <button
+              onClick={() => setShowCamera(false)}
+              className="text-gray-500 hover:text-gray-700 text-2xl"
+              aria-label="Close camera"
+            >
+              ×
+            </button>
+          </div>
+          
+          <p className="text-gray-600 mb-4">
+            Position your photo within the guides and tap capture
+          </p>
+          
+          <CameraCapture
+            onCapture={handleCameraCapture}
+            onError={handleCameraError}
+            facingMode="environment"
+            aspectRatio={4/3}
+          />
         </div>
       )}
 
