@@ -36,7 +36,7 @@ class TestRestorationTasks:
         )
 
         # Act
-        result = process_restoration(job_id)
+        result = process_restoration.run(job_id)
 
         # Assert
         assert result["status"] == "success"
@@ -67,7 +67,7 @@ class TestRestorationTasks:
 
         # Act & Assert
         with pytest.raises(ValueError, match="Job .* not found"):
-            process_restoration(fake_job_id)
+            process_restoration.run(fake_job_id)
 
     @patch("app.workers.tasks.restoration.SessionLocal")
     @patch("app.workers.tasks.restoration.s3_service")
@@ -87,7 +87,7 @@ class TestRestorationTasks:
 
         # Act & Assert
         with pytest.raises(Exception, match="S3 download failed"):
-            process_restoration(job_id)
+            process_restoration.run(job_id)
 
         # Verify job status was set to FAILED
         assert job.status == JobStatus.FAILED
@@ -113,7 +113,7 @@ class TestRestorationTasks:
 
         # Act & Assert
         with pytest.raises(Exception, match="ComfyUI processing failed"):
-            process_restoration(job_id)
+            process_restoration.run(job_id)
 
         # Verify job status was set to FAILED
         assert job.status == JobStatus.FAILED
@@ -140,7 +140,7 @@ class TestRestorationTasks:
 
         # Act & Assert
         with pytest.raises(Exception, match="S3 upload failed"):
-            process_restoration(job_id)
+            process_restoration.run(job_id)
 
         # Verify job status was set to FAILED
         assert job.status == JobStatus.FAILED
@@ -168,7 +168,7 @@ class TestRestorationTasks:
         )
 
         # Act
-        result = process_restoration(job_id)
+        result = process_restoration.run(job_id)
 
         # Assert
         # Job should transition: PENDING -> PROCESSING -> COMPLETED
@@ -197,7 +197,7 @@ class TestRestorationTasks:
         )
 
         # Act
-        process_restoration(job_id)
+        process_restoration.run(job_id)
 
         # Assert
         mock_comfyui.restore_image.assert_called_once_with(
@@ -231,7 +231,7 @@ class TestRestorationTasks:
         )
 
         # Act
-        process_restoration(job_id)
+        process_restoration.run(job_id)
 
         # Assert
         # Verify S3 key was extracted correctly from CloudFront URL
@@ -256,10 +256,10 @@ class TestRestorationTasks:
 
         # Act & Assert
         with pytest.raises(Exception, match="Database error"):
-            process_restoration(job_id)
+            process_restoration.run(job_id)
 
     def test_process_restoration_integration_with_real_celery(
-        self, celery_app, restoration_job_factory, mock_s3_service
+        self, celery_app, restoration_job_factory, mock_s3_service, test_db_session
     ):
         """Test restoration task with real Celery execution"""
         # Arrange
@@ -270,8 +270,16 @@ class TestRestorationTasks:
         with patch("app.workers.tasks.restoration.comfyui_service") as mock_comfyui:
             mock_comfyui.restore_image.return_value = b"processed_image_data"
 
-            # Act - Execute task with Celery eager mode
-            result = process_restoration.apply(args=[job_id])
+            # Ensure task uses the same DB session and mocked S3
+            with patch("app.workers.tasks.restoration.SessionLocal", return_value=test_db_session):
+                with patch("app.workers.tasks.restoration.s3_service") as mock_s3:
+                    mock_s3.download_file.return_value = b"fake_image_data"
+                    mock_s3.upload_image.return_value = (
+                        "https://test.cloudfront.net/processed/result.jpg"
+                    )
+
+                    # Act - Execute task with Celery eager mode
+                    result = process_restoration.apply(args=[job_id])
 
             # Assert
             assert result.successful()

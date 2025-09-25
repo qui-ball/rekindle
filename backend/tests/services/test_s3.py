@@ -86,7 +86,7 @@ class TestS3Service:
                 Bucket="test-bucket",
                 Key=expected_key,
                 Body=image_content,
-                ContentType="image/jpg",
+                ContentType="image/jpeg",
             )
             expected_url = f"https://test.cloudfront.net/{expected_key}"
             assert result == expected_url
@@ -112,11 +112,17 @@ class TestS3Service:
 
                 # Assert
                 expected_key = f"restorations/user456/{prefix}/87654321-4321-8765-4321-876543218765.{extension}"
+                # Map expected MIME correctly (jpg/jpeg)
+                ext = extension.lower()
+                if ext in {"jpg", "jpeg"}:
+                    expected_ct = "image/jpeg"
+                else:
+                    expected_ct = f"image/{extension}"
                 mock_s3_client.put_object.assert_called_with(
                     Bucket="test-bucket",
                     Key=expected_key,
                     Body=image_content,
-                    ContentType=f"image/{extension}",
+                    ContentType=expected_ct,
                 )
                 mock_s3_client.reset_mock()
 

@@ -5,7 +5,7 @@ Tests for restoration API endpoints
 import pytest
 import pytest_asyncio
 from unittest.mock import patch, Mock
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from uuid import uuid4
 import io
 

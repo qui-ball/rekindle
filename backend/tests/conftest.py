@@ -17,7 +17,8 @@ import os
 os.environ.update(
     {
         "SECRET_KEY": "test_secret_key_for_testing_only",
-        "DATABASE_URL": "sqlite:///:memory:",
+        # Use file-based SQLite so Celery task (separate connection) can see tables
+        "DATABASE_URL": "sqlite:///./test.db",
         "REDIS_URL": "redis://localhost:6379/1",
         "AUTH0_DOMAIN": "test.auth0.com",
         "AUTH0_AUDIENCE": "test_audience",
@@ -41,7 +42,9 @@ from app.models.restoration import RestorationJob, JobStatus
 @pytest.fixture(scope="session")
 def test_engine():
     """Create test database engine with SQLite in-memory"""
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    engine = create_engine("sqlite:///./test.db", echo=False)
+    # Ensure a clean schema
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return engine
 
@@ -116,13 +119,9 @@ def test_image_bytes():
 
 @pytest.fixture
 def test_large_image_bytes():
-    """Create large test image (>50MB) for size limit testing"""
-    # Create a large image that exceeds 50MB
-    img = Image.new("RGB", (8000, 8000), color="blue")
-    img_bytes = io.BytesIO()
-    img.save(img_bytes, format="JPEG", quality=100)
-    img_bytes.seek(0)
-    return img_bytes.read()
+    """Create large payload (>50MB) deterministically for size limit testing"""
+    # Use raw bytes to avoid compression variability
+    return b"x" * (50 * 1024 * 1024 + 1)
 
 
 @pytest.fixture
@@ -183,3 +182,9 @@ def celery_app(celery_config):
 
     celery_app.config_from_object(celery_config)
     return celery_app
+
+
+# Force anyio to use asyncio backend only (no trio dependency required)
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"

@@ -47,13 +47,31 @@ class S3Service:
         user_id: str,
         prefix: str = "original",
         extension: str = "jpg",
+        content_type: Optional[str] = None,
     ) -> str:
         """
         Upload an image with a generated unique key
         """
         unique_id = str(uuid.uuid4())
         key = f"restorations/{user_id}/{prefix}/{unique_id}.{extension}"
-        return self.upload_file(image_content, key, f"image/{extension}")
+        # Normalize content type
+        if content_type is None:
+            # Map common extensions to proper MIME types
+            ext = extension.lower()
+            if ext in {"jpg", "jpeg"}:
+                ct = "image/jpeg"
+            elif ext == "png":
+                ct = "image/png"
+            elif ext == "webp":
+                ct = "image/webp"
+            elif ext == "heic":
+                ct = "image/heic"
+            else:
+                ct = f"image/{ext}"
+        else:
+            ct = content_type
+
+        return self.upload_file(image_content, key, ct)
 
     def download_file(self, key: str) -> bytes:
         """

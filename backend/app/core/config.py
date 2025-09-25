@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = Field(
         default=["http://localhost:3000", "http://127.0.0.1:3000"]
     )
-    ALLOWED_HOSTS: List[str] = Field(default=["localhost", "127.0.0.1"])
+    ALLOWED_HOSTS: List[str] = Field(default=["localhost", "127.0.0.1", "test"])
 
     # File upload
     MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024)  # 50MB
