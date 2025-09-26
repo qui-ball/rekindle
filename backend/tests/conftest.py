@@ -14,10 +14,30 @@ from PIL import Image
 # Set up test configuration before importing app
 import os
 
-os.environ.update(
-    {
+# Only override env vars if not running integration tests
+# Integration tests need to use real environment variables
+if not os.getenv("RUN_INTEGRATION_TESTS"):
+    os.environ.update(
+        {
+            "SECRET_KEY": "test_secret_key_for_testing_only",
+            # Use file-based SQLite so Celery task (separate connection) can see tables
+            "DATABASE_URL": "sqlite:///./test.db",
+            "REDIS_URL": "redis://localhost:6379/1",
+            "AUTH0_DOMAIN": "test.auth0.com",
+            "AUTH0_AUDIENCE": "test_audience",
+            "STRIPE_SECRET_KEY": "sk_test_test_key",
+            "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
+            "RUNPOD_API_KEY": "test_runpod_key",
+            "AWS_ACCESS_KEY_ID": "test_aws_key",
+            "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
+            "S3_BUCKET": "test-bucket",
+        }
+    )
+else:
+    # For integration tests, we still need some test values for non-AWS settings
+    # that aren't in the .env file
+    test_env = {
         "SECRET_KEY": "test_secret_key_for_testing_only",
-        # Use file-based SQLite so Celery task (separate connection) can see tables
         "DATABASE_URL": "sqlite:///./test.db",
         "REDIS_URL": "redis://localhost:6379/1",
         "AUTH0_DOMAIN": "test.auth0.com",
@@ -25,12 +45,11 @@ os.environ.update(
         "STRIPE_SECRET_KEY": "sk_test_test_key",
         "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
         "RUNPOD_API_KEY": "test_runpod_key",
-        "AWS_ACCESS_KEY_ID": "test_aws_key",
-        "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
-        "S3_BUCKET": "test-bucket",
-        "CLOUDFRONT_DOMAIN": "test.cloudfront.net",
     }
-)
+    # Only set test values for keys that aren't already in environment
+    for key, value in test_env.items():
+        if key not in os.environ:
+            os.environ[key] = value
 
 from app.main import app
 from app.core.database import Base, get_db

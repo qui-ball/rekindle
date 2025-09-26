@@ -22,7 +22,7 @@ class S3Service:
             region_name=settings.AWS_REGION,
         )
         self.bucket = settings.S3_BUCKET
-        self.cloudfront_domain = settings.CLOUDFRONT_DOMAIN
+        self.region = settings.AWS_REGION
 
     def upload_file(
         self, file_content: bytes, key: str, content_type: str = "image/jpeg"
@@ -34,44 +34,101 @@ class S3Service:
             self.s3_client.put_object(
                 Bucket=self.bucket, Key=key, Body=file_content, ContentType=content_type
             )
-            cloudfront_url = f"https://{self.cloudfront_domain}/{key}"
+            s3_url = self.get_s3_url(key)
             logger.info(f"Uploaded file to S3: {key}")
-            return cloudfront_url
+            return s3_url
         except ClientError as e:
             logger.error(f"Error uploading to S3: {e}")
             raise
 
-    def upload_image(
+    def upload_processed_image(
         self,
         image_content: bytes,
-        user_id: str,
-        prefix: str = "original",
+        job_id: str,
         extension: str = "jpg",
         content_type: Optional[str] = None,
     ) -> str:
         """
-        Upload an image with a generated unique key
+        Upload a processed/cropped image for a job
         """
-        unique_id = str(uuid.uuid4())
-        key = f"restorations/{user_id}/{prefix}/{unique_id}.{extension}"
-        # Normalize content type
+        key = f"processed/{job_id}.{extension}"
+        ct = self._get_content_type(extension, content_type)
+        return self.upload_file(image_content, key, ct)
+
+    def upload_restored_image(
+        self,
+        image_content: bytes,
+        job_id: str,
+        restore_id: str,
+        extension: str = "jpg",
+        content_type: Optional[str] = None,
+    ) -> str:
+        """
+        Upload a restored image for a job
+        """
+        key = f"restored/{job_id}/{restore_id}.{extension}"
+        ct = self._get_content_type(extension, content_type)
+        return self.upload_file(image_content, key, ct)
+
+    def upload_animation(
+        self,
+        video_content: bytes,
+        job_id: str,
+        animation_id: str,
+        is_preview: bool = True,
+        content_type: str = "video/mp4",
+    ) -> str:
+        """
+        Upload an animation video (preview or result)
+        """
+        suffix = "preview" if is_preview else "result"
+        key = f"animated/{job_id}/{animation_id}_{suffix}.mp4"
+        return self.upload_file(video_content, key, content_type)
+
+    def upload_thumbnail(
+        self,
+        image_content: bytes,
+        job_id: str,
+        animation_id: str,
+        extension: str = "jpg",
+        content_type: Optional[str] = None,
+    ) -> str:
+        """
+        Upload a thumbnail for an animation
+        """
+        key = f"thumbnails/{job_id}/{animation_id}.{extension}"
+        ct = self._get_content_type(extension, content_type)
+        return self.upload_file(image_content, key, ct)
+
+    def upload_meta(
+        self,
+        meta_content: bytes,
+        job_id: str,
+        content_type: str = "application/json",
+    ) -> str:
+        """
+        Upload metadata JSON for a job
+        """
+        key = f"meta/{job_id}.json"
+        return self.upload_file(meta_content, key, content_type)
+
+    def _get_content_type(self, extension: str, content_type: Optional[str] = None) -> str:
+        """
+        Normalize content type based on extension
+        """
         if content_type is None:
-            # Map common extensions to proper MIME types
             ext = extension.lower()
             if ext in {"jpg", "jpeg"}:
-                ct = "image/jpeg"
+                return "image/jpeg"
             elif ext == "png":
-                ct = "image/png"
+                return "image/png"
             elif ext == "webp":
-                ct = "image/webp"
+                return "image/webp"
             elif ext == "heic":
-                ct = "image/heic"
+                return "image/heic"
             else:
-                ct = f"image/{ext}"
-        else:
-            ct = content_type
-
-        return self.upload_file(image_content, key, ct)
+                return f"image/{ext}"
+        return content_type
 
     def download_file(self, key: str) -> bytes:
         """
@@ -99,11 +156,29 @@ class S3Service:
             logger.error(f"Error generating presigned URL: {e}")
             raise
 
-    def get_cloudfront_url(self, key: str) -> str:
+    def get_s3_url(self, key: str) -> str:
         """
-        Get the CloudFront URL for a given S3 key
+        Get the S3 URL for a given S3 key
         """
-        return f"https://{self.cloudfront_domain}/{key}"
+        return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
+
+    def extract_key_from_url(self, url: str) -> str:
+        """
+        Extract the S3 key from an S3 URL
+        """
+        if f"{self.bucket}.s3" in url:
+            # S3 URL format: https://bucket.s3.region.amazonaws.com/key
+            if f".s3.{self.region}.amazonaws.com/" in url:
+                return url.split(f".s3.{self.region}.amazonaws.com/")[1]
+            elif ".s3.amazonaws.com/" in url:
+                return url.split(f".s3.amazonaws.com/")[1]
+        elif f"/{self.bucket}/" in url and "s3" in url and "amazonaws.com" in url:
+            # Regional S3 URL format: https://s3.region.amazonaws.com/bucket/key
+            parts = url.split(f"/{self.bucket}/")
+            if len(parts) > 1:
+                return parts[1]
+        # Assume it's already a key
+        return url
 
 
 # Global instance

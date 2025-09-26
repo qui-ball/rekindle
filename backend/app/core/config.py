@@ -40,7 +40,6 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = Field(..., description="AWS secret key")
     AWS_REGION: str = Field(default="us-east-1")
     S3_BUCKET: str = Field(..., description="S3 bucket for file storage")
-    CLOUDFRONT_DOMAIN: str = Field(..., description="CloudFront domain")
 
     # CORS
     ALLOWED_ORIGINS: List[str] = Field(
