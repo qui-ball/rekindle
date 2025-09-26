@@ -206,7 +206,7 @@ export class FileValidator {
     - Write unit tests for camera component initialization
     - _Requirements: 1.1, 1.2, 1.6, 7.5_
 
-  - [ ] 4.2 Add visual guides and capture interface for physical photos
+  - [x] 4.2 Add visual guides and capture interface for physical photos
     - Create overlay component with positioning guides for physical photos
     - Implement capture button with visual feedback
     - Add lighting quality detection and user guidance

@@ -114,3 +114,51 @@
     min-height: 44px; /* iOS touch target minimum */
   }
 }
+
+/* Mobile viewport and home indicator handling */
+@supports (height: 100dvh) {
+  .mobile-fullscreen {
+    height: 100dvh !important;
+  }
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-safe-area {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Hide mobile home indicator in fullscreen camera mode */
+.camera-fullscreen {
+  /* Use the full viewport including safe areas */
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  width: 100dvw;
+  
+  /* Prevent scrolling and bouncing */
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  
+  /* Prevent text selection and touch callouts */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  
+  /* Hide home indicator on iOS */
+  -webkit-appearance: none;
+  
+  /* Respect safe areas but use full screen */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .camera-fullscreen {
+    /* Additional iOS-specific styles */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-focus-ring-color: transparent;
+  }
+}

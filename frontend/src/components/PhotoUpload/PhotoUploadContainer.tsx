@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { PhotoUploadContainerProps, UploadState, UploadResult, UploadError, ErrorType } from '../../types/upload';
-import { CameraCapture } from './CameraCapture';
+import { CameraCaptureModal } from './CameraCaptureModal';
 
 /**
  * Main orchestration component for photo upload system
@@ -178,31 +178,16 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         </div>
       )}
 
-      {uploadState.status === 'idle' && showCamera && (
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-gray-800">Take a Photo</h3>
-            <button
-              onClick={() => setShowCamera(false)}
-              className="text-gray-500 hover:text-gray-700 text-2xl"
-              aria-label="Close camera"
-            >
-              ×
-            </button>
-          </div>
-          
-          <p className="text-gray-600 mb-4">
-            Position your photo within the guides and tap capture
-          </p>
-          
-          <CameraCapture
-            onCapture={handleCameraCapture}
-            onError={handleCameraError}
-            facingMode="environment"
-            aspectRatio={4/3}
-          />
-        </div>
-      )}
+      {/* Camera Modal */}
+      <CameraCaptureModal
+        isOpen={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={handleCameraCapture}
+        onError={handleCameraError}
+        facingMode="environment"
+        aspectRatio={4/3}
+        closeOnEscape={true}
+      />
 
       {uploadState.status === 'uploading' && (
         <div>

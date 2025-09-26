@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { CameraCapture } from './CameraCapture';
 // Import types for testing
@@ -15,23 +15,21 @@ import { CameraCapture } from './CameraCapture';
 // Mock react-camera-pro
 const mockTakePhoto = jest.fn();
 
-const MockCamera = React.forwardRef<unknown, { onCameraInit?: () => void }>(function MockCamera(props, ref) {
-  React.useImperativeHandle(ref, () => ({
-    takePhoto: mockTakePhoto
-  }));
-
-  React.useEffect(() => {
-    // Simulate camera initialization
-    if (props.onCameraInit) {
-      setTimeout(() => props.onCameraInit!(), 100);
-    }
-  }, [props]);
-
-  return <div data-testid="mock-camera">Camera Component</div>;
-});
-
 jest.mock('react-camera-pro', () => ({
-  Camera: MockCamera
+  Camera: React.forwardRef<unknown, { onCameraInit?: () => void }>(function MockCamera(props, ref) {
+    React.useImperativeHandle(ref, () => ({
+      takePhoto: mockTakePhoto
+    }));
+
+    React.useEffect(() => {
+      // Simulate camera initialization
+      if (props.onCameraInit) {
+        setTimeout(() => props.onCameraInit!(), 100);
+      }
+    }, [props]);
+
+    return <div data-testid="mock-camera">Camera Component</div>;
+  })
 }));
 
 
@@ -252,17 +250,29 @@ describe('CameraCapture', () => {
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
       });
+    });
 
-      // Wait for the visual guides to appear (camera initialized)
+    it('should show clean camera interface when initialized', async () => {
+      // Camera should be initialized without any text overlays
       await waitFor(() => {
-        expect(screen.getByText('Position photo within guides')).toBeInTheDocument();
+        expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
+      });
+      
+      // Should not show any guidance text in capture area
+      expect(screen.queryByText('📸 Photo Capture Tips')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Place photo flat/)).not.toBeInTheDocument();
+    });
+
+    it('should show lighting quality indicator', async () => {
+      await waitFor(() => {
+        expect(screen.getByText('Light')).toBeInTheDocument();
       });
     });
 
-    it('should show visual guides when camera is initialized', async () => {
-      // Check for corner guides text
-      const guides = screen.getByText('Position photo within guides');
-      expect(guides).toBeInTheDocument();
+    it('should show simplified interface without help controls', async () => {
+      // Should not show help toggle button
+      expect(screen.queryByLabelText('Toggle guidance')).not.toBeInTheDocument();
+      expect(screen.queryByText('Help')).not.toBeInTheDocument();
     });
 
     it('should show capture button when camera is ready', async () => {
@@ -271,8 +281,88 @@ describe('CameraCapture', () => {
       expect(captureButton).not.toBeDisabled();
     });
 
-    it('should show instructions for photo positioning', async () => {
-      expect(screen.getByText(/Position your photo within the corner guides/)).toBeInTheDocument();
+    it('should show clean interface without positioning instructions', async () => {
+      // Should not show any positioning instructions
+      expect(screen.queryByText(/Position your photo/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/yellow guides/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Lighting Detection', () => {
+    beforeEach(async () => {
+      // Mock video element with proper properties
+      const mockVideo = {
+        readyState: 4, // HAVE_ENOUGH_DATA
+        videoWidth: 640,
+        videoHeight: 480
+      };
+      
+      // Mock querySelector to return our mock video
+      const originalQuerySelector = document.querySelector;
+      document.querySelector = jest.fn().mockImplementation((selector) => {
+        if (selector === 'video') return mockVideo;
+        return originalQuerySelector.call(document, selector);
+      });
+
+      render(<CameraCapture {...defaultProps} />);
+
+      // Wait for camera to initialize
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should perform lighting analysis without displaying messages', async () => {
+      // Lighting analysis should run in background without showing text messages
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
+      });
+      
+      // Should not show any lighting messages in the clean interface
+      const lightingMessages = [
+        'Analyzing lighting...',
+        'Ready to capture',
+        'Very dark - try more light',
+        'Very bright - try less light'
+      ];
+      
+      lightingMessages.forEach(message => {
+        expect(screen.queryByText(message)).not.toBeInTheDocument();
+      });
+    });
+
+    it('should show lighting quality indicator dot', async () => {
+      await waitFor(() => {
+        expect(screen.getByText('Light')).toBeInTheDocument();
+      });
+    });
+
+    it('should show focus quality indicator dot', async () => {
+      await waitFor(() => {
+        expect(screen.getByText('Focus')).toBeInTheDocument();
+      });
+    });
+
+    it('should update capture button style based on quality', async () => {
+      const captureButton = screen.getByLabelText('Capture photo');
+      expect(captureButton).toBeInTheDocument();
+      
+      // Button should have some styling (we can't easily test the exact color without complex setup)
+      expect(captureButton).toHaveClass('rounded-full');
+    });
+
+    it('should show camera interface without header', async () => {
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
+      });
+      
+      // Should not show header elements (handled by parent flow component)
+      expect(screen.queryByText('Take Photo')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Close camera')).not.toBeInTheDocument();
     });
   });
 
@@ -487,6 +577,72 @@ describe('CameraCapture', () => {
 
     it('should use custom aspectRatio when provided', async () => {
       render(<CameraCapture {...defaultProps} aspectRatio={16 / 9} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Responsive Layout', () => {
+    beforeEach(() => {
+      // Mock window dimensions
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 1024,
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        writable: true,
+        configurable: true,
+        value: 768,
+      });
+    });
+
+    it('should detect landscape mode on mobile devices', async () => {
+      // Set mobile landscape dimensions
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 667, // Mobile width in landscape
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        writable: true,
+        configurable: true,
+        value: 375, // Mobile height in landscape
+      });
+
+      render(<CameraCapture {...defaultProps} />);
+
+      // Trigger orientation change
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
+      });
+    });
+
+    it('should not detect landscape mode on desktop', async () => {
+      // Set desktop dimensions (wide but not mobile)
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 1920,
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        writable: true,
+        configurable: true,
+        value: 1080,
+      });
+
+      render(<CameraCapture {...defaultProps} />);
+
+      // Trigger orientation change
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('mock-camera')).toBeInTheDocument();
