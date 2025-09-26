@@ -116,43 +116,92 @@ interface PhotoUploadContainerProps {
 ```
 
 #### CameraCapture
-**Purpose:** Mobile camera interface with guided capture experience
-**Technology:** react-camera-pro for PWA camera integration
+**Purpose:** Full-screen mobile camera interface with real-time quality feedback
+**Technology:** react-camera-pro for PWA camera integration with CSS overrides for full-screen display
 **Props:**
 ```typescript
 interface CameraCaptureProps {
   onCapture: (imageData: string) => void; // base64 encoded
   onError: (error: CameraError) => void;
   facingMode: 'user' | 'environment'; // Default: 'environment'
-  aspectRatio?: number; // Default: 4/3
+  aspectRatio?: number; // Removed for full-screen display
 }
 ```
 
 **Key Features:**
+- Full-screen camera display without aspect ratio constraints or padding
 - Back camera as default for physical photo capture
-- Visual guides overlay for optimal positioning
-- Multiple shot capability with quality selection
-- Real-time lighting feedback
+- Real-time lighting and focus quality indicators with visual feedback
+- Responsive UI control positioning for portrait and landscape orientations
+- CSS overrides using position: fixed for true full-screen experience
+- Mobile landscape mode: controls positioned on right side within screen bounds
+- Mobile portrait mode: controls positioned at bottom of screen
+
+#### CameraCaptureFlow
+**Purpose:** Manages complete camera capture workflow including preview state
+**Props:**
+```typescript
+interface CameraCaptureFlowProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCapture: (imageData: string) => void;
+  onError: (error: CameraError) => void;
+  closeOnEscape?: boolean;
+  facingMode?: 'user' | 'environment';
+  aspectRatio?: number;
+}
+```
+
+**Key Features:**
+- Full-screen modal overlay for camera capture
+- Capture state with camera interface
+- Preview state with accept/reject options
+- Consistent UI control positioning across states
+- Escape key handling for easy dismissal
 
 #### SmartCropper
-**Purpose:** Interactive cropping interface for all upload methods
-**Technology:** react-easy-crop for touch-friendly cropping
+**Purpose:** Full-screen interactive cropping interface integrated into preview modal
+**Technology:** react-easy-crop for touch-friendly cropping with full-screen layout
 **Props:**
 ```typescript
 interface SmartCropperProps {
   image: string; // base64 or URL
   onCropComplete: (croppedArea: CropArea, croppedAreaPixels: CropAreaPixels) => void;
+  onCancel: () => void;
   initialCrop?: { x: number; y: number };
   initialZoom?: number;
   aspectRatio?: number; // Free-form by default
+  isFullScreen?: boolean; // Default: true
 }
 ```
 
 **Key Features:**
-- Draggable corner/edge points for precise adjustment
-- Real-time preview of cropped result
-- Touch-optimized for mobile devices
-- Zoom and pan capabilities
+- Full-screen cropping interface without padding or letterboxing
+- Integrated into camera capture preview modal workflow
+- Touch-optimized zoom and pan capabilities for mobile devices
+- Consistent UI control positioning with camera capture interface
+- Accept/reject buttons positioned similarly to camera controls
+- Real-time crop preview with smooth interactions
+- Responsive layout for both portrait and landscape orientations
+
+#### SmartCropperModal
+**Purpose:** Full-screen modal wrapper for cropping interface
+**Props:**
+```typescript
+interface SmartCropperModalProps {
+  isOpen: boolean;
+  image: string;
+  onCropComplete: (croppedImageData: string) => void;
+  onCancel: () => void;
+  closeOnEscape?: boolean;
+}
+```
+
+**Key Features:**
+- Full-screen modal overlay matching camera capture flow
+- Integrated SmartCropper component with consistent styling
+- Modal controls positioned consistently with camera interface
+- Escape key handling and outside click dismissal
 
 #### DragDropZone
 **Purpose:** Desktop file upload interface with drag-and-drop support

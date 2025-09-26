@@ -15,11 +15,14 @@ The upload system directly supports our core mission of "bringing memories to li
 #### Acceptance Criteria
 
 1. WHEN a user accesses the upload interface on mobile THEN the system SHALL provide a prominent "Take Photo" option
-2. WHEN a user selects "Take Photo" THEN the system SHALL open the device camera with back-facing camera as default
-3. WHEN the camera is active THEN the system SHALL display visual guides to help position the photo optimally
-4. WHEN a photo is captured THEN the system SHALL provide a smart cropping interface with draggable corner points
-5. WHEN the user adjusts the crop area THEN the system SHALL provide real-time preview of the cropped result
-6. IF the photo quality is poor due to lighting or angle THEN the system SHALL provide helpful guidance to retake the photo
+2. WHEN a user selects "Take Photo" THEN the system SHALL open a full-screen camera interface with back-facing camera as default
+3. WHEN the camera is active THEN the system SHALL fill the entire screen without padding or letterboxing in any orientation
+4. WHEN the camera is active THEN the system SHALL display real-time lighting and focus quality indicators
+5. WHEN the camera is active THEN the system SHALL position UI controls appropriately for both portrait and landscape orientations
+6. WHEN a photo is captured THEN the system SHALL display a full-screen preview with accept/reject options
+7. WHEN the user accepts the photo THEN the system SHALL provide a full-screen smart cropping interface using react-easy-crop
+8. WHEN the user adjusts the crop area THEN the system SHALL provide real-time preview with zoom and pan capabilities
+9. IF the photo quality is poor due to lighting or focus THEN the system SHALL provide visual feedback before capture
 
 ### Requirement 2
 
@@ -29,10 +32,11 @@ The upload system directly supports our core mission of "bringing memories to li
 
 1. WHEN a user accesses the upload interface on mobile THEN the system SHALL provide a "Choose from Gallery" option
 2. WHEN a user selects "Choose from Gallery" THEN the system SHALL open the native photo picker
-3. WHEN a user selects a photo from gallery THEN the system SHALL display the selected photo for confirmation
-4. WHEN a photo is selected THEN the system SHALL provide the same cropping interface as camera capture
-5. WHEN the system detects HEIC format THEN the system SHALL automatically convert to JPEG for processing
-6. IF the selected photo exceeds size limits THEN the system SHALL provide clear error messaging and suggest solutions
+3. WHEN a user selects a photo from gallery THEN the system SHALL display a full-screen preview with accept/reject options
+4. WHEN the user accepts the photo THEN the system SHALL provide the same full-screen smart cropping interface as camera capture
+5. WHEN the cropping interface is active THEN the system SHALL maintain full-screen layout with controls positioned consistently
+6. WHEN the system detects HEIC format THEN the system SHALL automatically convert to JPEG for processing
+7. IF the selected photo exceeds size limits THEN the system SHALL provide clear error messaging and suggest solutions
 
 ### Requirement 3
 
@@ -100,6 +104,21 @@ The upload system directly supports our core mission of "bringing memories to li
 6. IF a user deletes their account THEN the system SHALL remove all associated photo files
 
 ### Requirement 8
+
+**User Story:** As a user adjusting photo crops, I want a full-screen cropping interface with intuitive controls so that I can precisely select the area of my photo to restore.
+
+#### Acceptance Criteria
+
+1. WHEN the cropping interface opens THEN the system SHALL display the photo in full-screen mode without padding
+2. WHEN the cropping interface is active THEN the system SHALL use react-easy-crop for touch-optimized cropping
+3. WHEN a user interacts with the crop area THEN the system SHALL provide smooth zoom and pan capabilities
+4. WHEN a user adjusts the crop THEN the system SHALL show real-time preview of the selected area
+5. WHEN the cropping interface is displayed THEN the system SHALL position accept/reject buttons consistently with camera controls
+6. WHEN in mobile landscape mode THEN the system SHALL position controls on the right side within screen bounds
+7. WHEN in mobile portrait mode THEN the system SHALL position controls at the bottom of the screen
+8. WHEN the user completes cropping THEN the system SHALL apply the crop and proceed to upload processing
+
+### Requirement 9
 
 **User Story:** As a user with limited technical skills, I want the upload interface to be simple and intuitive so that I can successfully upload photos without confusion or frustration.
 
