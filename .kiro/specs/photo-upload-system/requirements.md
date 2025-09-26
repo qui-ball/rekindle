@@ -105,18 +105,18 @@ The upload system directly supports our core mission of "bringing memories to li
 
 ### Requirement 8
 
-**User Story:** As a user adjusting photo crops, I want a full-screen cropping interface with intuitive controls so that I can precisely select the area of my photo to restore.
+**User Story:** As a user capturing photos, I want an intelligent cropping interface that automatically detects photo boundaries so that I can easily crop the important content without manual adjustment.
 
 #### Acceptance Criteria
 
-1. WHEN the cropping interface opens THEN the system SHALL display the photo in full-screen mode without padding
-2. WHEN the cropping interface is active THEN the system SHALL use react-easy-crop for touch-optimized cropping
-3. WHEN a user interacts with the crop area THEN the system SHALL provide smooth zoom and pan capabilities
-4. WHEN a user adjusts the crop THEN the system SHALL show real-time preview of the selected area
-5. WHEN the cropping interface is displayed THEN the system SHALL position accept/reject buttons consistently with camera controls
-6. WHEN in mobile landscape mode THEN the system SHALL position controls on the right side within screen bounds
-7. WHEN in mobile portrait mode THEN the system SHALL position controls at the bottom of the screen
-8. WHEN the user completes cropping THEN the system SHALL apply the crop and proceed to upload processing
+1. WHEN a photo is captured THEN the system SHALL immediately display the photo at full resolution without resizing
+2. WHEN the photo is displayed THEN the system SHALL automatically detect rectangular photo frames or borders using edge detection
+3. WHEN a photo frame is detected THEN the system SHALL use the detected boundaries as the initial crop area
+4. WHEN no photo frame is detected THEN the system SHALL determine a generic crop area covering 80% of the image center
+5. WHEN the crop overlay appears THEN the system SHALL display four corner handles as draggable circles
+6. WHEN a user drags a corner handle THEN the system SHALL adjust the crop area in real-time maintaining rectangular shape
+7. WHEN the user is satisfied with the crop area THEN the system SHALL provide an accept button to proceed with upload
+8. WHEN the crop is accepted THEN the system SHALL apply the crop and proceed to upload processing
 
 ### Requirement 9
 

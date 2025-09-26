@@ -10,4 +10,5 @@ export { CameraCaptureFlow } from './CameraCaptureFlow';
 export { CameraCaptureExample } from './CameraCaptureExample';
 export { PhotoUploadContainer } from './PhotoUploadContainer';
 export { LandscapeTest } from './LandscapeTest';
+export { QuadrilateralCropper } from './QuadrilateralCropper';
 export * from './types';

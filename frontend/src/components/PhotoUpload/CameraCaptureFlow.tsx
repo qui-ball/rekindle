@@ -17,9 +17,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CameraCapture } from './CameraCapture';
-import { CameraCaptureProps } from './types';
+import { QuadrilateralCropper } from './QuadrilateralCropper';
+import { CameraCaptureProps, CropArea, CropAreaPixels } from './types';
+import { PhotoDetector } from '../../services/PhotoDetector';
 
-type CaptureState = 'capturing' | 'preview';
+type CaptureState = 'capturing' | 'cropping';
 
 interface CameraCaptureFlowProps extends Omit<CameraCaptureProps, 'onCapture'> {
   isOpen: boolean;
@@ -39,13 +41,15 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
 }) => {
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-
-  // Handle escape key
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (closeOnEscape && event.key === 'Escape') {
-      handleClose();
+  const [detectedCropArea, setDetectedCropArea] = useState<CropAreaPixels | null>(null);
+  const [photoDetector] = useState(() => {
+    try {
+      return new PhotoDetector();
+    } catch (error) {
+      console.warn('PhotoDetector initialization failed:', error);
+      return null;
     }
-  }, [closeOnEscape]);
+  });
 
   // Handle close - reset state and close modal
   const handleClose = useCallback(() => {
@@ -54,11 +58,76 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     onClose();
   }, [onClose]);
 
-  // Handle camera capture - move to preview state
-  const handleCameraCapture = useCallback((imageData: string) => {
+  // Handle escape key
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (closeOnEscape && event.key === 'Escape') {
+      handleClose();
+    }
+  }, [closeOnEscape, handleClose]);
+
+  // Handle camera capture - move directly to cropping with photo detection
+  const handleCameraCapture = useCallback(async (imageData: string) => {
     setCapturedImage(imageData);
-    setCaptureState('preview');
-  }, []);
+    
+    try {
+      // Create a temporary image to get dimensions
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          let detectedArea;
+          
+          if (photoDetector) {
+            // Try to detect photo boundaries
+            const detection = await photoDetector.detectPhotoBoundaries(
+              imageData,
+              img.naturalWidth,
+              img.naturalHeight
+            );
+            detectedArea = detection.cropArea;
+          } else {
+            // Fallback to generic crop area when PhotoDetector is not available
+            detectedArea = {
+              x: Math.round(img.naturalWidth * 0.1),
+              y: Math.round(img.naturalHeight * 0.1),
+              width: Math.round(img.naturalWidth * 0.8),
+              height: Math.round(img.naturalHeight * 0.8)
+            };
+          }
+          
+          setDetectedCropArea(detectedArea);
+          setCaptureState('cropping');
+        } catch (error) {
+          console.error('Photo detection failed:', error);
+          // Fallback to generic crop area
+          setDetectedCropArea({
+            x: Math.round(img.naturalWidth * 0.1),
+            y: Math.round(img.naturalHeight * 0.1),
+            width: Math.round(img.naturalWidth * 0.8),
+            height: Math.round(img.naturalHeight * 0.8)
+          });
+          setCaptureState('cropping');
+        }
+      };
+      
+      // Handle image load error
+      img.onerror = () => {
+        console.error('Failed to load captured image');
+        // Still proceed to cropping with default area
+        setDetectedCropArea({
+          x: 50,
+          y: 50,
+          width: 200,
+          height: 200
+        });
+        setCaptureState('cropping');
+      };
+      
+      img.src = imageData;
+    } catch (error) {
+      console.error('Error processing captured image:', error);
+      onError({ code: 'PROCESSING_ERROR', message: 'Failed to process captured image', name: 'ProcessingError' });
+    }
+  }, [photoDetector, onError]);
 
   // Handle camera errors
   const handleCameraError = useCallback((error: any) => {
@@ -69,19 +138,52 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     }
   }, [onError, handleClose]);
 
-  // Handle accept captured photo
-  const handleAccept = useCallback(() => {
-    if (capturedImage) {
-      onCapture(capturedImage);
-      handleClose();
-    }
-  }, [capturedImage, onCapture, handleClose]);
-
-  // Handle reject captured photo - go back to capturing
-  const handleReject = useCallback(() => {
+  // Handle crop cancellation - go back to capturing
+  const handleCropCancel = useCallback(() => {
     setCapturedImage(null);
+    setDetectedCropArea(null);
     setCaptureState('capturing');
   }, []);
+
+  // Handle crop completion
+  const handleCropComplete = useCallback(async (croppedArea: CropArea, croppedAreaPixels: CropAreaPixels) => {
+    if (!capturedImage) return;
+
+    try {
+      // Apply crop to the image using canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const image = new Image();
+
+      image.onload = () => {
+        canvas.width = croppedAreaPixels.width;
+        canvas.height = croppedAreaPixels.height;
+
+        ctx?.drawImage(
+          image,
+          croppedAreaPixels.x,
+          croppedAreaPixels.y,
+          croppedAreaPixels.width,
+          croppedAreaPixels.height,
+          0,
+          0,
+          croppedAreaPixels.width,
+          croppedAreaPixels.height
+        );
+
+        const croppedImageData = canvas.toDataURL('image/jpeg', 0.9);
+        onCapture(croppedImageData);
+        handleClose();
+      };
+
+      image.src = capturedImage;
+    } catch (error) {
+      console.error('Error cropping image:', error);
+      onError({ code: 'CROP_ERROR', message: 'Failed to crop image', name: 'CropError' });
+    }
+  }, [capturedImage, onCapture, handleClose, onError]);
+
+
 
 
 
@@ -134,61 +236,34 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     </div>
   );
 
-  const renderPreviewView = () => (
-    <div className="h-screen w-screen bg-gray-900 relative">
-      {/* Title - positioned absolutely in top center */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded">
-          Review Photo
-        </h1>
-      </div>
-      
-      {/* Close button - positioned absolutely in top right */}
-      <button
-        onClick={handleClose}
-        className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white"
-        aria-label="Close preview"
-      >
-        ✕
-      </button>
+  const renderCroppingView = () => {
+    if (!capturedImage) return null;
 
-      {/* Preview Container - fills the screen with padding for controls */}
-      <div className="h-full w-full flex items-center justify-center pb-24 pt-16">
-        {capturedImage && (
-          <img
-            src={capturedImage}
-            alt="Captured preview"
-            className="max-w-full max-h-full object-contain"
-          />
-        )}
-      </div>
+    return (
+      <QuadrilateralCropper
+        image={capturedImage}
+        onCropComplete={handleCropComplete}
+        onCancel={handleCropCancel}
+        initialCropArea={detectedCropArea || undefined}
+        isFullScreen={true}
+      />
+    );
+  };
 
-      {/* Controls - Always at bottom for simplicity */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex flex-row space-x-8 z-10">
-        {/* Reject button */}
-        <button
-          onClick={handleReject}
-          className="w-16 h-16 rounded-full border-4 border-red-400 bg-red-500 hover:bg-red-600 active:scale-95 text-white text-2xl transition-all duration-200 shadow-lg"
-          aria-label="Reject photo"
-        >
-          ✕
-        </button>
-        
-        {/* Accept button */}
-        <button
-          onClick={handleAccept}
-          className="w-16 h-16 rounded-full border-4 border-green-400 bg-green-500 hover:bg-green-600 active:scale-95 text-white text-2xl transition-all duration-200 shadow-lg"
-          aria-label="Accept photo"
-        >
-          ✓
-        </button>
-      </div>
-    </div>
-  );
+  const renderCurrentView = () => {
+    switch (captureState) {
+      case 'capturing':
+        return renderCaptureView();
+      case 'cropping':
+        return renderCroppingView();
+      default:
+        return renderCaptureView();
+    }
+  };
 
   const modalContent = (
     <div className="fixed inset-0 z-50 bg-gray-900 camera-fullscreen">
-      {captureState === 'capturing' ? renderCaptureView() : renderPreviewView()}
+      {renderCurrentView()}
     </div>
   );
 

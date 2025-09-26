@@ -82,3 +82,32 @@ global.Worker = class MockWorker {
   
   terminate() {}
 };
+
+// Mock Canvas and CanvasRenderingContext2D for PhotoDetector
+global.HTMLCanvasElement.prototype.getContext = jest.fn((contextType) => {
+  if (contextType === '2d') {
+    return {
+      drawImage: jest.fn(),
+      getImageData: jest.fn(() => ({
+        data: new Uint8ClampedArray(4), // Mock image data
+        width: 1,
+        height: 1
+      })),
+      putImageData: jest.fn(),
+      createImageData: jest.fn(() => ({
+        data: new Uint8ClampedArray(4),
+        width: 1,
+        height: 1
+      })),
+      canvas: {
+        width: 100,
+        height: 100,
+        toDataURL: jest.fn(() => 'data:image/png;base64,mock-canvas-data')
+      }
+    };
+  }
+  return null;
+});
+
+// Mock canvas toDataURL method
+global.HTMLCanvasElement.prototype.toDataURL = jest.fn(() => 'data:image/png;base64,mock-canvas-data');

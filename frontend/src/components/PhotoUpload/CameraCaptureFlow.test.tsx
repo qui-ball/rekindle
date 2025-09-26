@@ -13,7 +13,7 @@ import { CameraCaptureFlow } from './CameraCaptureFlow';
 jest.mock('./CameraCapture', () => ({
   CameraCapture: ({ onCapture, onError }: any) => (
     <div data-testid="mock-camera-capture">
-      <button onClick={() => onCapture('mock-image-data')}>Mock Capture</button>
+      <button onClick={() => onCapture('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/wA==')}>Mock Capture</button>
       <button onClick={() => onError({ code: 'USER_CANCELLED', message: 'Cancelled' })}>Mock Cancel</button>
       <button onClick={() => onError({ code: 'CAMERA_ERROR', message: 'Error' })}>Mock Error</button>
     </div>
@@ -25,6 +25,24 @@ jest.mock('react-dom', () => ({
   ...jest.requireActual('react-dom'),
   createPortal: (node: React.ReactNode) => node
 }));
+
+// Mock Image constructor for tests
+const mockImage = {
+  onload: null as (() => void) | null,
+  onerror: null as (() => void) | null,
+  naturalWidth: 800,
+  naturalHeight: 600,
+  set src(value: string) {
+    // Simulate successful image load
+    setTimeout(() => {
+      if (this.onload) {
+        this.onload();
+      }
+    }, 0);
+  }
+};
+
+global.Image = jest.fn(() => mockImage) as any;
 
 describe('CameraCaptureFlow', () => {
   const mockOnCapture = jest.fn();
@@ -81,7 +99,7 @@ describe('CameraCaptureFlow', () => {
   });
 
   describe('Capture Flow', () => {
-    it('should move to preview state after capture', async () => {
+    it('should move to cropping state after capture', async () => {
       render(<CameraCaptureFlow {...defaultProps} />);
       
       // Should start in capture state
@@ -91,54 +109,61 @@ describe('CameraCaptureFlow', () => {
       const captureButton = screen.getByText('Mock Capture');
       fireEvent.click(captureButton);
       
-      // Should move to preview state
+      // Should move directly to cropping state
       await waitFor(() => {
-        expect(screen.getByText('Review Photo')).toBeInTheDocument();
-        expect(screen.getByLabelText('Accept photo')).toBeInTheDocument();
-        expect(screen.getByLabelText('Reject photo')).toBeInTheDocument();
+        // The QuadrilateralCropper component should be rendered
+        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
       });
     });
 
-    it('should show captured image in preview', async () => {
+    it('should show captured image in cropping interface', async () => {
       render(<CameraCaptureFlow {...defaultProps} />);
       
       // Capture photo
       const captureButton = screen.getByText('Mock Capture');
       fireEvent.click(captureButton);
       
-      // Should show preview image
+      // Should show cropping image
       await waitFor(() => {
-        const previewImage = screen.getByAltText('Captured preview');
-        expect(previewImage).toBeInTheDocument();
-        expect(previewImage).toHaveAttribute('src', 'mock-image-data');
+        const cropImage = screen.getByAltText('Crop preview');
+        expect(cropImage).toBeInTheDocument();
+        expect(cropImage).toHaveAttribute('src', expect.stringContaining('data:image/jpeg;base64'));
       });
     });
   });
 
-  describe('Preview Actions', () => {
+  describe('Cropping Actions', () => {
     beforeEach(async () => {
       render(<CameraCaptureFlow {...defaultProps} />);
       
-      // Move to preview state
+      // Move to cropping state
       const captureButton = screen.getByText('Mock Capture');
       fireEvent.click(captureButton);
       
       await waitFor(() => {
-        expect(screen.getByText('Review Photo')).toBeInTheDocument();
+        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
       });
     });
 
-    it('should accept photo and close flow', async () => {
-      const acceptButton = screen.getByLabelText('Accept photo');
-      fireEvent.click(acceptButton);
+    it('should show cropping interface after capture', async () => {
+      // The cropping interface should be visible after capture
+      await waitFor(() => {
+        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+      });
       
-      expect(mockOnCapture).toHaveBeenCalledWith('mock-image-data');
-      expect(mockOnClose).toHaveBeenCalled();
+      // Should not call onCapture yet (only after crop is accepted)
+      expect(mockOnCapture).not.toHaveBeenCalled();
+      expect(mockOnClose).not.toHaveBeenCalled();
     });
 
-    it('should reject photo and return to capture', async () => {
-      const rejectButton = screen.getByLabelText('Reject photo');
-      fireEvent.click(rejectButton);
+    it('should cancel crop and return to capture', async () => {
+      // Wait for cropping interface to appear
+      await waitFor(() => {
+        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+      });
+      
+      const cancelButton = screen.getByText('Cancel');
+      fireEvent.click(cancelButton);
       
       // Should return to capture state
       await waitFor(() => {
@@ -148,13 +173,6 @@ describe('CameraCaptureFlow', () => {
       
       expect(mockOnCapture).not.toHaveBeenCalled();
       expect(mockOnClose).not.toHaveBeenCalled();
-    });
-
-    it('should close from preview state', async () => {
-      const closeButton = screen.getByLabelText('Close preview');
-      fireEvent.click(closeButton);
-      
-      expect(mockOnClose).toHaveBeenCalled();
     });
   });
 
@@ -246,17 +264,19 @@ describe('CameraCaptureFlow', () => {
       expect(screen.getByText('Take Photo')).toBeInTheDocument();
     });
 
-    it('should handle orientation changes during preview', () => {
+    it('should handle orientation changes during cropping', async () => {
       render(<CameraCaptureFlow {...defaultProps} />);
 
-      // Move to preview state by triggering the mock capture
+      // Move to cropping state by triggering the mock capture
       act(() => {
         // Simulate camera capture by calling the onCapture callback directly
         const captureButton = screen.getByText('Mock Capture');
         fireEvent.click(captureButton);
       });
 
-      expect(screen.getByText('Review Photo')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+      });
 
       // Change to landscape
       Object.defineProperty(window, 'innerWidth', {
@@ -274,8 +294,8 @@ describe('CameraCaptureFlow', () => {
         window.dispatchEvent(new Event('orientationchange'));
       });
 
-      // Should still show preview
-      expect(screen.getByText('Review Photo')).toBeInTheDocument();
+      // Should still show cropping interface
+      expect(screen.getByText('Accept Crop')).toBeInTheDocument();
     });
   });
 });

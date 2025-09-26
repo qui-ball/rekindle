@@ -235,36 +235,38 @@ export class FileValidator {
     - Add mobile landscape media queries for cross-device compatibility
     - _Requirements: 1.3, 1.4, 1.5, 8.5, 8.6_
 
-  - [x] 4.4 Create camera capture flow with preview state
-    - Build CameraCaptureFlow component managing capture and preview states
-    - Implement full-screen modal overlay for camera interface
-    - Add preview state with accept/reject options after photo capture
-    - Ensure consistent UI control positioning across capture and preview states
-    - Add escape key handling and modal dismissal functionality
-    - _Requirements: 1.6, 1.7, 2.3_
+  - [x] 4.4 Update camera capture flow to skip preview state
+    - Modify CameraCaptureFlow component to go directly from capture to cropping
+    - Remove preview state with accept/reject options
+    - Implement direct transition from photo capture to intelligent cropping interface
+    - Ensure captured photo displays at full resolution without resizing
+    - Maintain escape key handling and modal dismissal functionality
+    - _Requirements: 8.1, 1.6, 1.7_
 
-- [ ] 5. Build smart cropping interface
-  - [ ] 5.1 Integrate react-easy-crop for full-screen interactive cropping
-    - Install and configure react-easy-crop library
-    - Create SmartCropper component with full-screen layout and touch-optimized controls
-    - Implement zoom and pan functionality with smooth interactions
-    - Write unit tests for cropping coordinate calculations and transformations
-    - _Requirements: 8.1, 8.2, 8.3, 8.4_
+- [ ] 5. Build intelligent photo detection and cropping interface
+  - [x] 5.1 Integrate OpenCV.js for automatic photo boundary detection
+    - Install and configure OpenCV.js library for edge detection
+    - Create PhotoDetector service using Canny edge detection and contour finding
+    - Implement rectangular photo frame detection algorithm
+    - Add fallback generic crop area (80% center) when no frame detected
+    - Write unit tests for photo detection algorithms
+    - _Requirements: 8.2, 8.3, 8.4_
 
-  - [ ] 5.2 Create full-screen cropping modal integrated with camera flow
-    - Build SmartCropperModal component with full-screen overlay
-    - Integrate cropping interface into camera capture preview workflow
-    - Position accept/reject buttons consistently with camera controls
-    - Ensure responsive layout for both portrait and landscape orientations
-    - Add escape key handling and modal dismissal functionality
-    - _Requirements: 8.5, 8.6, 8.7, 1.7, 2.4_
+  - [x] 5.2 Create corner-handle cropping interface without zoom/pan
+    - Build SimpleCropper component with four corner drag handles
+    - Remove zoom and pan functionality from previous implementation
+    - Implement corner circle handles for crop area adjustment
+    - Ensure crop area maintains rectangular shape during adjustments
+    - Add real-time crop preview with corner handle interactions
+    - _Requirements: 8.5, 8.6, 8.7_
 
-  - [ ] 5.3 Implement crop application and image processing
-    - Create crop application utility to generate final cropped image from react-easy-crop coordinates
-    - Implement real-time preview updates during crop adjustments
-    - Add image quality preservation during crop operations
-    - Handle coordinate transformations between display and actual image dimensions
-    - _Requirements: 8.4, 8.8, 1.8_
+  - [x] 5.3 Integrate intelligent cropping directly into camera flow
+    - Remove preview/accept/reject step from camera capture flow
+    - Display captured photo at full resolution without resizing
+    - Automatically apply photo detection and show crop overlay immediately
+    - Position accept button to proceed with cropped upload
+    - Ensure seamless flow from capture to crop to upload
+    - _Requirements: 8.1, 8.7, 8.8_
 
 - [ ] 6. Create mobile gallery access functionality
   - [ ] 6.1 Implement native photo picker integration with preview flow
