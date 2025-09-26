@@ -28,6 +28,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
   const [isPWA, setIsPWA] = useState<boolean>(false);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
+  const [focusQuality, setFocusQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -159,8 +161,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           console.warn(`Camera constraints failed on attempt ${i + 1}:`, error);
           lastError = error as Error;
           
-          // If this is an OverconstrainedError, try the next fallback
-          if (error instanceof Error && error.name === 'OverconstrainedError') {
+          // If this is an OverconstrainedError or TypeError (unsupported constraints), try the next fallback
+          if (error instanceof Error && (
+            error.name === 'OverconstrainedError' || 
+            error.name === 'TypeError' ||
+            error.message.includes('constraints are not supported')
+          )) {
             continue;
           }
           
@@ -185,13 +191,19 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         
         videoRef.current.onloadedmetadata = () => {
           console.log('PWA video metadata loaded');
-          setStatus('Ready to capture');
+          setStatus('Camera ready');
           
           // Log actual resolution achieved
           if (videoRef.current) {
             console.log('Camera initialized with resolution:', 
               videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
           }
+          
+          // Try to set zoom to 1x (wide angle) after initialization
+          setInitialZoom();
+          
+          // Start quality analysis
+          startQualityAnalysis();
           
           // PWA-specific orientation lock
           if (isPWA && screen.orientation && 'lock' in screen.orientation) {
@@ -211,7 +223,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           console.log('PWA video playing');
         } catch (playError) {
           console.warn('PWA autoplay failed:', playError);
-          setStatus('Ready to capture (tap to play)');
+          setStatus('Camera ready (tap to play)');
         }
       }
       
@@ -224,6 +236,112 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     }
   };
 
+  // Set initial zoom to wide angle (1x)
+  const setInitialZoom = useCallback(async () => {
+    if (!streamRef.current) return;
+
+    try {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      // Check if zoom is supported
+      const capabilities = videoTrack.getCapabilities();
+      if (capabilities.zoom) {
+        console.log('Zoom capabilities:', capabilities.zoom);
+        
+        // Set zoom to minimum (widest angle)
+        await videoTrack.applyConstraints({
+          advanced: [{
+            zoom: capabilities.zoom.min || 1.0
+          }]
+        });
+        
+        console.log('Zoom set to:', capabilities.zoom.min || 1.0);
+      } else {
+        console.log('Zoom not supported on this device');
+      }
+    } catch (error) {
+      console.warn('Failed to set initial zoom:', error);
+      // Don't throw error, zoom is not critical
+    }
+  }, []);
+
+  // Quality analysis for lighting and focus
+  const startQualityAnalysis = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const analyzeQuality = () => {
+      if (!videoRef.current || !canvasRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      if (!ctx || video.readyState < 2) return;
+
+      // Set canvas to a small size for analysis (performance)
+      canvas.width = 160;
+      canvas.height = 120;
+
+      // Draw current frame for analysis
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Analyze lighting (brightness)
+      let totalBrightness = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        totalBrightness += (r + g + b) / 3;
+      }
+      const avgBrightness = totalBrightness / (data.length / 4);
+      
+      // Update lighting quality (good range: 80-180)
+      setLightingQuality(avgBrightness > 60 && avgBrightness < 200 ? 'good' : 'poor');
+
+      // Analyze focus (improved edge detection for sharpness)
+      let edgeStrength = 0;
+      let edgeCount = 0;
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Check both horizontal and vertical edges for better focus detection
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const idx = (y * width + x) * 4;
+          const current = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+          
+          // Check horizontal edge
+          const right = (data[idx + 4] + data[idx + 5] + data[idx + 6]) / 3;
+          const horizontalEdge = Math.abs(current - right);
+          
+          // Check vertical edge
+          const below = (data[idx + width * 4] + data[idx + width * 4 + 1] + data[idx + width * 4 + 2]) / 3;
+          const verticalEdge = Math.abs(current - below);
+          
+          const maxEdge = Math.max(horizontalEdge, verticalEdge);
+          if (maxEdge > 10) { // Only count significant edges
+            edgeStrength += maxEdge;
+            edgeCount++;
+          }
+        }
+      }
+      
+      const avgEdgeStrength = edgeCount > 0 ? edgeStrength / edgeCount : 0;
+      
+      // Update focus quality with more reasonable thresholds
+      setFocusQuality(avgEdgeStrength > 25 ? 'good' : 'poor');
+    };
+
+    // Run analysis every 500ms
+    const interval = setInterval(analyzeQuality, 500);
+    
+    // Cleanup interval when component unmounts
+    return () => clearInterval(interval);
+  }, []);
+
   // Capture photo with PWA optimizations
   const capturePhoto = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isCapturing) return;
@@ -233,7 +351,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
 
       if (!ctx) {
         throw new Error('Canvas context not available');
@@ -286,9 +404,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       (screen.orientation as any).unlock();
     }
     
-    // Reset starting flag
+    // Reset starting flag and quality indicators
     isStartingRef.current = false;
     setStatus('Starting camera...');
+    setLightingQuality('analyzing');
+    setFocusQuality('analyzing');
   }, [isPWA]);
 
   // Handle orientation changes for PWA
@@ -349,16 +469,32 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         </div>
       )}
       
-      {/* Status indicator */}
-      <div className={`absolute z-10 transition-all duration-300 ${
-        isLandscape 
-          ? 'top-16 left-4 right-24'
-          : 'top-16 left-4 right-4'
-      }`}>
-        <p className="text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">
-          {status}
-        </p>
-      </div>
+      {/* Quality Indicators */}
+      {stream && (
+        <div className={`absolute z-10 transition-all duration-300 ${
+          isLandscape 
+            ? 'bottom-8 right-8 flex flex-col gap-2'
+            : 'bottom-20 left-4 flex gap-2'
+        }`}>
+          {/* Lighting Quality Indicator */}
+          <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
+            <div className={`w-2 h-2 rounded-full ${
+              lightingQuality === 'good' ? 'bg-green-400' : 
+              lightingQuality === 'poor' ? 'bg-red-400' : 'bg-yellow-400'
+            }`}></div>
+            <span>Light</span>
+          </div>
+          
+          {/* Focus Quality Indicator */}
+          <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
+            <div className={`w-2 h-2 rounded-full ${
+              focusQuality === 'good' ? 'bg-green-400' : 
+              focusQuality === 'poor' ? 'bg-red-400' : 'bg-yellow-400'
+            }`}></div>
+            <span>Focus</span>
+          </div>
+        </div>
+      )}
 
       {/* Video - PWA optimized with hardware acceleration */}
       <video

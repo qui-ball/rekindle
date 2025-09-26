@@ -173,7 +173,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
 
   // Handle touch start on corner handles
   const handleTouchStart = useCallback((e: React.TouchEvent, corner: string) => {
-    e.preventDefault();
+    // Don't call preventDefault here as it's a passive listener
     const touch = e.touches[0];
     setIsDragging(corner);
     setDragStart({ x: touch.clientX, y: touch.clientY });
@@ -296,7 +296,14 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
   const renderCornerHandle = (corner: string, point: QuadPoint) => (
     <div
       key={corner}
-      className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 transition-colors shadow-lg z-10 touch-none"
+      className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 transition-colors shadow-lg z-10 touch-none select-none"
+      style={{ 
+        left: Math.round(point.x || 0), 
+        top: Math.round(point.y || 0),
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none'
+      }}
       style={{ 
         left: Math.round(point.x || 0), 
         top: Math.round(point.y || 0) 
