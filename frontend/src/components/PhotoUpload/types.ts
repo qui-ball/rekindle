@@ -6,9 +6,9 @@ export interface CameraCaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCapture: (imageData: string) => void;
-  onError: (error: any) => void;
+  onError: (error: { code: string; message: string; name: string }) => void;
   closeOnEscape?: boolean;
   closeOnOutsideClick?: boolean;
   facingMode?: 'user' | 'environment';
-  aspectRatio?: number;
+  // aspectRatio removed for native camera behavior
 }

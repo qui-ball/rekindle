@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CameraCaptureModal, LandscapeTest } from '../../components/PhotoUpload';
+import { CameraCaptureFlow } from '../../components/PhotoUpload';
 
 export default function CameraPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -77,7 +77,9 @@ export default function CameraPage() {
           <h2 className="text-xl font-semibold mb-4 text-gray-700">
             Landscape Mode Test:
           </h2>
-          <LandscapeTest />
+          <p className="text-gray-600">
+            Rotate your device to test landscape mode with the camera modal above.
+          </p>
         </div>
 
         {capturedImage && (
@@ -146,7 +148,7 @@ export default function CameraPage() {
         </div>
 
         {/* Camera Modal */}
-        <CameraCaptureModal
+        <CameraCaptureFlow
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onCapture={handleCapture}

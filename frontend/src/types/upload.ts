@@ -171,10 +171,10 @@ export interface PhotoUploadContainerProps {
 }
 
 export interface CameraCaptureProps {
-  onCapture: (imageData: string) => void; // base64 encoded
+  onCapture: (imageData: string) => void; // base64 encoded at full resolution
   onError: (error: CameraError) => void;
-  facingMode: 'user' | 'environment'; // Default: 'environment'
-  aspectRatio?: number; // Default: 4/3
+  facingMode?: 'user' | 'environment'; // Default: 'environment'
+  // aspectRatio removed - no constraints for native camera behavior
 }
 
 

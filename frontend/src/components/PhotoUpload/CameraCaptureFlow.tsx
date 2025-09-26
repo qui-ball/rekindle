@@ -36,8 +36,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   onCapture,
   onError,
   closeOnEscape = true,
-  facingMode = 'environment',
-  aspectRatio = 4/3
+  facingMode = 'environment'
+  // aspectRatio removed for native camera behavior
 }) => {
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -130,7 +130,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   }, [photoDetector, onError]);
 
   // Handle camera errors
-  const handleCameraError = useCallback((error: any) => {
+  const handleCameraError = useCallback((error: { code: string; message: string; name: string }) => {
     if (error.code === 'USER_CANCELLED') {
       handleClose(); // Close modal on user cancellation
     } else {
@@ -230,7 +230,6 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           onCapture={handleCameraCapture}
           onError={handleCameraError}
           facingMode={facingMode}
-          aspectRatio={aspectRatio}
         />
       </div>
     </div>

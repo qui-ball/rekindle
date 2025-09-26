@@ -10,19 +10,22 @@ The upload system directly supports our core mission of "bringing memories to li
 
 ### Requirement 1
 
-**User Story:** As a mobile user with physical family photos, I want to capture them using my phone's camera so that I can easily digitize and restore old printed memories.
+**User Story:** As a mobile user with physical family photos, I want to capture them using my phone's camera with native-quality resolution and layout so that I can easily digitize and restore old printed memories with maximum quality.
 
 #### Acceptance Criteria
 
 1. WHEN a user accesses the upload interface on mobile THEN the system SHALL provide a prominent "Take Photo" option
 2. WHEN a user selects "Take Photo" THEN the system SHALL open a full-screen camera interface with back-facing camera as default
-3. WHEN the camera is active THEN the system SHALL fill the entire screen without padding or letterboxing in any orientation
-4. WHEN the camera is active THEN the system SHALL display real-time lighting and focus quality indicators
-5. WHEN the camera is active THEN the system SHALL position UI controls appropriately for both portrait and landscape orientations
-6. WHEN a photo is captured THEN the system SHALL display a full-screen preview with accept/reject options
-7. WHEN the user accepts the photo THEN the system SHALL provide a full-screen smart cropping interface using react-easy-crop
-8. WHEN the user adjusts the crop area THEN the system SHALL provide real-time preview with zoom and pan capabilities
-9. IF the photo quality is poor due to lighting or focus THEN the system SHALL provide visual feedback before capture
+3. WHEN the camera is active THEN the system SHALL fill the entire screen without any aspect ratio constraints, padding, or letterboxing in any orientation
+4. WHEN the camera is active in portrait mode THEN the capture area SHALL remain fixed at the top portion of the screen (similar to native camera apps)
+5. WHEN the camera is active in landscape mode THEN the capture area SHALL remain fixed on the left portion of the screen with the same dimensions as portrait mode
+6. WHEN the camera is initialized THEN the system SHALL request the highest available resolution from the device camera
+7. WHEN the camera is active THEN the system SHALL use the device's native camera resolution without downscaling or compression
+8. WHEN the camera is active THEN the system SHALL display real-time lighting and focus quality indicators positioned outside the main capture area
+9. WHEN the camera is active THEN the system SHALL position UI controls appropriately for both portrait and landscape orientations without overlapping the main capture area
+10. WHEN a photo is captured THEN the system SHALL capture at full device resolution and proceed directly to intelligent cropping
+11. WHEN the user adjusts the crop area THEN the system SHALL provide real-time preview with corner handle manipulation
+12. IF the photo quality is poor due to lighting or focus THEN the system SHALL provide visual feedback before capture
 
 ### Requirement 2
 
@@ -130,3 +133,19 @@ The upload system directly supports our core mission of "bringing memories to li
 4. WHEN the upload is successful THEN the system SHALL provide clear next steps for the user
 5. WHEN a user needs help THEN the system SHALL provide easily accessible support options
 6. IF a user appears stuck THEN the system SHALL offer contextual help suggestions
+
+### Requirement 10
+
+**User Story:** As a mobile user familiar with native camera apps, I want the camera interface to behave exactly like my device's native camera so that I can capture photos with the same quality and user experience I'm accustomed to.
+
+#### Acceptance Criteria
+
+1. WHEN the camera interface loads THEN the system SHALL match the native camera app's viewport behavior with no aspect ratio limitations
+2. WHEN in portrait orientation THEN the camera view SHALL fill the entire screen with controls positioned at the bottom, mimicking native camera layout
+3. WHEN in landscape orientation THEN the camera view SHALL fill the entire screen with controls positioned on the right side, mimicking native camera layout
+4. WHEN requesting camera access THEN the system SHALL request the maximum available resolution supported by the device
+5. WHEN capturing a photo THEN the system SHALL use the device's full sensor resolution without any downscaling or quality reduction
+6. WHEN the camera stream is active THEN the system SHALL maintain the same field of view and zoom level as the native camera app
+7. WHEN switching between orientations THEN the camera view SHALL adapt seamlessly without aspect ratio distortion or black bars
+8. WHEN the photo is captured THEN the system SHALL preserve the original image quality and resolution for processing
+9. IF the device supports multiple camera resolutions THEN the system SHALL automatically select the highest quality option available

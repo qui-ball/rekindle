@@ -131,7 +131,6 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         onCapture={handleCameraCapture}
         onError={handleCameraError}
         facingMode="environment"
-        aspectRatio={4/3}
         closeOnEscape={true}
       />
 

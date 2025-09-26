@@ -135,7 +135,7 @@ describe('PhotoDetector', () => {
     let errorDetector: PhotoDetector;
     try {
       errorDetector = new PhotoDetector();
-    } catch (error) {
+    } catch {
       // Expected to fail, create a mock detector for testing
       errorDetector = photoDetector;
     }

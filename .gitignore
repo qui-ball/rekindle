@@ -78,6 +78,9 @@ secrets/
 *.pem
 *.crt
 
+# Local development certificates
+certs/
+
 # AI/ML
 models/
 *.pkl
@@ -94,6 +97,12 @@ out/
 .nuxt/
 .cache/
 .parcel-cache/
+
+# PWA generated files
+frontend/public/sw.js
+frontend/public/sw.js.map
+frontend/public/workbox-*.js
+frontend/public/workbox-*.js.map
 
 # Backend specific
 *.egg-info/

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { QuadrilateralCropper } from './QuadrilateralCropper';
-import { CropArea, CropAreaPixels } from './types';
+import { CropAreaPixels } from './types';
 
 describe('QuadrilateralCropper', () => {
   const mockProps = {

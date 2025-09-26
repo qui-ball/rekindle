@@ -116,26 +116,28 @@ interface PhotoUploadContainerProps {
 ```
 
 #### CameraCapture
-**Purpose:** Full-screen mobile camera interface with real-time quality feedback
-**Technology:** react-camera-pro for PWA camera integration with CSS overrides for full-screen display
+**Purpose:** Native-quality mobile camera interface that matches device camera app behavior
+**Technology:** react-camera-pro with advanced configuration for maximum resolution and native layout behavior
 **Props:**
 ```typescript
 interface CameraCaptureProps {
-  onCapture: (imageData: string) => void; // base64 encoded
+  onCapture: (imageData: string) => void; // base64 encoded at full resolution
   onError: (error: CameraError) => void;
   facingMode: 'user' | 'environment'; // Default: 'environment'
-  aspectRatio?: number; // Removed for full-screen display
+  // aspectRatio removed - no constraints for native behavior
 }
 ```
 
 **Key Features:**
-- Full-screen camera display without aspect ratio constraints or padding
-- Back camera as default for physical photo capture
-- Real-time lighting and focus quality indicators with visual feedback
-- Responsive UI control positioning for portrait and landscape orientations
-- CSS overrides using position: fixed for true full-screen experience
-- Mobile landscape mode: controls positioned on right side within screen bounds
-- Mobile portrait mode: controls positioned at bottom of screen
+- Native camera app behavior with no aspect ratio constraints
+- Maximum device resolution capture (4K/8MP+ when available)
+- Portrait mode: capture area fixed at top, controls at bottom (native layout)
+- Landscape mode: capture area fixed at left, controls on right (native layout)
+- Advanced MediaDevices constraints for highest quality
+- Zero compression or downscaling during capture
+- CSS viewport manipulation for true native full-screen experience
+- Orientation-aware control positioning that doesn't overlap capture area
+- Real-time quality indicators positioned outside main capture zone
 
 #### CameraCaptureFlow
 **Purpose:** Manages complete camera capture workflow including preview state
