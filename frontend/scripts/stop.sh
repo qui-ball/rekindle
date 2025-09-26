@@ -7,7 +7,7 @@ echo "🛑 Stopping Rekindle Development Environment..."
 # Stop Docker containers
 echo "📦 Stopping Docker containers..."
 cd "$(dirname "$0")/../.." # Go to project root
-docker-compose down
+docker-compose down 2>/dev/null || true
 
 # Clean up any background processes
 echo "🔒 Cleaning up..."

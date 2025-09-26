@@ -171,19 +171,13 @@ export interface PhotoUploadContainerProps {
 }
 
 export interface CameraCaptureProps {
-  onCapture: (imageData: string) => void; // base64 encoded
+  onCapture: (imageData: string) => void; // base64 encoded at full resolution
   onError: (error: CameraError) => void;
-  facingMode: 'user' | 'environment'; // Default: 'environment'
-  aspectRatio?: number; // Default: 4/3
+  facingMode?: 'user' | 'environment'; // Default: 'environment'
+  // aspectRatio removed - no constraints for native camera behavior
 }
 
-export interface SmartCropperProps {
-  image: string; // base64 or URL
-  onCropComplete: (croppedArea: CropArea, croppedAreaPixels: CropAreaPixels) => void;
-  initialCrop?: { x: number; y: number };
-  initialZoom?: number;
-  aspectRatio?: number; // Free-form by default
-}
+
 
 export interface DragDropZoneProps {
   onFileSelect: (file: File) => void;

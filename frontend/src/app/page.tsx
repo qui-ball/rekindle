@@ -1,6 +1,7 @@
 'use client';
 
 import { PhotoUploadContainer } from '@/components/PhotoUpload/PhotoUploadContainer';
+import Link from 'next/link';
 
 export default function HomePage() {
   return (
@@ -21,6 +22,8 @@ export default function HomePage() {
             onError={(error) => console.error('Upload error:', error)}
           />
         </div>
+
+
       </div>
     </main>
   );

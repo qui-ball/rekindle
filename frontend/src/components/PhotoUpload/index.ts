@@ -5,9 +5,8 @@
  */
 
 export { CameraCapture } from './CameraCapture';
-export { CameraCaptureModal } from './CameraCaptureModal';
 export { CameraCaptureFlow } from './CameraCaptureFlow';
-export { CameraCaptureExample } from './CameraCaptureExample';
 export { PhotoUploadContainer } from './PhotoUploadContainer';
-export { LandscapeTest } from './LandscapeTest';
+export { QuadrilateralCropper } from './QuadrilateralCropper';
+export { SimpleCameraTest } from './SimpleCameraTest';
 export * from './types';

@@ -6,6 +6,20 @@
   - Set up basic React component structure with proper imports
   - _Requirements: 1.1, 2.1, 3.1, 5.1_
 
+- [x] 1.5. Create supporting camera components and examples
+  - [x] 1.5.1 Build CameraCaptureModal wrapper component
+    - Create modal wrapper for camera capture flow functionality
+    - Implement portal rendering for proper z-index layering
+    - Add consistent props interface with CameraCaptureFlow
+    - _Requirements: 1.1, 1.2_
+
+  - [x] 1.5.2 Create camera capture example and test components
+    - Build CameraCaptureExample component demonstrating full camera workflow
+    - Create LandscapeTest component for testing responsive layouts
+    - Add comprehensive test coverage for camera capture components
+    - Implement PhotoUploadContainer test suite
+    - _Requirements: Testing and validation_
+
 - [ ] 2. Implement file validation and processing utilities
   - [x] 2.1 Create file validation service with type and size checking
     - Write FileValidator class with methods for format, size, and dimension validation
@@ -198,7 +212,7 @@ export class FileValidator {
     - Add progress tracking for file processing
     - _Requirements: 3.6, 5.1, 5.2, 5.6_
 
-- [ ] 4. Implement mobile camera capture functionality
+- [x] 4. Implement mobile camera capture functionality
   - [x] 4.1 Set up react-camera-pro integration for PWA camera access
     - Install and configure react-camera-pro library
     - Create CameraCapture component with back camera default
@@ -212,33 +226,73 @@ export class FileValidator {
     - Add lighting quality detection and user guidance
     - _Requirements: 1.3, 1.6, 8.1, 8.2_
 
-- [ ] 5. Build smart cropping interface
-  - [ ] 5.1 Integrate react-easy-crop for interactive cropping
-    - Install and configure react-easy-crop library
-    - Create SmartCropper component with touch-optimized controls
-    - Implement draggable corner points for crop adjustment
-    - Write unit tests for cropping coordinate calculations
-    - _Requirements: 1.4, 1.5, 2.4, 8.3_
+  - [x] 4.3 Implement full-screen camera capture with responsive controls
+    - Remove aspect ratio constraints to achieve true full-screen capture
+    - Implement CSS overrides using position: fixed for video element
+    - Add responsive UI control positioning for portrait and landscape modes
+    - Position quality indicators and capture button appropriately for mobile landscape
+    - Ensure camera fills entire screen without padding or letterboxing
+    - Add mobile landscape media queries for cross-device compatibility
+    - _Requirements: 1.3, 1.4, 1.5, 8.5, 8.6_
 
-  - [ ] 5.2 Add real-time preview and crop application
-    - Implement real-time preview of cropped result
-    - Create crop application utility to generate final cropped image
-    - Add zoom and pan functionality for precise adjustments
-    - _Requirements: 1.5, 2.4_
+  - [x] 4.4 Update camera capture flow to skip preview state
+    - Modify CameraCaptureFlow component to go directly from capture to cropping
+    - Remove preview state with accept/reject options
+    - Implement direct transition from photo capture to intelligent cropping interface
+    - Ensure captured photo displays at full resolution without resizing
+    - Maintain escape key handling and modal dismissal functionality
+    - _Requirements: 8.1, 1.6, 1.7_
+
+  - [x] 4.5 Implement native camera quality and layout behavior
+    - Remove all aspect ratio constraints from camera configuration
+    - Implement maximum resolution MediaDevices constraints for highest quality capture
+    - Create native camera layout with fixed capture areas (top in portrait, left in landscape)
+    - Implement advanced CSS viewport manipulation for true full-screen native behavior
+    - Position UI controls outside main capture area to match native camera apps
+    - Add orientation-aware control positioning that adapts seamlessly
+    - Ensure zero compression or downscaling during photo capture
+    - Test across multiple Android and iOS devices for consistent native behavior
+    - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9_
+
+- [ ] 5. Build intelligent photo detection and cropping interface
+  - [x] 5.1 Integrate OpenCV.js for automatic photo boundary detection
+    - Install and configure OpenCV.js library for edge detection
+    - Create PhotoDetector service using Canny edge detection and contour finding
+    - Implement rectangular photo frame detection algorithm
+    - Add fallback generic crop area (80% center) when no frame detected
+    - Write unit tests for photo detection algorithms
+    - _Requirements: 8.2, 8.3, 8.4_
+
+  - [x] 5.2 Create corner-handle cropping interface without zoom/pan
+    - Build SimpleCropper component with four corner drag handles
+    - Remove zoom and pan functionality from previous implementation
+    - Implement corner circle handles for crop area adjustment
+    - Ensure crop area maintains rectangular shape during adjustments
+    - Add real-time crop preview with corner handle interactions
+    - _Requirements: 8.5, 8.6, 8.7_
+
+  - [x] 5.3 Integrate intelligent cropping directly into camera flow
+    - Remove preview/accept/reject step from camera capture flow
+    - Display captured photo at full resolution without resizing
+    - Automatically apply photo detection and show crop overlay immediately
+    - Position accept button to proceed with cropped upload
+    - Ensure seamless flow from capture to crop to upload
+    - _Requirements: 8.1, 8.7, 8.8_
 
 - [ ] 6. Create mobile gallery access functionality
-  - [ ] 6.1 Implement native photo picker integration
+  - [ ] 6.1 Implement native photo picker integration with preview flow
     - Create GalleryPicker component using HTML file input
     - Configure file input for image selection with proper MIME types
-    - Implement file selection confirmation and preview
-    - Write unit tests for gallery selection flow
+    - Implement full-screen preview state with accept/reject options
+    - Write unit tests for gallery selection and preview flow
     - _Requirements: 2.1, 2.2, 2.3, 2.6_
 
-  - [ ] 6.2 Connect gallery picker to cropping interface
-    - Integrate GalleryPicker with SmartCropper component
-    - Handle HEIC format conversion for iOS photos
+  - [ ] 6.2 Connect gallery picker to full-screen cropping interface
+    - Integrate GalleryPicker with SmartCropperModal component
+    - Ensure consistent full-screen layout and control positioning
+    - Handle HEIC format conversion for iOS photos before cropping
     - Implement error handling for unsupported formats
-    - _Requirements: 2.4, 2.5, 2.6_
+    - _Requirements: 2.4, 2.5, 2.6, 8.5_
 
 - [ ] 7. Build upload orchestration and progress tracking
   - [ ] 7.1 Create UploadService for S3 integration

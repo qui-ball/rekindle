@@ -4,17 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "node https-server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "setup:certs": "../scripts/setup-https-certs.sh"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",
     "heic2any": "^0.0.4",
     "next": "14.2.15",
+    "next-pwa": "^5.6.0",
     "react": "^18.2.0",
     "react-camera-pro": "^1.4.0",
     "react-dom": "^18.2.0"

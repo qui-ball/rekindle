@@ -1,245 +1,52 @@
 /**
  * CameraCapture Component
  * 
- * Provides mobile camera interface with guided capture experience for physical photos.
- * Uses react-camera-pro for PWA camera integration with back camera as default.
+ * Native PWA-optimized camera interface with maximum device resolution and native app behavior.
+ * Integrated from PWACameraModal with enhanced orientation control and PWA detection.
  * 
  * Features:
+ * - Native camera quality with maximum device resolution
+ * - True full-screen behavior like native camera apps
+ * - PWA compatible with iOS and Android optimization
+ * - Native camera layout (portrait: controls at bottom, landscape: controls on right)
  * - Back camera default for physical photo capture
- * - Camera permission handling and error states
- * - Advanced visual guides overlay for optimal positioning
- * - Lighting quality detection and user guidance
- * - Enhanced capture button with visual feedback
- * - Real-time positioning guidance for physical photos
+ * - PWA mode detection and optimization
+ * - High-quality JPEG capture (0.95 quality) with no compression
+ * - Enhanced orientation handling for PWA
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Camera } from 'react-camera-pro';
 import { CameraCaptureProps, CameraError } from './types';
-
-// Lighting quality thresholds - more lenient for better user experience
-const LIGHTING_THRESHOLDS = {
-  TOO_DARK: 20,
-  GOOD_MIN: 30,
-  GOOD_MAX: 240,
-  TOO_BRIGHT: 250
-};
-
-type LightingQuality = 'too-dark' | 'good' | 'too-bright' | 'unknown';
-type BlurQuality = 'sharp' | 'blurry' | 'unknown';
-
-interface LightingAnalysis {
-  quality: LightingQuality;
-  brightness: number;
-  message: string;
-}
-
-interface BlurAnalysis {
-  quality: BlurQuality;
-  sharpness: number;
-  message: string;
-}
-
-// Blur detection thresholds
-const BLUR_THRESHOLDS = {
-  SHARP_MIN: 15, // Minimum variance for sharp images
-  BLURRY_MAX: 8  // Maximum variance for blurry images
-};
 
 export const CameraCapture: React.FC<CameraCaptureProps> = ({
   onCapture,
   onError,
-  facingMode = 'environment', // Back camera default
-  aspectRatio = 4/3
+  facingMode = 'environment' // Back camera default
 }) => {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [permissionStatus, setPermissionStatus] = useState<'pending' | 'granted' | 'denied'>('pending');
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [lightingAnalysis, setLightingAnalysis] = useState<LightingAnalysis>({
-    quality: 'unknown',
-    brightness: 0,
-    message: 'Analyzing lighting...'
-  });
-  const [blurAnalysis, setBlurAnalysis] = useState<BlurAnalysis>({
-    quality: 'unknown',
-    sharpness: 0,
-    message: 'Analyzing sharpness...'
-  });
-
-  const cameraRef = useRef<{ takePhoto: () => string | null } | null>(null);
+  const [status, setStatus] = useState<string>('Starting camera...');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isLandscape, setIsLandscape] = useState<boolean>(false);
+  const [isPWA, setIsPWA] = useState<boolean>(false);
+  const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
+  const [focusQuality, setFocusQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lightingCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const isStartingRef = useRef<boolean>(false);
 
-  // Handle orientation changes - mobile landscape only
-  const handleOrientationChange = useCallback(() => {
-    // Detect mobile devices more reliably - check the smaller dimension
-    // Mobile devices have a smaller dimension (portrait width or landscape height) <= 768px
-    const smallerDimension = Math.min(window.innerWidth, window.innerHeight);
-    const isMobile = smallerDimension <= 768;
-    const isCurrentlyLandscape = window.innerWidth > window.innerHeight;
-    setIsLandscape(isMobile && isCurrentlyLandscape);
-  }, []);
-
-  // Analyze blur/sharpness quality from camera feed
-  const analyzeBlur = useCallback(() => {
-    if (!cameraRef.current || !canvasRef.current) return;
-
-    try {
-      // Get current frame from camera
-      const video = document.querySelector('video');
-      if (!video || video.readyState !== 4) return;
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Set canvas size to match video
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      // Draw current frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Get image data for analysis
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      // Calculate Laplacian variance for blur detection
-      const width = canvas.width;
-      const height = canvas.height;
-      let variance = 0;
-      let count = 0;
-
-      // Sample center region for performance (avoid edges)
-      const startX = Math.floor(width * 0.25);
-      const endX = Math.floor(width * 0.75);
-      const startY = Math.floor(height * 0.25);
-      const endY = Math.floor(height * 0.75);
-
-      for (let y = startY + 1; y < endY - 1; y++) {
-        for (let x = startX + 1; x < endX - 1; x += 4) { // Sample every 4th pixel for performance
-          const idx = (y * width + x) * 4;
-          
-          // Convert to grayscale
-          const gray = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-          
-          // Calculate Laplacian (edge detection)
-          const topIdx = ((y - 1) * width + x) * 4;
-          const bottomIdx = ((y + 1) * width + x) * 4;
-          const leftIdx = (y * width + (x - 1)) * 4;
-          const rightIdx = (y * width + (x + 1)) * 4;
-          
-          const topGray = 0.299 * data[topIdx] + 0.587 * data[topIdx + 1] + 0.114 * data[topIdx + 2];
-          const bottomGray = 0.299 * data[bottomIdx] + 0.587 * data[bottomIdx + 1] + 0.114 * data[bottomIdx + 2];
-          const leftGray = 0.299 * data[leftIdx] + 0.587 * data[leftIdx + 1] + 0.114 * data[leftIdx + 2];
-          const rightGray = 0.299 * data[rightIdx] + 0.587 * data[rightIdx + 1] + 0.114 * data[rightIdx + 2];
-          
-          const laplacian = Math.abs(-4 * gray + topGray + bottomGray + leftGray + rightGray);
-          variance += laplacian * laplacian;
-          count++;
-        }
-      }
-
-      const avgVariance = count > 0 ? variance / count : 0;
-
-      // Determine blur quality
-      let quality: BlurQuality;
-      let message: string;
-
-      if (avgVariance >= BLUR_THRESHOLDS.SHARP_MIN) {
-        quality = 'sharp';
-        message = 'Sharp focus';
-      } else if (avgVariance <= BLUR_THRESHOLDS.BLURRY_MAX) {
-        quality = 'blurry';
-        message = 'Too blurry - hold steady';
-      } else {
-        quality = 'sharp'; // Acceptable sharpness
-        message = 'Focus acceptable';
-      }
-
-      setBlurAnalysis({
-        quality,
-        sharpness: Math.round(avgVariance),
-        message
-      });
-    } catch (error) {
-      console.warn('Blur analysis failed:', error);
-      setBlurAnalysis({
-        quality: 'unknown',
-        sharpness: 0,
-        message: 'Unable to analyze focus'
-      });
-    }
-  }, []);
-
-  // Analyze lighting quality from camera feed
-  const analyzeLighting = useCallback(() => {
-    if (!cameraRef.current || !canvasRef.current) return;
-
-    try {
-      // Get current frame from camera
-      const video = document.querySelector('video');
-      if (!video || video.readyState !== 4) return;
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Set canvas size to match video
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      // Draw current frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Get image data for analysis
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      // Calculate average brightness
-      let totalBrightness = 0;
-      const sampleSize = Math.min(data.length / 4, 10000); // Sample for performance
-
-      for (let i = 0; i < sampleSize * 4; i += 16) { // Sample every 4th pixel
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        // Calculate perceived brightness using luminance formula
-        const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
-        totalBrightness += brightness;
-      }
-
-      const avgBrightness = totalBrightness / sampleSize;
-
-      // Determine lighting quality - more lenient thresholds
-      let quality: LightingQuality;
-      let message: string;
-
-      if (avgBrightness < LIGHTING_THRESHOLDS.TOO_DARK) {
-        quality = 'too-dark';
-        message = 'Very dark - try more light';
-      } else if (avgBrightness > LIGHTING_THRESHOLDS.TOO_BRIGHT) {
-        quality = 'too-bright';
-        message = 'Very bright - try less light';
-      } else {
-        quality = 'good'; // Much more lenient - most conditions are acceptable
-        message = 'Ready to capture';
-      }
-
-      setLightingAnalysis({
-        quality,
-        brightness: Math.round(avgBrightness),
-        message
-      });
-    } catch (error) {
-      console.warn('Lighting analysis failed:', error);
-      setLightingAnalysis({
-        quality: 'unknown',
-        brightness: 0,
-        message: 'Unable to analyze lighting'
-      });
-    }
+  // Detect PWA mode
+  useEffect(() => {
+    const checkPWA = () => {
+      const isPWAMode = window.matchMedia('(display-mode: standalone)').matches ||
+                       (window.navigator as any).standalone ||
+                       document.referrer.includes('android-app://');
+      setIsPWA(isPWAMode);
+      console.log('PWA mode detected:', isPWAMode);
+    };
+    
+    checkPWA();
   }, []);
 
   // Handle camera errors
@@ -249,7 +56,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     let cameraError: CameraError;
     
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-      setPermissionStatus('denied');
       cameraError = {
         code: 'CAMERA_PERMISSION_DENIED',
         message: 'Camera access was denied. Please allow camera permission and try again.',
@@ -267,6 +73,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         message: 'Camera is not supported in this browser.',
         name: error.name
       };
+    } else if (error.name === 'OverconstrainedError') {
+      cameraError = {
+        code: 'CAMERA_CONSTRAINT_ERROR',
+        message: 'Camera constraints not supported. The app will try lower quality settings.',
+        name: error.name
+      };
     } else {
       cameraError = {
         code: 'CAMERA_UNKNOWN_ERROR',
@@ -278,21 +90,289 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     onError(cameraError);
   }, [onError]);
 
-  // Handle photo capture
-  const handleCapture = useCallback(async () => {
-    if (!cameraRef.current || isCapturing) return;
+  // Start camera with PWA optimizations and progressive fallback
+  const startCamera = async () => {
+    // Prevent multiple simultaneous starts
+    if (isStartingRef.current || streamRef.current) {
+      console.log('Camera already starting or started, skipping...');
+      return;
+    }
     
     try {
-      setIsCapturing(true);
-      const imageData = await cameraRef.current.takePhoto();
+      isStartingRef.current = true;
+      setStatus('Requesting camera access...');
       
-      if (imageData) {
-        onCapture(imageData);
+      console.log('Starting PWA-optimized camera...');
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not supported');
+      }
+      
+      // Progressive fallback constraints - try highest quality first
+      const constraintOptions = [
+        // Try maximum quality first
+        {
+          video: {
+            facingMode,
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        },
+        // Fallback to lower resolution
+        {
+          video: {
+            facingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        },
+        // Basic fallback
+        {
+          video: {
+            facingMode,
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        },
+        // Minimal constraints as last resort
+        {
+          video: { facingMode },
+          audio: false
+        }
+      ];
+      
+      let mediaStream: MediaStream | null = null;
+      let lastError: Error | null = null;
+      
+      // Try each constraint set until one works
+      for (let i = 0; i < constraintOptions.length; i++) {
+        const constraints = constraintOptions[i];
+        try {
+          console.log(`Trying camera constraints (attempt ${i + 1}):`, constraints);
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          console.log(`Camera constraints successful on attempt ${i + 1}`);
+          break;
+        } catch (error) {
+          console.warn(`Camera constraints failed on attempt ${i + 1}:`, error);
+          lastError = error as Error;
+          
+          // If this is an OverconstrainedError or TypeError (unsupported constraints), try the next fallback
+          if (error instanceof Error && (
+            error.name === 'OverconstrainedError' || 
+            error.name === 'TypeError' ||
+            error.message.includes('constraints are not supported')
+          )) {
+            continue;
+          }
+          
+          // For other errors (permission, etc.), don't try fallbacks
+          throw error;
+        }
+      }
+      
+      // If all attempts failed, throw the last error
+      if (!mediaStream) {
+        throw lastError || new Error('All camera constraint attempts failed');
+      }
+      
+      console.log('PWA camera stream obtained with progressive fallback');
+      
+      setStream(mediaStream);
+      streamRef.current = mediaStream;
+      setStatus('Camera ready');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        
+        videoRef.current.onloadedmetadata = () => {
+          console.log('PWA video metadata loaded');
+          setStatus('Camera ready');
+          
+          // Log actual resolution achieved
+          if (videoRef.current) {
+            console.log('Camera initialized with resolution:', 
+              videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+          }
+          
+          // Try to set zoom to 1x (wide angle) after initialization
+          setInitialZoom();
+          
+          // Start quality analysis
+          startQualityAnalysis();
+          
+          // PWA-specific orientation lock
+          if (isPWA && screen.orientation && 'lock' in screen.orientation) {
+            (screen.orientation as any).lock('any').catch((error: any) => {
+              console.log('PWA orientation lock failed:', error);
+            });
+          }
+        };
+        
+        videoRef.current.onerror = (e) => {
+          console.error('PWA video error:', e);
+          handleCameraError(new Error('Video playback failed'));
+        };
+        
+        try {
+          await videoRef.current.play();
+          console.log('PWA video playing');
+        } catch (playError) {
+          console.warn('PWA autoplay failed:', playError);
+          setStatus('Camera ready (tap to play)');
+        }
+      }
+      
+    } catch (err) {
+      console.error('PWA camera error:', err);
+      const error = err as Error;
+      handleCameraError(error);
+    } finally {
+      isStartingRef.current = false;
+    }
+  };
+
+  // Set initial zoom to wide angle (1x)
+  const setInitialZoom = useCallback(async () => {
+    if (!streamRef.current) return;
+
+    try {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      // Check if zoom is supported
+      const capabilities = videoTrack.getCapabilities();
+      if (capabilities.zoom) {
+        console.log('Zoom capabilities:', capabilities.zoom);
+        
+        // Set zoom to minimum (widest angle)
+        await videoTrack.applyConstraints({
+          advanced: [{
+            zoom: capabilities.zoom.min || 1.0
+          }]
+        });
+        
+        console.log('Zoom set to:', capabilities.zoom.min || 1.0);
       } else {
-        throw new Error('Failed to capture image');
+        console.log('Zoom not supported on this device');
       }
     } catch (error) {
-      console.error('Capture error:', error);
+      console.warn('Failed to set initial zoom:', error);
+      // Don't throw error, zoom is not critical
+    }
+  }, []);
+
+  // Quality analysis for lighting and focus
+  const startQualityAnalysis = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const analyzeQuality = () => {
+      if (!videoRef.current || !canvasRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      if (!ctx || video.readyState < 2) return;
+
+      // Set canvas to a small size for analysis (performance)
+      canvas.width = 160;
+      canvas.height = 120;
+
+      // Draw current frame for analysis
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Analyze lighting (brightness)
+      let totalBrightness = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        totalBrightness += (r + g + b) / 3;
+      }
+      const avgBrightness = totalBrightness / (data.length / 4);
+      
+      // Update lighting quality (good range: 80-180)
+      setLightingQuality(avgBrightness > 60 && avgBrightness < 200 ? 'good' : 'poor');
+
+      // Analyze focus (improved edge detection for sharpness)
+      let edgeStrength = 0;
+      let edgeCount = 0;
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Check both horizontal and vertical edges for better focus detection
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const idx = (y * width + x) * 4;
+          const current = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+          
+          // Check horizontal edge
+          const right = (data[idx + 4] + data[idx + 5] + data[idx + 6]) / 3;
+          const horizontalEdge = Math.abs(current - right);
+          
+          // Check vertical edge
+          const below = (data[idx + width * 4] + data[idx + width * 4 + 1] + data[idx + width * 4 + 2]) / 3;
+          const verticalEdge = Math.abs(current - below);
+          
+          const maxEdge = Math.max(horizontalEdge, verticalEdge);
+          if (maxEdge > 10) { // Only count significant edges
+            edgeStrength += maxEdge;
+            edgeCount++;
+          }
+        }
+      }
+      
+      const avgEdgeStrength = edgeCount > 0 ? edgeStrength / edgeCount : 0;
+      
+      // Update focus quality with more reasonable thresholds
+      setFocusQuality(avgEdgeStrength > 25 ? 'good' : 'poor');
+    };
+
+    // Run analysis every 500ms
+    const interval = setInterval(analyzeQuality, 500);
+    
+    // Cleanup interval when component unmounts
+    return () => clearInterval(interval);
+  }, []);
+
+  // Capture photo with PWA optimizations
+  const capturePhoto = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || isCapturing) return;
+
+    try {
+      setIsCapturing(true);
+      
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d', { willReadFrequently: false });
+
+      if (!ctx) {
+        throw new Error('Canvas context not available');
+      }
+
+      // Set canvas to video's native resolution for maximum quality
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // Draw the current video frame
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Convert to high-quality JPEG (0.95 quality for maximum detail)
+      const imageData = canvas.toDataURL('image/jpeg', 0.95);
+
+      console.log('PWA photo captured, resolution:', video.videoWidth, 'x', video.videoHeight);
+      console.log('PWA photo size:', Math.round(imageData.length / 1024), 'KB');
+      
+      onCapture(imageData);
+    } catch (error) {
+      console.error('PWA capture error:', error);
       const cameraError: CameraError = {
         code: 'CAPTURE_FAILED',
         message: 'Failed to capture photo. Please try again.',
@@ -304,206 +384,166 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     }
   }, [onCapture, onError, isCapturing]);
 
-  // Request camera permission on mount
+  // Cleanup camera resources
+  const cleanup = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        console.log('Stopping PWA track:', track);
+        track.stop();
+      });
+      streamRef.current = null;
+      setStream(null);
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    // Unlock orientation when cleaning up
+    if (isPWA && screen.orientation && 'unlock' in screen.orientation) {
+      (screen.orientation as any).unlock();
+    }
+    
+    // Reset starting flag and quality indicators
+    isStartingRef.current = false;
+    setStatus('Starting camera...');
+    setLightingQuality('analyzing');
+    setFocusQuality('analyzing');
+  }, [isPWA]);
+
+  // Handle orientation changes for PWA
   useEffect(() => {
-    const requestPermission = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode }
-        });
-        // Close the stream immediately as react-camera-pro will handle it
-        stream.getTracks().forEach(track => track.stop());
-        setPermissionStatus('granted');
-        setIsInitialized(true);
-      } catch (error) {
-        handleCameraError(error as Error);
+    const handleOrientationChange = () => {
+      // In PWA mode, use more sophisticated orientation detection
+      if (isPWA) {
+        const orientation = screen.orientation?.angle || window.orientation || 0;
+        const isCurrentlyLandscape = Math.abs(orientation) === 90;
+        setIsLandscape(isCurrentlyLandscape);
+        console.log('PWA orientation changed:', orientation, 'landscape:', isCurrentlyLandscape);
+      } else {
+        // Fallback for browser mode
+        const isCurrentlyLandscape = window.innerWidth > window.innerHeight;
+        setIsLandscape(isCurrentlyLandscape);
+        console.log('Browser orientation changed, landscape:', isCurrentlyLandscape);
       }
     };
 
-    if (navigator.mediaDevices) {
-      requestPermission();
+    if (isPWA && screen.orientation) {
+      screen.orientation.addEventListener('change', handleOrientationChange);
     } else {
-      const cameraError: CameraError = {
-        code: 'CAMERA_NOT_SUPPORTED',
-        message: 'Camera is not supported in this browser.',
-        name: 'NotSupportedError'
-      };
-      onError(cameraError);
+      window.addEventListener('resize', handleOrientationChange);
+      window.addEventListener('orientationchange', handleOrientationChange);
     }
-  }, [facingMode, handleCameraError, onError]);
-
-  // Handle orientation changes
-  useEffect(() => {
-    window.addEventListener('resize', handleOrientationChange);
-    window.addEventListener('orientationchange', handleOrientationChange);
     
-    // Initial orientation check
     handleOrientationChange();
     
     return () => {
-      window.removeEventListener('resize', handleOrientationChange);
-      window.removeEventListener('orientationchange', handleOrientationChange);
-    };
-  }, [handleOrientationChange]);
-
-  // Start quality analysis when camera is initialized
-  useEffect(() => {
-    if (isInitialized && permissionStatus === 'granted') {
-      // Start periodic quality analysis
-      lightingCheckInterval.current = setInterval(() => {
-        analyzeLighting();
-        analyzeBlur();
-      }, 1000); // Check every second
-
-      return () => {
-        if (lightingCheckInterval.current) {
-          clearInterval(lightingCheckInterval.current);
-        }
-      };
-    }
-  }, [isInitialized, permissionStatus, analyzeLighting, analyzeBlur]);
-
-
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (lightingCheckInterval.current) {
-        clearInterval(lightingCheckInterval.current);
+      if (isPWA && screen.orientation) {
+        screen.orientation.removeEventListener('change', handleOrientationChange);
+      } else {
+        window.removeEventListener('resize', handleOrientationChange);
+        window.removeEventListener('orientationchange', handleOrientationChange);
       }
     };
-  }, []);
+  }, [isPWA]);
 
-  // Render permission denied state
-  if (permissionStatus === 'denied') {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 bg-gray-100 rounded-lg p-6">
-        <div className="text-6xl mb-4">📷</div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Camera Access Needed</h3>
-        <p className="text-gray-600 text-center mb-4">
-          We need camera access to take photos. Please allow camera permission and refresh the page.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Refresh Page
-        </button>
-      </div>
-    );
-  }
-
-  // Render loading state
-  if (permissionStatus === 'pending') {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 bg-gray-100 rounded-lg p-6">
-        <div className="animate-spin text-4xl mb-4">📷</div>
-        <p className="text-gray-600">Requesting camera access...</p>
-      </div>
-    );
-  }
+  // Start camera on mount and cleanup on unmount
+  useEffect(() => {
+    startCamera();
+    return () => {
+      cleanup();
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   return (
-    <div className="h-full w-full relative bg-black camera-fullscreen">
-      {/* Hidden canvas for quality analysis */}
+    <div className="h-full w-full relative bg-black overflow-hidden">
+      {/* Hidden canvas for photo capture */}
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* Camera Container - Fill parent with forced full screen */}
-      <div className="absolute inset-0 bg-black">
-        <div className="w-full h-full overflow-hidden">
-          <Camera
-            ref={cameraRef}
-            facingMode={facingMode}
-            errorMessages={{
-              noCameraAccessible: 'No camera device accessible. Please connect your camera or try a different browser.',
-              permissionDenied: 'Permission denied. Please refresh and give camera permission.',
-              switchCamera: 'It is not possible to switch camera to different one because there is only one video device accessible.',
-              canvas: 'Canvas is not supported.'
-            }}
-          />
+      {/* PWA Status Indicator */}
+      {isPWA && (
+        <div className="absolute top-2 right-2 z-20">
+          <div className="bg-green-500 text-white text-xs px-2 py-1 rounded">
+            PWA
+          </div>
         </div>
-      </div>
+      )}
       
-      {/* Global CSS to force video to fill screen */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          .camera-fullscreen video {
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            z-index: 1 !important;
-          }
+      {/* Quality Indicators */}
+      {stream && (
+        <div className={`absolute z-10 transition-all duration-300 ${
+          isLandscape 
+            ? 'bottom-8 right-8 flex flex-col gap-2'
+            : 'bottom-20 left-4 flex gap-2'
+        }`}>
+          {/* Lighting Quality Indicator */}
+          <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
+            <div className={`w-2 h-2 rounded-full ${
+              lightingQuality === 'good' ? 'bg-green-400' : 
+              lightingQuality === 'poor' ? 'bg-red-400' : 'bg-yellow-400'
+            }`}></div>
+            <span>Light</span>
+          </div>
           
-          /* Additional mobile landscape fixes */
-          @media screen and (orientation: landscape) and (max-height: 768px) {
-            .camera-fullscreen video {
-              width: 100vw !important;
-              height: 100vh !important;
-              min-width: 100vw !important;
-              min-height: 100vh !important;
-              transform: translateX(0) translateY(0) !important;
-            }
-          }
-        `
-      }} />
-
-      {/* Quality Indicators - Responsive positioning */}
-      <div className={`absolute z-10 flex space-x-3 ${
-        isLandscape 
-          ? 'bottom-6 right-20 flex-row' // Landscape mobile: right side but inset from edge
-          : 'bottom-12 left-4 flex-row'  // Desktop & portrait mobile: lowered from bottom-16 to bottom-12
-      }`}>
-        {/* Lighting status indicator */}
-        <div className="flex flex-col items-center bg-black bg-opacity-50 rounded-lg p-2">
-          <div className={`w-4 h-4 rounded-full mb-1 ${
-            lightingAnalysis.quality === 'good' 
-              ? 'bg-green-500' 
-              : lightingAnalysis.quality === 'too-dark'
-              ? 'bg-red-500'
-              : lightingAnalysis.quality === 'too-bright'
-              ? 'bg-orange-500'
-              : 'bg-gray-400'
-          }`}></div>
-          <span className="text-xs text-white font-medium">Light</span>
+          {/* Focus Quality Indicator */}
+          <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
+            <div className={`w-2 h-2 rounded-full ${
+              focusQuality === 'good' ? 'bg-green-400' : 
+              focusQuality === 'poor' ? 'bg-red-400' : 'bg-yellow-400'
+            }`}></div>
+            <span>Focus</span>
+          </div>
         </div>
+      )}
 
-        {/* Blur status indicator */}
-        <div className="flex flex-col items-center bg-black bg-opacity-50 rounded-lg p-2">
-          <div className={`w-4 h-4 rounded-full mb-1 ${
-            blurAnalysis.quality === 'sharp' 
-              ? 'bg-green-500' 
-              : blurAnalysis.quality === 'blurry'
-              ? 'bg-red-500'
-              : 'bg-gray-400'
-          }`}></div>
-          <span className="text-xs text-white font-medium">Focus</span>
-        </div>
-      </div>
+      {/* Video - PWA optimized with hardware acceleration */}
+      <video
+        ref={videoRef}
+        className="w-full h-full object-cover"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center',
+          transform: 'none',
+          transition: 'none',
+          touchAction: 'none',
+          userSelect: 'none',
+          // PWA-optimized viewport
+          // Enhanced hardware acceleration for PWA
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          // PWA-specific optimizations
+          WebkitTransform: 'translateZ(0)',
+          WebkitBackfaceVisibility: 'hidden'
+        }}
+        playsInline
+        webkit-playsinline="true"
+        muted
+        controls={false}
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
+      />
 
-      {/* Main capture button - Responsive positioning */}
-      <div className={`absolute z-10 ${
+      {/* Capture Button - PWA native positioning */}
+      <div className={`absolute z-20 transition-all duration-300 ease-in-out ${
         isLandscape 
-          ? 'right-20 top-1/2 transform -translate-y-1/2' // Landscape mobile: right side but further inset from edge
-          : 'bottom-12 left-1/2 transform -translate-x-1/2' // Desktop & portrait mobile: lowered to align with quality indicators
+          ? 'right-8 top-1/2 transform -translate-y-1/2'
+          : 'bottom-8 left-1/2 transform -translate-x-1/2'
       }`}>
         <button
-          onClick={handleCapture}
-          disabled={!isInitialized || isCapturing}
+          onClick={capturePhoto}
+          disabled={!stream || isCapturing}
           className={`
             w-20 h-20 rounded-full border-4 transition-all duration-200 shadow-2xl
             flex items-center justify-center text-3xl relative
-            ${!isInitialized || isCapturing 
-              ? 'border-gray-400 bg-gray-300 opacity-50 cursor-not-allowed' 
-              : (lightingAnalysis.quality === 'good' && blurAnalysis.quality === 'sharp')
-              ? 'border-green-400 bg-green-500 hover:bg-green-600 active:scale-95 text-white'
-              : 'border-red-400 bg-red-500 hover:bg-red-600 active:scale-95 text-white'
+            ${!stream || isCapturing
+              ? 'border-gray-400 bg-gray-300 opacity-50 cursor-not-allowed'
+              : 'border-white bg-red-500 hover:bg-red-600 active:scale-95 text-white'
             }
           `}
           aria-label="Capture photo"
@@ -511,14 +551,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           {isCapturing ? (
             <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full"></div>
           ) : (
-            <>
-              <span>📷</span>
-              {(lightingAnalysis.quality === 'good' && blurAnalysis.quality === 'sharp') && (
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-400 rounded-full flex items-center justify-center text-white text-sm">
-                  ✓
-                </div>
-              )}
-            </>
+            <span>📷</span>
           )}
         </button>
       </div>

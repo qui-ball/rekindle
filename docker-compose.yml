@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -12,11 +10,16 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+      # Mount certificates directory (only used in HTTPS mode)
+      - ./certs:/app/certs
     environment:
       - CHOKIDAR_USEPOLLING=true  # Enable hot reload in Docker
       - WATCHPACK_POLLING=true
+      - HTTPS_ENABLED=${HTTPS_ENABLED:-false}
+      - NODE_ENV=development
     networks:
       - rekindle-network
+    command: ${DOCKER_COMMAND:-npm run dev}
 
 networks:
   rekindle-network:

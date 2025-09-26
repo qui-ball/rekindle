@@ -1,27 +1,30 @@
 #!/bin/bash
 
-# Convenience wrapper for development scripts
+# Unified Development Environment Launcher
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "$1" in
   "start"|"")
-    exec "$SCRIPT_DIR/frontend/scripts/dev-simple.sh" "${@:2}"
+    # Start HTTP development in Docker
+    exec "$SCRIPT_DIR/scripts/dev-docker.sh" "${@:2}"
     ;;
   "https")
-    echo "🔒 Starting HTTPS development server for mobile camera testing..."
-    cd "$SCRIPT_DIR/frontend"
-    exec "./scripts/dev-https.sh"
+    # Start HTTPS development in Docker
+    exec "$SCRIPT_DIR/scripts/dev-docker.sh" --https "${@:2}"
     ;;
   "stop")
-    exec "$SCRIPT_DIR/frontend/scripts/stop.sh" "${@:2}"
+    echo "🛑 Stopping all development services..."
+    cd "$SCRIPT_DIR"
+    docker-compose down 2>/dev/null || true
+    echo "✅ All services stopped!"
     ;;
   *)
     echo "Usage: $0 [start|https|stop] [options]"
     echo ""
     echo "Commands:"
-    echo "  start (default)  Start development environment (HTTP)"
-    echo "  https           Start HTTPS server for mobile camera testing"
+    echo "  start (default)  Start HTTP development environment in Docker"
+    echo "  https           Start HTTPS development environment in Docker"
     echo "  stop            Stop all development services"
     echo ""
     echo "Examples:"
@@ -32,6 +35,10 @@ case "$1" in
     echo ""
     echo "📱 For mobile camera testing:"
     echo "   Use '$0 https' to enable HTTPS with local certificates"
+    echo "   This allows camera access on mobile devices"
+    echo ""
+    echo "🔧 Additional options:"
+    echo "   --no-logs       Don't show container logs after startup"
     exit 1
     ;;
 esac

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { PhotoUploadContainerProps, UploadState, UploadResult, UploadError, ErrorType } from '../../types/upload';
-import { CameraCaptureModal } from './CameraCaptureModal';
+import { CameraCaptureFlow } from './CameraCaptureFlow';
 
 /**
  * Main orchestration component for photo upload system
@@ -25,7 +25,6 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
 
   // Camera state
   const [showCamera, setShowCamera] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   // Handle upload completion
   const handleUploadComplete = useCallback((result: UploadResult) => {
@@ -48,52 +47,34 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
     onError(error);
   }, [onError]);
 
-  // Handle camera capture
+  // Handle camera capture - now goes directly to cropping
   const handleCameraCapture = useCallback((imageData: string) => {
     console.log('Photo captured from camera:', imageData.substring(0, 50) + '...');
     
-    // Store the captured image and show preview
-    setCapturedImage(imageData);
-    setShowCamera(false);
-    
-    // Update upload state to show we have a selected file
-    setUploadState(prev => ({
-      ...prev,
-      status: 'idle',
-      currentStep: 'cropping',
-      selectedFile: undefined // Will be properly typed when File handling is implemented
-    }));
-  }, []);
-
-  // Handle proceeding with the captured image (for future cropping step)
-  const handleProceedWithImage = useCallback(() => {
-    if (!capturedImage) return;
-    
-    // Convert base64 to mock upload result for now
+    // Convert base64 to mock upload result and complete the upload
     const mockResult: UploadResult = {
       uploadId: `camera-${Date.now()}`,
       fileKey: `camera-capture-${Date.now()}.jpg`,
-      thumbnailUrl: capturedImage,
+      thumbnailUrl: imageData,
       originalFileName: `camera-capture-${Date.now()}.jpg`,
-      fileSize: Math.floor(capturedImage.length * 0.75), // Approximate file size
+      fileSize: Math.floor(imageData.length * 0.75), // Approximate file size
       dimensions: { width: 1920, height: 1080 }, // Default camera dimensions
       processingStatus: 'queued'
     };
-    
-    handleUploadComplete(mockResult);
-  }, [capturedImage, handleUploadComplete]);
 
-  // Handle retaking photo
-  const handleRetakePhoto = useCallback(() => {
-    setCapturedImage(null);
-    setShowCamera(true);
+    // Update upload state to complete
     setUploadState(prev => ({
       ...prev,
-      status: 'idle',
-      currentStep: 'method_selection',
-      selectedFile: undefined
+      status: 'complete',
+      currentStep: 'complete',
+      uploadResult: mockResult
     }));
-  }, []);
+
+    setShowCamera(false);
+    onUploadComplete(mockResult);
+  }, [onUploadComplete]);
+
+
 
   // Handle camera errors
   const handleCameraError = useCallback((error: { code: string; message: string; name: string }) => {
@@ -117,7 +98,7 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         Upload Your Photo
       </h2>
       
-      {uploadState.status === 'idle' && !showCamera && !capturedImage && (
+      {uploadState.status === 'idle' && !showCamera && (
         <div>
           <p className="text-gray-600 mb-6">
             Choose how you&apos;d like to upload your photo for restoration
@@ -141,51 +122,15 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         </div>
       )}
 
-      {uploadState.status === 'idle' && !showCamera && capturedImage && (
-        <div>
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">Photo Preview</h3>
-          <p className="text-gray-600 mb-4">
-            Review your photo before proceeding to cropping
-          </p>
-          
-          {/* Photo Preview */}
-          <div className="mb-6">
-            <div className="border rounded-lg overflow-hidden max-w-md mx-auto">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={capturedImage}
-                alt="Captured photo preview"
-                className="w-full h-auto"
-              />
-            </div>
-          </div>
-          
-          {/* Action buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handleProceedWithImage}
-              className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              ✓ Continue with this Photo
-            </button>
-            <button
-              onClick={handleRetakePhoto}
-              className="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              📷 Retake Photo
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Camera Modal */}
-      <CameraCaptureModal
+
+      {/* Camera Flow */}
+      <CameraCaptureFlow
         isOpen={showCamera}
         onClose={() => setShowCamera(false)}
         onCapture={handleCameraCapture}
         onError={handleCameraError}
         facingMode="environment"
-        aspectRatio={4/3}
         closeOnEscape={true}
       />
 
