@@ -20,8 +20,8 @@ if not os.getenv("RUN_INTEGRATION_TESTS"):
     os.environ.update(
         {
             "SECRET_KEY": "test_secret_key_for_testing_only",
-            # Use file-based SQLite so Celery task (separate connection) can see tables
-            "DATABASE_URL": "sqlite:///./test.db",
+            # Use PostgreSQL test database
+            "DATABASE_URL": "postgresql://postgres_dev:dMZETDS6^&bu*wuJ!$nT@rekindle-db-dev.c7cc4sm6091r.us-east-2.rds.amazonaws.com:5432/postgres",
             "REDIS_URL": "redis://localhost:6379/1",
             "AUTH0_DOMAIN": "test.auth0.com",
             "AUTH0_AUDIENCE": "test_audience",
@@ -38,7 +38,7 @@ else:
     # that aren't in the .env file
     test_env = {
         "SECRET_KEY": "test_secret_key_for_testing_only",
-        "DATABASE_URL": "sqlite:///./test.db",
+        "DATABASE_URL": "postgresql://postgres_dev:dMZETDS6^&bu*wuJ!$nT@rekindle-db-dev.c7cc4sm6091r.us-east-2.rds.amazonaws.com:5432/postgres",
         "REDIS_URL": "redis://localhost:6379/1",
         "AUTH0_DOMAIN": "test.auth0.com",
         "AUTH0_AUDIENCE": "test_audience",
@@ -54,15 +54,22 @@ else:
 from app.main import app
 from app.core.database import Base, get_db
 from app.api.deps import get_current_user
-from app.models.restoration import RestorationJob, JobStatus
+from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
+# Keep old model for backward compatibility if needed
+try:
+    from app.models.restoration import RestorationJob, JobStatus
+except ImportError:
+    RestorationJob = None
+    JobStatus = None
 
 
 # Test database setup
 @pytest.fixture(scope="session")
 def test_engine():
-    """Create test database engine with SQLite in-memory"""
-    engine = create_engine("sqlite:///./test.db", echo=False)
-    # Ensure a clean schema
+    """Create test database engine with PostgreSQL"""
+    from app.core.config import settings
+    engine = create_engine(settings.DATABASE_URL, echo=False)
+    # Ensure a clean schema for tests
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return engine
@@ -144,14 +151,74 @@ def test_large_image_bytes():
 
 
 @pytest.fixture
+def job_factory(test_db_session):
+    """Factory for creating jobs"""
+    
+    def _create_job(**kwargs):
+        defaults = {
+            "email": "test@example.com",
+        }
+        defaults.update(kwargs)
+        job = Job(**defaults)
+        test_db_session.add(job)
+        test_db_session.commit()
+        test_db_session.refresh(job)
+        return job
+    
+    return _create_job
+
+
+@pytest.fixture  
+def restore_attempt_factory(test_db_session):
+    """Factory for creating restore attempts"""
+    
+    def _create_restore(**kwargs):
+        defaults = {
+            "s3_key": "processed/test-job.jpg",
+            "model": "test_model",
+            "params": {"denoise": 0.7},
+        }
+        defaults.update(kwargs)
+        restore = RestoreAttempt(**defaults)
+        test_db_session.add(restore)
+        test_db_session.commit()
+        test_db_session.refresh(restore)
+        return restore
+    
+    return _create_restore
+
+
+@pytest.fixture
+def animation_attempt_factory(test_db_session):
+    """Factory for creating animation attempts"""
+    
+    def _create_animation(**kwargs):
+        defaults = {
+            "preview_s3_key": "animated/test-job/test-anim_preview.mp4",
+            "model": "test_model",
+            "params": {"fps": 30},
+        }
+        defaults.update(kwargs)
+        animation = AnimationAttempt(**defaults)
+        test_db_session.add(animation)
+        test_db_session.commit()
+        test_db_session.refresh(animation)
+        return animation
+    
+    return _create_animation
+
+
+@pytest.fixture
 def restoration_job_factory(test_db_session, mock_user):
-    """Factory for creating restoration jobs"""
+    """Factory for creating restoration jobs (legacy compatibility)"""
+    if RestorationJob is None or JobStatus is None:
+        pytest.skip("RestorationJob model not available")
 
     def _create_job(**kwargs):
         defaults = {
             "user_id": mock_user,
             "status": JobStatus.PENDING,
-            "original_image_url": "https://test.cloudfront.net/original/test.jpg",
+            "original_image_url": "https://test.s3.amazonaws.com/original/test.jpg",
             "denoise": 0.7,
         }
         defaults.update(kwargs)
