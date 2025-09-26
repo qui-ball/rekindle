@@ -177,13 +177,7 @@ export interface CameraCaptureProps {
   aspectRatio?: number; // Default: 4/3
 }
 
-export interface SmartCropperProps {
-  image: string; // base64 or URL
-  onCropComplete: (croppedArea: CropArea, croppedAreaPixels: CropAreaPixels) => void;
-  initialCrop?: { x: number; y: number };
-  initialZoom?: number;
-  aspectRatio?: number; // Free-form by default
-}
+
 
 export interface DragDropZoneProps {
   onFileSelect: (file: File) => void;

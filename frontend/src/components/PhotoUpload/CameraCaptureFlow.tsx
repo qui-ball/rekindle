@@ -3,14 +3,14 @@
  * 
  * Manages the complete camera capture flow including:
  * 1. Camera capture page
- * 2. Preview page with accept/reject options
- * 3. Future cropping functionality
+ * 2. Direct transition to cropping interface
+ * 3. Quadrilateral cropping with corner handles
  * 
  * Features:
- * - Separate page overlay (not full-screen)
- * - Centered camera capture area
- * - Preview state after capture
- * - Accept/reject captured photo
+ * - Full-screen camera interface
+ * - Direct capture to cropping (no preview step)
+ * - Mobile touch support for cropping
+ * - Automatic photo boundary detection
  * - Proper cancel handling
  */
 

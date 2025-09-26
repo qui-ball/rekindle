@@ -1,7 +1,7 @@
 /**
  * CameraCaptureFlow Component Tests
  * 
- * Tests the complete camera capture flow including capture and preview states
+ * Tests the complete camera capture flow including capture and cropping states
  */
 
 import React from 'react';
