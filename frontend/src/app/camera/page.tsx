@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CameraCapture } from '../../components/PhotoUpload';
+import { CameraCaptureModal, LandscapeTest } from '../../components/PhotoUpload';
 
 export default function CameraPage() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleCapture = (imageData: string) => {
     console.log('Photo captured!', imageData.substring(0, 50) + '...');
     setCapturedImage(imageData);
     setError(null);
+    setIsModalOpen(false);
   };
 
   const handleError = (cameraError: { code: string; message: string }) => {
@@ -21,6 +23,11 @@ export default function CameraPage() {
 
   const resetTest = () => {
     setCapturedImage(null);
+    setError(null);
+  };
+
+  const openCamera = () => {
+    setIsModalOpen(true);
     setError(null);
   };
 
@@ -51,15 +58,26 @@ export default function CameraPage() {
 
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4 text-gray-700">
-            Camera Component:
+            Camera Modal Test:
           </h2>
           
-          <CameraCapture
-            onCapture={handleCapture}
-            onError={handleError}
-            facingMode="environment"
-            aspectRatio={4/3}
-          />
+          <button
+            onClick={openCamera}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg mb-4"
+          >
+            📷 Open Camera Modal
+          </button>
+          
+          <p className="text-sm text-gray-600">
+            Click the button above to open the camera modal. Rotate your device to test landscape mode.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4 text-gray-700">
+            Landscape Mode Test:
+          </h2>
+          <LandscapeTest />
         </div>
 
         {capturedImage && (
@@ -106,7 +124,11 @@ export default function CameraPage() {
             </label>
             <label className="flex items-center">
               <input type="checkbox" className="mr-2" />
-              <span>Visual guides (corner markers) are visible</span>
+              <span>Modal opens in full-screen overlay</span>
+            </label>
+            <label className="flex items-center">
+              <input type="checkbox" className="mr-2" />
+              <span>Landscape mode works on mobile (rotate device)</span>
             </label>
             <label className="flex items-center">
               <input type="checkbox" className="mr-2" />
@@ -122,6 +144,16 @@ export default function CameraPage() {
             </label>
           </div>
         </div>
+
+        {/* Camera Modal */}
+        <CameraCaptureModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onCapture={handleCapture}
+          onError={handleError}
+          facingMode="environment"
+          closeOnEscape={true}
+        />
       </div>
     </div>
   );

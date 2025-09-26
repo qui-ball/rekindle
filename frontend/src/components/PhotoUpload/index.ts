@@ -1,9 +1,13 @@
 /**
  * PhotoUpload Components Export
  * 
- * Centralized exports for all PhotoUpload related components
+ * Exports all photo upload related components and types
  */
 
+export { CameraCapture } from './CameraCapture';
+export { CameraCaptureModal } from './CameraCaptureModal';
+export { CameraCaptureFlow } from './CameraCaptureFlow';
+export { CameraCaptureExample } from './CameraCaptureExample';
 export { PhotoUploadContainer } from './PhotoUploadContainer';
-export { default as CameraCapture } from './CameraCapture';
+export { LandscapeTest } from './LandscapeTest';
 export * from './types';
