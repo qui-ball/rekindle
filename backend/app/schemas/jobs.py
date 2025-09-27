@@ -2,7 +2,7 @@
 Pydantic schemas for jobs, restore attempts, and animation attempts
 """
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from datetime import datetime
 from uuid import UUID
 from typing import Optional, Dict, Any, List
@@ -16,14 +16,13 @@ class JobCreate(BaseModel):
 
 class JobResponse(BaseModel):
     """Schema for job responses"""
+    model_config = ConfigDict(from_attributes=True)
+    
     id: UUID
     email: str
     created_at: datetime
     selected_restore_id: Optional[UUID] = None
     latest_animation_id: Optional[UUID] = None
-
-    class Config:
-        from_attributes = True
 
 
 # Restore Attempt Schemas
@@ -35,6 +34,8 @@ class RestoreAttemptCreate(BaseModel):
 
 class RestoreAttemptResponse(BaseModel):
     """Schema for restore attempt responses"""
+    model_config = ConfigDict(from_attributes=True)
+    
     id: UUID
     job_id: UUID
     s3_key: str
@@ -42,9 +43,6 @@ class RestoreAttemptResponse(BaseModel):
     params: Optional[Dict[str, Any]] = None
     created_at: datetime
     url: Optional[str] = None  # CloudFront URL
-
-    class Config:
-        from_attributes = True
 
 
 # Animation Attempt Schemas
@@ -57,6 +55,8 @@ class AnimationAttemptCreate(BaseModel):
 
 class AnimationAttemptResponse(BaseModel):
     """Schema for animation attempt responses"""
+    model_config = ConfigDict(from_attributes=True)
+    
     id: UUID
     job_id: UUID
     restore_id: Optional[UUID] = None
@@ -69,9 +69,6 @@ class AnimationAttemptResponse(BaseModel):
     preview_url: Optional[str] = None  # CloudFront URL
     result_url: Optional[str] = None  # CloudFront URL
     thumb_url: Optional[str] = None  # CloudFront URL
-
-    class Config:
-        from_attributes = True
 
 
 # Job with Relations

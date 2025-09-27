@@ -30,7 +30,8 @@ if not os.getenv("RUN_INTEGRATION_TESTS"):
             "RUNPOD_API_KEY": "test_runpod_key",
             "AWS_ACCESS_KEY_ID": "test_aws_key",
             "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
-            "S3_BUCKET": "test-bucket",
+            "AWS_REGION": "us-east-2",
+            "S3_BUCKET": "rekindle-media",
         }
     )
 else:

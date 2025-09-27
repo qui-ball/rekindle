@@ -25,14 +25,9 @@ class TestS3ServiceMocked:
     @pytest.fixture
     def s3_service(self, mock_s3_client):
         """S3 service instance with mocked client"""
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.AWS_ACCESS_KEY_ID = "test_key"
-            mock_settings.AWS_SECRET_ACCESS_KEY = "test_secret"
-            mock_settings.AWS_REGION = "us-east-2"
-            mock_settings.S3_BUCKET = "test-bucket"
-
-            service = S3Service()
-            return service
+        # Use real settings from environment
+        service = S3Service()
+        return service
 
     def test_upload_file_success(self, s3_service, mock_s3_client):
         """Test successful file upload"""
@@ -46,9 +41,9 @@ class TestS3ServiceMocked:
 
         # Assert
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket", Key=key, Body=file_content, ContentType=content_type
+            Bucket="rekindle-media", Key=key, Body=file_content, ContentType=content_type
         )
-        expected_url = "https://test-bucket.s3.us-east-2.amazonaws.com/test/file.jpg"
+        expected_url = "https://rekindle-media.s3.us-east-2.amazonaws.com/test/file.jpg"
         assert result == expected_url
 
     def test_upload_file_client_error(self, s3_service, mock_s3_client):
@@ -78,12 +73,12 @@ class TestS3ServiceMocked:
         # Assert
         expected_key = f"processed/{job_id}.jpg"
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
+            Bucket="rekindle-media",
             Key=expected_key,
             Body=image_content,
             ContentType="image/jpeg",
         )
-        expected_url = f"https://test-bucket.s3.us-east-2.amazonaws.com/{expected_key}"
+        expected_url = f"https://rekindle-media.s3.us-east-2.amazonaws.com/{expected_key}"
         assert result == expected_url
 
     def test_upload_restored_image(self, s3_service, mock_s3_client):
@@ -102,12 +97,12 @@ class TestS3ServiceMocked:
         # Assert
         expected_key = f"restored/{job_id}/{restore_id}.jpg"
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
+            Bucket="rekindle-media",
             Key=expected_key,
             Body=image_content,
             ContentType="image/jpeg",
         )
-        expected_url = f"https://test-bucket.s3.us-east-2.amazonaws.com/{expected_key}"
+        expected_url = f"https://rekindle-media.s3.us-east-2.amazonaws.com/{expected_key}"
         assert result == expected_url
 
     def test_upload_animation_preview(self, s3_service, mock_s3_client):
@@ -125,12 +120,12 @@ class TestS3ServiceMocked:
         # Assert
         expected_key = f"animated/{job_id}/{animation_id}_preview.mp4"
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
+            Bucket="rekindle-media",
             Key=expected_key,
             Body=video_content,
             ContentType="video/mp4",
         )
-        expected_url = f"https://test-bucket.s3.us-east-2.amazonaws.com/{expected_key}"
+        expected_url = f"https://rekindle-media.s3.us-east-2.amazonaws.com/{expected_key}"
         assert result == expected_url
 
     def test_upload_animation_result(self, s3_service, mock_s3_client):
@@ -148,7 +143,7 @@ class TestS3ServiceMocked:
         # Assert
         expected_key = f"animated/{job_id}/{animation_id}_result.mp4"
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
+            Bucket="rekindle-media",
             Key=expected_key,
             Body=video_content,
             ContentType="video/mp4",
@@ -169,7 +164,7 @@ class TestS3ServiceMocked:
         # Assert
         expected_key = f"thumbnails/{job_id}/{animation_id}.jpg"
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
+            Bucket="rekindle-media",
             Key=expected_key,
             Body=image_content,
             ContentType="image/jpeg",
@@ -187,7 +182,7 @@ class TestS3ServiceMocked:
         # Assert
         expected_key = f"meta/{job_id}.json"
         mock_s3_client.put_object.assert_called_once_with(
-            Bucket="test-bucket",
+            Bucket="rekindle-media",
             Key=expected_key,
             Body=meta_content,
             ContentType="application/json",
@@ -216,7 +211,7 @@ class TestS3ServiceMocked:
     def test_extract_key_from_s3_bucket_url(self, s3_service):
         """Test extracting S3 key from S3 bucket URL"""
         # Arrange - use the same bucket name as the mocked service
-        url = "https://test-bucket.s3.us-east-2.amazonaws.com/restored/job123/restore456.jpg"
+        url = "https://rekindle-media.s3.us-east-2.amazonaws.com/restored/job123/restore456.jpg"
 
         # Act
         key = s3_service.extract_key_from_url(url)
@@ -227,7 +222,7 @@ class TestS3ServiceMocked:
     def test_extract_key_from_s3_url(self, s3_service):
         """Test extracting S3 key from S3 URL"""
         # Arrange
-        url = "https://test-bucket.s3.amazonaws.com/restored/job123/restore456.jpg"
+        url = "https://rekindle-media.s3.amazonaws.com/restored/job123/restore456.jpg"
 
         # Act
         key = s3_service.extract_key_from_url(url)
@@ -238,7 +233,7 @@ class TestS3ServiceMocked:
     def test_extract_key_from_regional_s3_url(self, s3_service):
         """Test extracting S3 key from regional S3 URL"""
         # Arrange
-        url = "https://s3.us-east-2.amazonaws.com/test-bucket/restored/job123/restore456.jpg"
+        url = "https://s3.us-east-2.amazonaws.com/rekindle-media/restored/job123/restore456.jpg"
 
         # Act
         key = s3_service.extract_key_from_url(url)
@@ -272,7 +267,7 @@ class TestS3ServiceMocked:
         result = s3_service.download_file(key)
 
         # Assert
-        mock_s3_client.get_object.assert_called_once_with(Bucket="test-bucket", Key=key)
+        mock_s3_client.get_object.assert_called_once_with(Bucket="rekindle-media", Key=key)
         assert result == expected_content
 
     def test_generate_presigned_url_success(self, s3_service, mock_s3_client):
@@ -289,7 +284,7 @@ class TestS3ServiceMocked:
         # Assert
         mock_s3_client.generate_presigned_url.assert_called_once_with(
             "put_object",
-            Params={"Bucket": "test-bucket", "Key": key},
+            Params={"Bucket": "rekindle-media", "Key": key},
             ExpiresIn=expiration,
         )
         assert result == expected_url
@@ -303,7 +298,7 @@ class TestS3ServiceMocked:
         result = s3_service.get_s3_url(key)
 
         # Assert
-        expected_url = "https://test-bucket.s3.us-east-2.amazonaws.com/test/file.jpg"
+        expected_url = "https://rekindle-media.s3.us-east-2.amazonaws.com/test/file.jpg"
         assert result == expected_url
 
     def test_generate_timestamp_id(self, s3_service):
