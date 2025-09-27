@@ -11,7 +11,7 @@ ENV UV_COMPILE_BYTECODE=1
 
 # Copy dependency files
 COPY pyproject.toml .
-COPY README.md .
+COPY uv.lock .
 
 # Install dependencies
 RUN uv sync --frozen --no-dev --no-install-project

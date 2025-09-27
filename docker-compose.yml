@@ -20,6 +20,24 @@ services:
     networks:
       - rekindle-network
     command: ${DOCKER_COMMAND:-npm run dev}
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reload
+      - ./backend:/app
+      # Preserve virtual environment
+      - /app/.venv
+    environment:
+      - ENVIRONMENT=development
+    networks:
+      - rekindle-network
 
 networks:
   rekindle-network:
