@@ -34,7 +34,6 @@ AWS_ACCESS_KEY_ID=your_key
 AWS_SECRET_ACCESS_KEY=your_secret
 AWS_REGION=us-east-1
 S3_BUCKET=rekindle-media
-CLOUDFRONT_DOMAIN=your-domain.cloudfront.net
 ```
 
 ### 2. Run Database Migration
@@ -154,5 +153,5 @@ If you need to rollback:
 
 - The database is the source of truth; S3 just stores blobs
 - Jobs cascade delete to all related attempts
-- CloudFront URLs are generated dynamically from S3 keys
+- URLs are generated dynamically from S3 keys
 - Worker tasks update the database upon completion

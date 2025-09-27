@@ -42,7 +42,7 @@ class RestoreAttemptResponse(BaseModel):
     model: Optional[str] = None
     params: Optional[Dict[str, Any]] = None
     created_at: datetime
-    url: Optional[str] = None  # CloudFront URL
+    url: Optional[str] = None
 
 
 # Animation Attempt Schemas
@@ -66,9 +66,9 @@ class AnimationAttemptResponse(BaseModel):
     model: Optional[str] = None
     params: Optional[Dict[str, Any]] = None
     created_at: datetime
-    preview_url: Optional[str] = None  # CloudFront URL
-    result_url: Optional[str] = None  # CloudFront URL
-    thumb_url: Optional[str] = None  # CloudFront URL
+    preview_url: Optional[str] = None
+    result_url: Optional[str] = None
+    thumb_url: Optional[str] = None
 
 
 # Job with Relations

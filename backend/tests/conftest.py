@@ -20,8 +20,8 @@ if not os.getenv("RUN_INTEGRATION_TESTS"):
     os.environ.update(
         {
             "SECRET_KEY": "test_secret_key_for_testing_only",
-            # Use PostgreSQL test database
-            "DATABASE_URL": "postgresql://postgres_dev:dMZETDS6^&bu*wuJ!$nT@rekindle-db-dev.c7cc4sm6091r.us-east-2.rds.amazonaws.com:5432/postgres",
+            # Use in-memory SQLite for tests
+            "DATABASE_URL": "sqlite:///:memory:",
             "REDIS_URL": "redis://localhost:6379/1",
             "AUTH0_DOMAIN": "test.auth0.com",
             "AUTH0_AUDIENCE": "test_audience",
@@ -36,10 +36,9 @@ if not os.getenv("RUN_INTEGRATION_TESTS"):
     )
 else:
     # For integration tests, we still need some test values for non-AWS settings
-    # that aren't in the .env file
+    # that aren't in the .env file. DATABASE_URL should come from environment.
     test_env = {
         "SECRET_KEY": "test_secret_key_for_testing_only",
-        "DATABASE_URL": "postgresql://postgres_dev:dMZETDS6^&bu*wuJ!$nT@rekindle-db-dev.c7cc4sm6091r.us-east-2.rds.amazonaws.com:5432/postgres",
         "REDIS_URL": "redis://localhost:6379/1",
         "AUTH0_DOMAIN": "test.auth0.com",
         "AUTH0_AUDIENCE": "test_audience",
@@ -211,7 +210,7 @@ def mock_s3_service():
     """Mock S3 service"""
     with patch("app.services.s3.s3_service") as mock:
         mock.upload_image.return_value = (
-            "https://test.cloudfront.net/processed/test.jpg"
+            "https://test-bucket.s3.us-east-1.amazonaws.com/processed/test.jpg"
         )
         mock.download_file.return_value = b"fake_image_data"
         yield mock

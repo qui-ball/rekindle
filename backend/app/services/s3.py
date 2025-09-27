@@ -38,7 +38,7 @@ class S3Service:
         self, file_content: bytes, key: str, content_type: str = "image/jpeg"
     ) -> str:
         """
-        Upload a file to S3 and return the CloudFront URL
+        Upload a file to S3 and return the S3 URL
         """
         try:
             self.s3_client.put_object(
