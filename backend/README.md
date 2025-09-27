@@ -122,12 +122,17 @@ backend/
 
 Required environment variables (see `.env.example`):
 
+**Important**: The `DATABASE_URL` password contains special characters that need escaping. Use `\$` to escape dollar signs in the password to prevent Docker Compose variable substitution errors.
+
 ```bash
 # Database
 DATABASE_URL=postgresql://user:pass@host:port/db
 
 # Redis
 REDIS_URL=redis://host:port/db
+
+# ComfyUI
+COMFYUI_URL=http://192.168.0.27:8188
 
 # AWS S3
 AWS_ACCESS_KEY_ID=your_key
@@ -173,6 +178,32 @@ SECRET_KEY=your-jwt-secret
    ```bash
    uv run celery -A app.workers.celery_app worker --loglevel=info
    ```
+
+6. **Start Flower monitoring** (optional):
+   ```bash
+   uv run celery -A app.workers.celery_app flower --port=5555
+   ```
+
+## Docker Development
+
+**Recommended approach** - runs all services including Redis, Celery workers, and Flower:
+
+```bash
+# Start all services
+docker compose up -d
+
+# View logs
+docker compose logs celery
+docker compose logs flower
+
+# Stop all services
+docker compose down
+```
+
+**Access points:**
+- API: http://localhost:8000
+- API docs: http://localhost:8000/docs  
+- Flower monitoring: http://localhost:5555
 
 ## Testing
 
