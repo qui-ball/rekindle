@@ -56,12 +56,6 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.api.deps import get_current_user
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
-# Keep old model for backward compatibility if needed
-try:
-    from app.models.restoration import RestorationJob, JobStatus
-except ImportError:
-    RestorationJob = None
-    JobStatus = None
 
 
 # Test database setup
@@ -209,27 +203,7 @@ def animation_attempt_factory(test_db_session):
     return _create_animation
 
 
-@pytest.fixture
-def restoration_job_factory(test_db_session, mock_user):
-    """Factory for creating restoration jobs (legacy compatibility)"""
-    if RestorationJob is None or JobStatus is None:
-        pytest.skip("RestorationJob model not available")
-
-    def _create_job(**kwargs):
-        defaults = {
-            "user_id": mock_user,
-            "status": JobStatus.PENDING,
-            "original_image_url": "https://test.s3.amazonaws.com/original/test.jpg",
-            "denoise": 0.7,
-        }
-        defaults.update(kwargs)
-        job = RestorationJob(**defaults)
-        test_db_session.add(job)
-        test_db_session.commit()
-        test_db_session.refresh(job)
-        return job
-
-    return _create_job
+# Legacy restoration_job_factory removed - use job_factory instead
 
 
 @pytest.fixture
