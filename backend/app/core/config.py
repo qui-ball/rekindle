@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     )
     ALLOWED_HOSTS: List[str] = Field(default=["localhost", "127.0.0.1", "test"])
 
+    # ComfyUI
+    COMFYUI_URL: str = Field(default="http://127.0.0.1:8188", description="ComfyUI server URL")
+
     # File upload
     MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024)  # 50MB
     ALLOWED_FILE_TYPES: List[str] = Field(

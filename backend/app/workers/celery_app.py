@@ -10,7 +10,7 @@ celery_app = Celery(
     "rekindle",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.workers.tasks.restoration"],
+    include=["app.workers.tasks.jobs"],
 )
 
 # Configure Celery

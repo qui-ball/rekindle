@@ -14,7 +14,10 @@ from app.core.config import settings
 
 
 class ComfyUIService:
-    def __init__(self, base_url: str = "http://127.0.0.1:8188"):
+    def __init__(self, base_url: str = None):
+        if base_url is None:
+            from app.core.config import settings
+            base_url = settings.COMFYUI_URL
         self.base_url = base_url
         self.workflow_path = Path(__file__).parent.parent / "workflows" / "restore.json"
 

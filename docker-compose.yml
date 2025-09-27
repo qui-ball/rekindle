@@ -36,8 +36,58 @@ services:
       - /app/.venv
     environment:
       - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ./backend/.env
     networks:
       - rekindle-network
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - rekindle-network
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    networks:
+      - rekindle-network
+    depends_on:
+      - redis
+    command: uv run celery -A app.workers.celery_app worker --loglevel=info
+
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    networks:
+      - rekindle-network
+    depends_on:
+      - redis
+    command: uv run celery -A app.workers.celery_app flower --port=5555
 
 networks:
   rekindle-network:
