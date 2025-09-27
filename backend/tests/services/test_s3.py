@@ -91,7 +91,7 @@ class TestS3ServiceMocked:
         # Arrange
         image_content = b"test restored image"
         job_id = "job-123"
-        restore_id = "restore-456"
+        restore_id = "20250926_143052_123456"  # Timestamp format
         extension = "jpg"
 
         # Act
@@ -115,7 +115,7 @@ class TestS3ServiceMocked:
         # Arrange
         video_content = b"test video content"
         job_id = "job-123"
-        animation_id = "anim-456"
+        animation_id = "20250926_143052_654321"  # Timestamp format
 
         # Act
         result = s3_service.upload_animation(
@@ -138,7 +138,7 @@ class TestS3ServiceMocked:
         # Arrange
         video_content = b"test HD video content"
         job_id = "job-123"
-        animation_id = "anim-456"
+        animation_id = "20250926_143052_654321"  # Timestamp format
 
         # Act
         result = s3_service.upload_animation(
@@ -159,7 +159,7 @@ class TestS3ServiceMocked:
         # Arrange
         image_content = b"test thumbnail"
         job_id = "job-123"
-        animation_id = "anim-456"
+        animation_id = "20250926_143052_789012"  # Timestamp format
 
         # Act
         result = s3_service.upload_thumbnail(
@@ -306,6 +306,21 @@ class TestS3ServiceMocked:
         expected_url = "https://test-bucket.s3.us-east-2.amazonaws.com/test/file.jpg"
         assert result == expected_url
 
+    def test_generate_timestamp_id(self, s3_service):
+        """Test timestamp ID generation"""
+        # Act
+        timestamp_id = s3_service.generate_timestamp_id()
+        
+        # Assert
+        # Check format: YYYYMMDD_HHMMSS_microseconds
+        import re
+        pattern = r"^\d{8}_\d{6}_\d{6}$"
+        assert re.match(pattern, timestamp_id), f"Invalid timestamp format: {timestamp_id}"
+        
+        # Generate two IDs and ensure they're different
+        timestamp_id2 = s3_service.generate_timestamp_id()
+        assert timestamp_id != timestamp_id2, "Timestamp IDs should be unique"
+
 
 @pytest.mark.integration
 @pytest.mark.skipif(
@@ -357,8 +372,8 @@ class TestS3ServiceIntegration:
         assert processed_url
         assert s3_service.bucket in processed_url
         
-        # 2. Upload restored image
-        restore_id = str(uuid.uuid4())
+        # 2. Upload restored image with timestamp ID
+        restore_id = s3_service.generate_timestamp_id()
         restored_content = b"Test restored image content"
         restored_url = s3_service.upload_restored_image(
             restored_content,
@@ -371,8 +386,8 @@ class TestS3ServiceIntegration:
         assert restored_url
         assert restore_id in restored_url
         
-        # 3. Upload animation preview
-        animation_id = str(uuid.uuid4())
+        # 3. Upload animation preview with timestamp ID
+        animation_id = s3_service.generate_timestamp_id()
         preview_content = b"Test preview video content"
         preview_url = s3_service.upload_animation(
             preview_content,

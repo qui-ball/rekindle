@@ -9,6 +9,7 @@ import io
 import uuid
 from pathlib import Path
 from loguru import logger
+from datetime import datetime, timezone
 
 from app.core.config import settings
 
@@ -23,6 +24,15 @@ class S3Service:
         )
         self.bucket = settings.S3_BUCKET
         self.region = settings.AWS_REGION
+
+    @staticmethod
+    def generate_timestamp_id() -> str:
+        """
+        Generate a timestamp-based ID in format: YYYYMMDD_HHMMSS_microseconds
+        Example: 20250926_143052_123456
+        """
+        now = datetime.now(timezone.utc)
+        return now.strftime("%Y%m%d_%H%M%S_%f")
 
     def upload_file(
         self, file_content: bytes, key: str, content_type: str = "image/jpeg"

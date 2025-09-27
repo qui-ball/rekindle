@@ -83,16 +83,19 @@ def process_restoration(
         db.add(restore)
         db.flush()  # Get the restore ID
         
-        # Upload restored image to S3
+        # Generate timestamp ID for this restore attempt
+        restore_timestamp_id = s3_service.generate_timestamp_id()
+        
+        # Upload restored image to S3 with timestamp ID
         restored_url = s3_service.upload_restored_image(
             image_content=restored_image_data,
             job_id=job_id,
-            restore_id=str(restore.id),
+            restore_id=restore_timestamp_id,
             extension="jpg",
         )
         
-        # Update restore attempt with S3 key
-        restore.s3_key = f"restored/{job_id}/{restore.id}.jpg"
+        # Update restore attempt with S3 key using timestamp
+        restore.s3_key = f"restored/{job_id}/{restore_timestamp_id}.jpg"
         
         # Update job's selected restore
         job.selected_restore_id = restore.id
@@ -187,12 +190,15 @@ def process_animation(
         db.add(animation)
         db.flush()  # Get the animation ID
         
+        # Generate timestamp ID for this animation attempt
+        animation_timestamp_id = s3_service.generate_timestamp_id()
+        
         # For now, just copy the restored image as a "preview"
         # In production, this would be the actual animated video
         preview_url = s3_service.upload_animation(
             video_content=restored_image_data,  # Placeholder
             job_id=job_id,
-            animation_id=str(animation.id),
+            animation_id=animation_timestamp_id,
             is_preview=True,
         )
         
@@ -200,12 +206,12 @@ def process_animation(
         thumb_url = s3_service.upload_thumbnail(
             image_content=restored_image_data,
             job_id=job_id,
-            animation_id=str(animation.id),
+            animation_id=animation_timestamp_id,
         )
         
-        # Update animation attempt with S3 keys
-        animation.preview_s3_key = f"animated/{job_id}/{animation.id}_preview.mp4"
-        animation.thumb_s3_key = f"thumbnails/{job_id}/{animation.id}.jpg"
+        # Update animation attempt with S3 keys using timestamp
+        animation.preview_s3_key = f"animated/{job_id}/{animation_timestamp_id}_preview.mp4"
+        animation.thumb_s3_key = f"thumbnails/{job_id}/{animation_timestamp_id}.jpg"
         
         # Update job's latest animation
         job.latest_animation_id = animation.id
@@ -278,16 +284,21 @@ def generate_hd_result(
         # Download preview
         preview_data = s3_service.download_file(animation.preview_s3_key)
         
+        # Extract timestamp ID from the preview S3 key
+        # Format: animated/job_id/timestamp_id_preview.mp4
+        preview_key_parts = animation.preview_s3_key.split('/')
+        timestamp_id = preview_key_parts[-1].replace('_preview.mp4', '')
+        
         # Upload as "result" (in production, this would be HD version)
         result_url = s3_service.upload_animation(
             video_content=preview_data,
             job_id=job_id,
-            animation_id=animation_id,
+            animation_id=timestamp_id,
             is_preview=False,
         )
         
         # Update animation attempt with result S3 key
-        animation.result_s3_key = f"animated/{job_id}/{animation_id}_result.mp4"
+        animation.result_s3_key = f"animated/{job_id}/{timestamp_id}_result.mp4"
         db.commit()
         
         logger.success(f"Generated HD result for animation {animation_id}")
