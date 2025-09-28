@@ -223,17 +223,17 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
 
   const renderCaptureView = () => (
     <div className="h-screen w-screen bg-gray-900 relative">
-      {/* Title - positioned absolutely in top center */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded">
+      {/* Title - positioned safely inside screen bounds */}
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 px-4">
+        <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded shadow-lg">
           Take Photo
         </h1>
       </div>
       
-      {/* Close button - positioned absolutely in top right */}
+      {/* Close button - positioned safely inside screen bounds */}
       <button
         onClick={handleClose}
-        className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white"
+        className="absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white shadow-lg"
         aria-label="Close camera"
       >
         ✕

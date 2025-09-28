@@ -86,8 +86,8 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     const containerWidth = containerRect.width || window.innerWidth || 1024;
     const containerHeight = containerRect.height || window.innerHeight || 768;
     
-    // Add some padding to ensure the image doesn't touch the edges
-    const padding = 40;
+    // For full-screen mode, use the entire screen without padding for seamless transition
+    const padding = isFullScreen ? 0 : 40;
     const availableWidth = containerWidth - padding * 2;
     const availableHeight = containerHeight - padding * 2;
     
@@ -96,21 +96,36 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     
     let displayWidth, displayHeight;
     
-    if (imageAspectRatio > availableAspectRatio) {
-      // Image is wider than available space
-      displayWidth = availableWidth;
-      displayHeight = availableWidth / imageAspectRatio;
+    if (isFullScreen) {
+      // For full-screen mode, fill the entire screen to match camera view
+      // Use object-cover behavior: fill the container and crop if necessary
+      if (imageAspectRatio > availableAspectRatio) {
+        // Image is wider - fit to height and crop width
+        displayHeight = availableHeight;
+        displayWidth = displayHeight * imageAspectRatio;
+      } else {
+        // Image is taller - fit to width and crop height  
+        displayWidth = availableWidth;
+        displayHeight = displayWidth / imageAspectRatio;
+      }
     } else {
-      // Image is taller than available space
-      displayHeight = availableHeight;
-      displayWidth = availableHeight * imageAspectRatio;
+      // For non-full-screen mode, use contain behavior with padding
+      if (imageAspectRatio > availableAspectRatio) {
+        // Image is wider than available space
+        displayWidth = availableWidth;
+        displayHeight = availableWidth / imageAspectRatio;
+      } else {
+        // Image is taller than available space
+        displayHeight = availableHeight;
+        displayWidth = availableHeight * imageAspectRatio;
+      }
     }
     
     // Ensure minimum dimensions
     displayWidth = Math.max(displayWidth, 200);
     displayHeight = Math.max(displayHeight, 200);
     
-    // Center the image
+    // Center the image (for full-screen, this centers the crop area within the larger image)
     const imageX = (containerWidth - displayWidth) / 2;
     const imageY = (containerHeight - displayHeight) / 2;
     
@@ -129,7 +144,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     
     setQuadArea(defaultQuadArea);
     setImageLoaded(true);
-  }, [initialCropArea, convertRectToQuad]);
+  }, [initialCropArea, convertRectToQuad, isFullScreen]);
 
 
 
@@ -422,12 +437,12 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         )}
       </div>
 
-      {/* Controls */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
+      {/* Controls - positioned safely inside screen bounds */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4 px-4">
         {onCancel && (
           <button
             onClick={onCancel}
-            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-lg"
             type="button"
           >
             Cancel
@@ -437,10 +452,10 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         <button
           onClick={handleAccept}
           disabled={!quadArea}
-          className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200"
+          className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 shadow-lg"
           type="button"
         >
-          Accept Crop
+          ✓ Crop
         </button>
       </div>
     </div>

@@ -481,12 +481,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         )}
       </div>
       
-      {/* Quality Indicators */}
+      {/* Quality Indicators - positioned safely inside screen bounds */}
       {stream && (
         <div className={`absolute z-10 transition-all duration-300 ${
           isLandscape 
-            ? 'bottom-8 right-8 flex flex-col gap-2'
-            : 'bottom-20 left-4 flex gap-2'
+            ? 'bottom-6 right-6 flex flex-col gap-2'
+            : 'bottom-24 left-6 flex gap-2'
         }`}>
           {/* Lighting Quality Indicator */}
           <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
@@ -540,11 +540,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         onContextMenu={(e) => e.preventDefault()}
       />
 
-      {/* Capture Button - PWA native positioning */}
+      {/* Capture Button - PWA native positioning, safely inside screen bounds */}
       <div className={`absolute z-20 transition-all duration-300 ease-in-out ${
         isLandscape 
-          ? 'right-8 top-1/2 transform -translate-y-1/2'
-          : 'bottom-8 left-1/2 transform -translate-x-1/2'
+          ? 'right-6 top-1/2 transform -translate-y-1/2'
+          : 'bottom-6 left-1/2 transform -translate-x-1/2'
       }`}>
         <button
           onClick={capturePhoto}

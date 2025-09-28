@@ -112,7 +112,7 @@ describe('CameraCaptureFlow', () => {
       // Should move directly to cropping state
       await waitFor(() => {
         // The QuadrilateralCropper component should be rendered
-        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+        expect(screen.getByText('✓ Crop')).toBeInTheDocument();
       });
     });
 
@@ -141,14 +141,14 @@ describe('CameraCaptureFlow', () => {
       fireEvent.click(captureButton);
       
       await waitFor(() => {
-        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+        expect(screen.getByText('✓ Crop')).toBeInTheDocument();
       });
     });
 
     it('should show cropping interface after capture', async () => {
       // The cropping interface should be visible after capture
       await waitFor(() => {
-        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+        expect(screen.getByText('✓ Crop')).toBeInTheDocument();
       });
       
       // Should not call onCapture yet (only after crop is accepted)
@@ -159,7 +159,7 @@ describe('CameraCaptureFlow', () => {
     it('should cancel crop and return to capture', async () => {
       // Wait for cropping interface to appear
       await waitFor(() => {
-        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+        expect(screen.getByText('✓ Crop')).toBeInTheDocument();
       });
       
       const cancelButton = screen.getByText('Cancel');
@@ -275,7 +275,7 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+        expect(screen.getByText('✓ Crop')).toBeInTheDocument();
       });
 
       // Change to landscape
@@ -295,7 +295,7 @@ describe('CameraCaptureFlow', () => {
       });
 
       // Should still show cropping interface
-      expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+      expect(screen.getByText('✓ Crop')).toBeInTheDocument();
     });
   });
 });
