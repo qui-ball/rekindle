@@ -15,6 +15,11 @@ export class PhotoDetector {
   private ctx: CanvasRenderingContext2D;
 
   constructor() {
+    // Check if we're in a browser environment
+    if (typeof document === 'undefined') {
+      throw new Error('PhotoDetector can only be used in browser environment');
+    }
+    
     this.canvas = document.createElement('canvas');
     const context = this.canvas.getContext('2d');
     if (!context) {

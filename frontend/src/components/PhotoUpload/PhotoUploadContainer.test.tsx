@@ -11,7 +11,11 @@ import { PhotoUploadContainer } from './PhotoUploadContainer';
 
 // Mock the CameraCaptureFlow component
 jest.mock('./CameraCaptureFlow', () => ({
-  CameraCaptureFlow: ({ isOpen, onClose, onCapture }: any) => (
+  CameraCaptureFlow: ({ isOpen, onClose, onCapture }: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    onCapture: (data: string) => void 
+  }) => (
     <div data-testid="camera-capture-flow">
       {isOpen && (
         <div>

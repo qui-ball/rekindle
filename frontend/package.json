@@ -6,16 +6,20 @@
     "dev": "next dev",
     "dev:https": "node https-server.js",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "setup:certs": "../scripts/setup-https-certs.sh"
+    "test:jscanify": "jest --testPathPattern=jscanify",
+    "setup:certs": "../scripts/setup-https-certs.sh",
+    "preload:opencv": "node scripts/preload-opencv.js"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",
     "heic2any": "^0.0.4",
+    "jscanify": "^1.4.0",
     "next": "14.2.15",
     "next-pwa": "^5.6.0",
     "react": "^18.2.0",
@@ -23,6 +27,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.4",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

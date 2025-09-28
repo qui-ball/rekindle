@@ -11,7 +11,7 @@ import { CameraCaptureFlow } from './CameraCaptureFlow';
 
 // Mock the CameraCapture component
 jest.mock('./CameraCapture', () => ({
-  CameraCapture: ({ onCapture, onError }: any) => (
+  CameraCapture: ({ onCapture, onError }: { onCapture: (data: string) => void; onError: (error: { code: string; message: string }) => void }) => (
     <div data-testid="mock-camera-capture">
       <button onClick={() => onCapture('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/wA==')}>Mock Capture</button>
       <button onClick={() => onError({ code: 'USER_CANCELLED', message: 'Cancelled' })}>Mock Cancel</button>
@@ -42,7 +42,7 @@ const mockImage = {
   }
 };
 
-global.Image = jest.fn(() => mockImage) as any;
+global.Image = jest.fn(() => mockImage) as unknown as typeof Image;
 
 describe('CameraCaptureFlow', () => {
   const mockOnCapture = jest.fn();

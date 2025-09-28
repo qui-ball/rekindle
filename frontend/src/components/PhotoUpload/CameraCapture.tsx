@@ -40,7 +40,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   useEffect(() => {
     const checkPWA = () => {
       const isPWAMode = window.matchMedia('(display-mode: standalone)').matches ||
-                       (window.navigator as any).standalone ||
+                       (window.navigator as Navigator & { standalone?: boolean }).standalone ||
                        document.referrer.includes('android-app://');
       setIsPWA(isPWAMode);
       console.log('PWA mode detected:', isPWAMode);
@@ -90,8 +90,118 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     onError(cameraError);
   }, [onError]);
 
+  // Set initial zoom to wide angle (1x)
+  const setInitialZoom = useCallback(async () => {
+    if (!streamRef.current) return;
+
+    try {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      // Check if zoom is supported
+      const capabilities = videoTrack.getCapabilities();
+      const capabilitiesWithZoom = capabilities as MediaTrackCapabilities & { 
+        zoom?: { min: number; max: number; step: number } 
+      };
+      
+      if ('zoom' in capabilities && capabilitiesWithZoom.zoom) {
+        console.log('Zoom capabilities:', capabilitiesWithZoom.zoom);
+        
+        // Set zoom to minimum (widest angle)
+        await videoTrack.applyConstraints({
+          advanced: [{
+            zoom: capabilitiesWithZoom.zoom.min || 1.0
+          } as MediaTrackConstraintSet & { zoom: number }]
+        });
+        
+        console.log('Zoom set to:', capabilitiesWithZoom.zoom.min || 1.0);
+      } else {
+        console.log('Zoom not supported on this device');
+      }
+    } catch (error) {
+      console.warn('Failed to set initial zoom:', error);
+      // Don't throw error, zoom is not critical
+    }
+  }, []);
+
+  // Quality analysis for lighting and focus
+  const startQualityAnalysis = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const analyzeQuality = () => {
+      if (!videoRef.current || !canvasRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      if (!ctx || video.readyState < 2) return;
+
+      // Set canvas to a small size for analysis (performance)
+      canvas.width = 160;
+      canvas.height = 120;
+
+      // Draw current frame for analysis
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Analyze lighting (brightness)
+      let totalBrightness = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        totalBrightness += (r + g + b) / 3;
+      }
+      const avgBrightness = totalBrightness / (data.length / 4);
+      
+      // Update lighting quality (good range: 80-180)
+      setLightingQuality(avgBrightness > 60 && avgBrightness < 200 ? 'good' : 'poor');
+
+      // Analyze focus (improved edge detection for sharpness)
+      let edgeStrength = 0;
+      let edgeCount = 0;
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Check both horizontal and vertical edges for better focus detection
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const idx = (y * width + x) * 4;
+          const current = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+          
+          // Check horizontal edge
+          const right = (data[idx + 4] + data[idx + 5] + data[idx + 6]) / 3;
+          const horizontalEdge = Math.abs(current - right);
+          
+          // Check vertical edge
+          const below = (data[idx + width * 4] + data[idx + width * 4 + 1] + data[idx + width * 4 + 2]) / 3;
+          const verticalEdge = Math.abs(current - below);
+          
+          const maxEdge = Math.max(horizontalEdge, verticalEdge);
+          if (maxEdge > 10) { // Only count significant edges
+            edgeStrength += maxEdge;
+            edgeCount++;
+          }
+        }
+      }
+      
+      const avgEdgeStrength = edgeCount > 0 ? edgeStrength / edgeCount : 0;
+      
+      // Update focus quality with more reasonable thresholds
+      setFocusQuality(avgEdgeStrength > 25 ? 'good' : 'poor');
+    };
+
+    // Run analysis every 500ms
+    const interval = setInterval(analyzeQuality, 500);
+    
+    // Cleanup interval when component unmounts
+    return () => clearInterval(interval);
+  }, []);
+
   // Start camera with PWA optimizations and progressive fallback
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     // Prevent multiple simultaneous starts
     if (isStartingRef.current || streamRef.current) {
       console.log('Camera already starting or started, skipping...');
@@ -207,7 +317,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           
           // PWA-specific orientation lock
           if (isPWA && screen.orientation && 'lock' in screen.orientation) {
-            (screen.orientation as any).lock('any').catch((error: any) => {
+            (screen.orientation as ScreenOrientation & { lock: (orientation: string) => Promise<void> })
+              .lock('any').catch((error: Error) => {
               console.log('PWA orientation lock failed:', error);
             });
           }
@@ -234,113 +345,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     } finally {
       isStartingRef.current = false;
     }
-  };
+  }, [facingMode, handleCameraError, isPWA, setInitialZoom, startQualityAnalysis]);
 
-  // Set initial zoom to wide angle (1x)
-  const setInitialZoom = useCallback(async () => {
-    if (!streamRef.current) return;
 
-    try {
-      const videoTrack = streamRef.current.getVideoTracks()[0];
-      if (!videoTrack) return;
 
-      // Check if zoom is supported
-      const capabilities = videoTrack.getCapabilities();
-      if (capabilities.zoom) {
-        console.log('Zoom capabilities:', capabilities.zoom);
-        
-        // Set zoom to minimum (widest angle)
-        await videoTrack.applyConstraints({
-          advanced: [{
-            zoom: capabilities.zoom.min || 1.0
-          }]
-        });
-        
-        console.log('Zoom set to:', capabilities.zoom.min || 1.0);
-      } else {
-        console.log('Zoom not supported on this device');
-      }
-    } catch (error) {
-      console.warn('Failed to set initial zoom:', error);
-      // Don't throw error, zoom is not critical
-    }
-  }, []);
 
-  // Quality analysis for lighting and focus
-  const startQualityAnalysis = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const analyzeQuality = () => {
-      if (!videoRef.current || !canvasRef.current) return;
-
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-      if (!ctx || video.readyState < 2) return;
-
-      // Set canvas to a small size for analysis (performance)
-      canvas.width = 160;
-      canvas.height = 120;
-
-      // Draw current frame for analysis
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      // Analyze lighting (brightness)
-      let totalBrightness = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        totalBrightness += (r + g + b) / 3;
-      }
-      const avgBrightness = totalBrightness / (data.length / 4);
-      
-      // Update lighting quality (good range: 80-180)
-      setLightingQuality(avgBrightness > 60 && avgBrightness < 200 ? 'good' : 'poor');
-
-      // Analyze focus (improved edge detection for sharpness)
-      let edgeStrength = 0;
-      let edgeCount = 0;
-      const width = canvas.width;
-      const height = canvas.height;
-      
-      // Check both horizontal and vertical edges for better focus detection
-      for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-          const idx = (y * width + x) * 4;
-          const current = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-          
-          // Check horizontal edge
-          const right = (data[idx + 4] + data[idx + 5] + data[idx + 6]) / 3;
-          const horizontalEdge = Math.abs(current - right);
-          
-          // Check vertical edge
-          const below = (data[idx + width * 4] + data[idx + width * 4 + 1] + data[idx + width * 4 + 2]) / 3;
-          const verticalEdge = Math.abs(current - below);
-          
-          const maxEdge = Math.max(horizontalEdge, verticalEdge);
-          if (maxEdge > 10) { // Only count significant edges
-            edgeStrength += maxEdge;
-            edgeCount++;
-          }
-        }
-      }
-      
-      const avgEdgeStrength = edgeCount > 0 ? edgeStrength / edgeCount : 0;
-      
-      // Update focus quality with more reasonable thresholds
-      setFocusQuality(avgEdgeStrength > 25 ? 'good' : 'poor');
-    };
-
-    // Run analysis every 500ms
-    const interval = setInterval(analyzeQuality, 500);
-    
-    // Cleanup interval when component unmounts
-    return () => clearInterval(interval);
-  }, []);
 
   // Capture photo with PWA optimizations
   const capturePhoto = useCallback(async () => {
@@ -401,7 +410,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     
     // Unlock orientation when cleaning up
     if (isPWA && screen.orientation && 'unlock' in screen.orientation) {
-      (screen.orientation as any).unlock();
+      (screen.orientation as ScreenOrientation & { unlock: () => void }).unlock();
     }
     
     // Reset starting flag and quality indicators
@@ -450,24 +459,27 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   // Start camera on mount and cleanup on unmount
   useEffect(() => {
     startCamera();
-    return () => {
-      cleanup();
-    };
-  }, []); // Empty dependency array - only run once on mount
+    return cleanup;
+  }, [startCamera, cleanup]);
 
   return (
     <div className="h-full w-full relative bg-black overflow-hidden">
       {/* Hidden canvas for photo capture */}
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* PWA Status Indicator */}
-      {isPWA && (
-        <div className="absolute top-2 right-2 z-20">
+      {/* Status Indicators */}
+      <div className="absolute top-2 right-2 z-20 flex flex-col gap-2">
+        {isPWA && (
           <div className="bg-green-500 text-white text-xs px-2 py-1 rounded">
             PWA
           </div>
-        </div>
-      )}
+        )}
+        {!stream && (
+          <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
+            {status}
+          </div>
+        )}
+      </div>
       
       {/* Quality Indicators */}
       {stream && (
@@ -508,7 +520,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           height: '100%',
           objectFit: 'cover',
           objectPosition: 'center',
-          transform: 'none',
           transition: 'none',
           touchAction: 'none',
           userSelect: 'none',

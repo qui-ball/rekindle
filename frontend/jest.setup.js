@@ -1,5 +1,45 @@
 import '@testing-library/jest-dom';
 
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(), // deprecated
+    removeListener: jest.fn(), // deprecated
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// Mock screen.orientation for PWA tests
+Object.defineProperty(screen, 'orientation', {
+  writable: true,
+  value: {
+    angle: 0,
+    type: 'portrait-primary',
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    lock: jest.fn().mockResolvedValue(undefined),
+    unlock: jest.fn(),
+  },
+});
+
+// Mock window.orientation for older browsers
+Object.defineProperty(window, 'orientation', {
+  writable: true,
+  value: 0,
+});
+
+// Mock document.referrer for PWA detection
+Object.defineProperty(document, 'referrer', {
+  writable: true,
+  value: '',
+});
+
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}

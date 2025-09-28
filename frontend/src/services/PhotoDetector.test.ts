@@ -26,12 +26,12 @@ const mockImage = {
 // Mock DOM methods
 global.document.createElement = jest.fn((tagName: string) => {
   if (tagName === 'canvas') {
-    return mockCanvas as any;
+    return mockCanvas as HTMLCanvasElement;
   }
   return document.createElement(tagName);
 });
 
-global.Image = jest.fn(() => mockImage) as any;
+global.Image = jest.fn(() => mockImage) as unknown as typeof Image;
 
 describe('PhotoDetector', () => {
   let photoDetector: PhotoDetector;

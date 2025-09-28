@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { CropArea, CropAreaPixels } from './types';
 
 export interface QuadrilateralCropperProps {
@@ -37,6 +38,36 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
   const [quadArea, setQuadArea] = useState<QuadrilateralArea | null>(null);
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Convert rectangular crop area to quadrilateral
+  const convertRectToQuad = useCallback((rect: CropAreaPixels, imageX: number, imageY: number): QuadrilateralArea => {
+    // Only convert if we have valid dimensions
+    if (displayDimensions.width === 0 || imageDimensions.width === 0) {
+      // Return a default quad area if dimensions aren't ready
+      return {
+        topLeft: { x: imageX + 50, y: imageY + 50 },
+        topRight: { x: imageX + 250, y: imageY + 50 },
+        bottomLeft: { x: imageX + 50, y: imageY + 250 },
+        bottomRight: { x: imageX + 250, y: imageY + 250 }
+      };
+    }
+    
+    // Scale the rect coordinates to display coordinates
+    const scaleX = displayDimensions.width / imageDimensions.width;
+    const scaleY = displayDimensions.height / imageDimensions.height;
+    
+    const displayX = imageX + (rect.x * scaleX);
+    const displayY = imageY + (rect.y * scaleY);
+    const displayWidth = rect.width * scaleX;
+    const displayHeight = rect.height * scaleY;
+    
+    return {
+      topLeft: { x: displayX, y: displayY },
+      topRight: { x: displayX + displayWidth, y: displayY },
+      bottomLeft: { x: displayX, y: displayY + displayHeight },
+      bottomRight: { x: displayX + displayWidth, y: displayY + displayHeight }
+    };
+  }, [displayDimensions, imageDimensions]);
 
   // Handle image load and preserve aspect ratio
   const handleImageLoad = useCallback(() => {
@@ -98,37 +129,9 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     
     setQuadArea(defaultQuadArea);
     setImageLoaded(true);
-  }, [initialCropArea]);
+  }, [initialCropArea, convertRectToQuad]);
 
-  // Convert rectangular crop area to quadrilateral
-  const convertRectToQuad = useCallback((rect: CropAreaPixels, imageX: number, imageY: number): QuadrilateralArea => {
-    // Only convert if we have valid dimensions
-    if (displayDimensions.width === 0 || imageDimensions.width === 0) {
-      // Return a default quad area if dimensions aren't ready
-      return {
-        topLeft: { x: imageX + 50, y: imageY + 50 },
-        topRight: { x: imageX + 250, y: imageY + 50 },
-        bottomLeft: { x: imageX + 50, y: imageY + 250 },
-        bottomRight: { x: imageX + 250, y: imageY + 250 }
-      };
-    }
-    
-    // Scale the rect coordinates to display coordinates
-    const scaleX = displayDimensions.width / imageDimensions.width;
-    const scaleY = displayDimensions.height / imageDimensions.height;
-    
-    const displayX = imageX + (rect.x * scaleX);
-    const displayY = imageY + (rect.y * scaleY);
-    const displayWidth = rect.width * scaleX;
-    const displayHeight = rect.height * scaleY;
-    
-    return {
-      topLeft: { x: displayX, y: displayY },
-      topRight: { x: displayX + displayWidth, y: displayY },
-      bottomLeft: { x: displayX, y: displayY + displayHeight },
-      bottomRight: { x: displayX + displayWidth, y: displayY + displayHeight }
-    };
-  }, [displayDimensions, imageDimensions]);
+
 
   // Convert quadrilateral to rectangular crop area for output
   const convertQuadToRect = useCallback((quad: QuadrilateralArea): { area: CropArea; pixels: CropAreaPixels } => {
@@ -304,10 +307,6 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         userSelect: 'none',
         WebkitUserSelect: 'none'
       }}
-      style={{ 
-        left: Math.round(point.x || 0), 
-        top: Math.round(point.y || 0) 
-      }}
       onMouseDown={(e) => handleMouseDown(e, corner)}
       onTouchStart={(e) => handleTouchStart(e, corner)}
     />
@@ -388,20 +387,26 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     <div ref={containerRef} className={containerClasses} style={containerStyle}>
       {/* Image with preserved aspect ratio */}
       <div className="relative w-full h-full">
-        <img
+        <div
           ref={imageRef}
-          src={image}
-          alt="Crop preview"
-          className="absolute object-contain"
+          className="absolute"
           style={{
             left: imagePosition.x,
             top: imagePosition.y,
             width: displayDimensions.width,
             height: displayDimensions.height
           }}
-          onLoad={handleImageLoad}
-          draggable={false}
-        />
+        >
+          <Image
+            src={image}
+            alt="Crop preview"
+            fill
+            className="object-contain"
+            onLoad={handleImageLoad}
+            draggable={false}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        </div>
 
         {/* Quadrilateral Overlay */}
         {imageLoaded && quadArea && (

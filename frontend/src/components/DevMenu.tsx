@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { useState } from 'react';
+// Unused imports removed - component returns null
 
 export const DevMenu: React.FC = () => {
   // Hidden for now - no useful dev tools to show

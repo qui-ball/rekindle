@@ -4,7 +4,7 @@
  * Minimal camera test to debug permission and initialization issues
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 export const SimpleCameraTest: React.FC = () => {
   const [status, setStatus] = useState<string>('Not started');
@@ -12,7 +12,7 @@ export const SimpleCameraTest: React.FC = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       setStatus('Requesting camera access...');
       setError(null);
@@ -75,7 +75,7 @@ export const SimpleCameraTest: React.FC = () => {
       setError(`${error.name}: ${error.message}`);
       setStatus('Failed');
     }
-  };
+  }, []); // No dependencies needed as we only use state setters
 
   const stopCamera = () => {
     if (stream) {
@@ -97,13 +97,16 @@ export const SimpleCameraTest: React.FC = () => {
   // Auto-start for testing
   useEffect(() => {
     startCamera();
-    
+  }, [startCamera]);
+
+  // Cleanup effect for stream
+  useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [stream]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">

@@ -42,14 +42,17 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedCropArea, setDetectedCropArea] = useState<CropAreaPixels | null>(null);
-  const [photoDetector] = useState(() => {
+  const [photoDetector, setPhotoDetector] = useState<PhotoDetector | null>(null);
+
+  // Initialize PhotoDetector only on client-side
+  useEffect(() => {
     try {
-      return new PhotoDetector();
+      setPhotoDetector(new PhotoDetector());
     } catch (error) {
       console.warn('PhotoDetector initialization failed:', error);
-      return null;
+      setPhotoDetector(null);
     }
-  });
+  }, []);
 
   // Handle close - reset state and close modal
   const handleClose = useCallback(() => {
