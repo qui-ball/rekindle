@@ -481,12 +481,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         )}
       </div>
       
-      {/* Quality Indicators - positioned safely inside screen bounds */}
+      {/* Quality Indicators - aligned with capture button center */}
       {stream && (
         <div className={`absolute z-10 transition-all duration-300 ${
           isLandscape 
-            ? 'bottom-6 right-6 flex flex-col gap-2'
-            : 'bottom-24 left-6 flex gap-2'
+            ? 'right-6 top-1/2 transform -translate-y-1/2 translate-y-24 flex flex-col gap-2'
+            : 'bottom-6 left-1/2 transform -translate-x-1/2 -translate-x-24 flex gap-2'
         }`}>
           {/* Lighting Quality Indicator */}
           <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">

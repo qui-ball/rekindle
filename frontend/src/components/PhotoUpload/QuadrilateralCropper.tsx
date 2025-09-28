@@ -86,10 +86,22 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     const containerWidth = containerRect.width || window.innerWidth || 1024;
     const containerHeight = containerRect.height || window.innerHeight || 768;
     
-    // For full-screen mode, use the entire screen without padding for seamless transition
-    const padding = isFullScreen ? 0 : 40;
-    const availableWidth = containerWidth - padding * 2;
-    const availableHeight = containerHeight - padding * 2;
+    // For full-screen mode, maximize image size while ensuring crop corners are accessible
+    let availableWidth, availableHeight;
+    
+    if (isFullScreen) {
+      // Reserve minimal space for UI elements to minimize black bars
+      const bottomUISpace = 80; // Minimal space for buttons
+      const sideMargin = 20; // Minimal side margins for corner handles
+      const topMargin = 20; // Minimal top margin for corner handles
+      
+      availableWidth = containerWidth - (sideMargin * 2);
+      availableHeight = containerHeight - bottomUISpace - topMargin;
+    } else {
+      const padding = 40;
+      availableWidth = containerWidth - padding * 2;
+      availableHeight = containerHeight - padding * 2;
+    }
     
     const imageAspectRatio = naturalWidth / naturalHeight;
     const availableAspectRatio = availableWidth / availableHeight;
@@ -97,16 +109,16 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     let displayWidth, displayHeight;
     
     if (isFullScreen) {
-      // For full-screen mode, fill the entire screen to match camera view
-      // Use object-cover behavior: fill the container and crop if necessary
+      // For full-screen mode, use object-contain behavior for visual continuity
+      // This ensures the user sees exactly what they captured, with crop area always visible
       if (imageAspectRatio > availableAspectRatio) {
-        // Image is wider - fit to height and crop width
-        displayHeight = availableHeight;
-        displayWidth = displayHeight * imageAspectRatio;
-      } else {
-        // Image is taller - fit to width and crop height  
+        // Image is wider - fit to available width, show full image with letterboxing
         displayWidth = availableWidth;
         displayHeight = displayWidth / imageAspectRatio;
+      } else {
+        // Image is taller - fit to available height, show full image with letterboxing
+        displayHeight = availableHeight;
+        displayWidth = displayHeight * imageAspectRatio;
       }
     } else {
       // For non-full-screen mode, use contain behavior with padding
@@ -132,15 +144,28 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     setDisplayDimensions({ width: displayWidth, height: displayHeight });
     setImagePosition({ x: imageX, y: imageY });
     
-    // Set initial quadrilateral area - centered and covering 80% of the image
+    // Set initial quadrilateral area - centered on the image center
     const defaultQuadArea = initialCropArea ? 
       convertRectToQuad(initialCropArea, imageX, imageY) :
-      {
-        topLeft: { x: imageX + displayWidth * 0.1, y: imageY + displayHeight * 0.1 },
-        topRight: { x: imageX + displayWidth * 0.9, y: imageY + displayHeight * 0.1 },
-        bottomLeft: { x: imageX + displayWidth * 0.1, y: imageY + displayHeight * 0.9 },
-        bottomRight: { x: imageX + displayWidth * 0.9, y: imageY + displayHeight * 0.9 }
-      };
+      (() => {
+        // Calculate crop area centered on the image center
+        const imageCenterX = imageX + displayWidth / 2;
+        const imageCenterY = imageY + displayHeight / 2;
+        
+        // Crop area should be 80% of image size, centered on image center
+        const cropWidth = displayWidth * 0.8;
+        const cropHeight = displayHeight * 0.8;
+        
+        const cropHalfWidth = cropWidth / 2;
+        const cropHalfHeight = cropHeight / 2;
+        
+        return {
+          topLeft: { x: imageCenterX - cropHalfWidth, y: imageCenterY - cropHalfHeight },
+          topRight: { x: imageCenterX + cropHalfWidth, y: imageCenterY - cropHalfHeight },
+          bottomLeft: { x: imageCenterX - cropHalfWidth, y: imageCenterY + cropHalfHeight },
+          bottomRight: { x: imageCenterX + cropHalfWidth, y: imageCenterY + cropHalfHeight }
+        };
+      })();
     
     setQuadArea(defaultQuadArea);
     setImageLoaded(true);
