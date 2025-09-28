@@ -19,7 +19,7 @@ import { createPortal } from 'react-dom';
 import { CameraCapture } from './CameraCapture';
 import { QuadrilateralCropper } from './QuadrilateralCropper';
 import { CameraCaptureProps, CropArea, CropAreaPixels } from './types';
-import { PhotoDetector } from '../../services/PhotoDetector';
+import { SmartPhotoDetector } from '../../services/SmartPhotoDetector';
 
 type CaptureState = 'capturing' | 'cropping';
 
@@ -42,16 +42,22 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedCropArea, setDetectedCropArea] = useState<CropAreaPixels | null>(null);
-  const [photoDetector, setPhotoDetector] = useState<PhotoDetector | null>(null);
+  const [smartDetector, setSmartDetector] = useState<SmartPhotoDetector | null>(null);
 
-  // Initialize PhotoDetector only on client-side
+  // Initialize SmartPhotoDetector only on client-side
   useEffect(() => {
-    try {
-      setPhotoDetector(new PhotoDetector());
-    } catch (error) {
-      console.warn('PhotoDetector initialization failed:', error);
-      setPhotoDetector(null);
-    }
+    const initializeDetector = async () => {
+      try {
+        const detector = new SmartPhotoDetector();
+        await detector.initialize();
+        setSmartDetector(detector);
+      } catch (error) {
+        console.warn('SmartPhotoDetector initialization failed:', error);
+        setSmartDetector(null);
+      }
+    };
+
+    initializeDetector();
   }, []);
 
   // Handle close - reset state and close modal
@@ -79,16 +85,22 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
         try {
           let detectedArea;
           
-          if (photoDetector) {
-            // Try to detect photo boundaries
-            const detection = await photoDetector.detectPhotoBoundaries(
+          if (smartDetector && smartDetector.isInitialized()) {
+            // Use JScanify-powered smart detection for professional accuracy
+            const detection = await smartDetector.detectPhotoBoundaries(
               imageData,
               img.naturalWidth,
               img.naturalHeight
             );
             detectedArea = detection.cropArea;
+            
+            // Log detection success for debugging
+            if (detection.detected && detection.confidence > 0.7) {
+              console.log('🎯 Smart photo detection successful with confidence:', detection.confidence);
+            }
           } else {
-            // Fallback to generic crop area when PhotoDetector is not available
+            // Fallback to generic crop area when SmartPhotoDetector is not available
+            console.log('📋 Using fallback crop area - SmartPhotoDetector not ready');
             detectedArea = {
               x: Math.round(img.naturalWidth * 0.1),
               y: Math.round(img.naturalHeight * 0.1),
@@ -130,7 +142,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
       console.error('Error processing captured image:', error);
       onError({ code: 'PROCESSING_ERROR', message: 'Failed to process captured image', name: 'ProcessingError' });
     }
-  }, [photoDetector, onError]);
+  }, [smartDetector, onError]);
 
   // Handle camera errors
   const handleCameraError = useCallback((error: { code: string; message: string; name: string }) => {

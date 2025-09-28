@@ -1,12 +1,5 @@
 // JScanify service for smart photo detection and cropping
 
-// Import jscanify with type assertion to avoid module resolution issues
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const JScanify = require('jscanify') as new () => {
-  findPaperContour(image: unknown): unknown;
-  getCornerPoints(contour: unknown): unknown;
-  extractPaper(image: unknown, cornerPoints: unknown, maxWidth?: number, maxHeight?: number): unknown;
-};
 import type { CornerPoints } from '../types/jscanify';
 import { opencvLoader } from './opencvLoader';
 
@@ -24,8 +17,20 @@ export interface CropAreaPixels {
   height: number;
 }
 
+// JScanify interface for type safety
+interface JScanifyInstance {
+  findPaperContour(image: unknown): unknown;
+  getCornerPoints(contour: unknown): unknown;
+  extractPaper(image: unknown, cornerPoints: unknown, maxWidth?: number, maxHeight?: number): unknown;
+}
+
+// JScanify constructor interface
+interface JScanifyConstructor {
+  new (): JScanifyInstance;
+}
+
 export class JScanifyService {
-  private scanner: InstanceType<typeof JScanify> | null = null;
+  private scanner: JScanifyInstance | null = null;
   private isReady: boolean = false;
 
   constructor() {
@@ -37,27 +42,89 @@ export class JScanifyService {
    */
   async initialize(): Promise<boolean> {
     try {
-      // Ensure OpenCV.js is loaded
+      // Only initialize in browser environment
+      if (typeof window === 'undefined') {
+        throw new Error('JScanify can only be used in browser environment');
+      }
+
+      // Ensure OpenCV.js is loaded first
       if (!opencvLoader.isReady()) {
         await opencvLoader.loadOpenCV();
       }
 
       // Check if OpenCV is available
-      if (typeof window === 'undefined' || !window.cv || !window.cv.Mat) {
+      if (!window.cv || !window.cv.Mat) {
         throw new Error('OpenCV.js not available');
       }
 
-      // Initialize JScanify
-      this.scanner = new JScanify();
-      this.isReady = true;
-      
-      console.log('✅ JScanify initialized successfully');
-      return true;
+      // Try to load JScanify dynamically at runtime
+      try {
+        // Use dynamic import with error handling
+        const JScanifyClass = await this.loadJScanify();
+        if (JScanifyClass) {
+          this.scanner = new JScanifyClass();
+          this.isReady = true;
+          console.log('✅ JScanify initialized successfully');
+          return true;
+        }
+      } catch {
+        // JScanify loading failed
+        console.log('📋 JScanify not available, using fallback detection');
+      }
+
+      // JScanify not available - using fallback mode
+      this.isReady = false;
+      console.log('📋 Photo detection will use generic crop areas');
+      return false;
     } catch (error) {
       console.warn('⚠️ JScanify initialization failed:', error);
       this.isReady = false;
       return false;
     }
+  }
+
+  /**
+   * Dynamically load JScanify browser version at runtime
+   */
+  private async loadJScanify(): Promise<JScanifyConstructor | null> {
+    // This will only be called at runtime in the browser
+    if (typeof window !== 'undefined') {
+      try {
+        // Check if JScanify is already loaded
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window as any).jscanify) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return (window as any).jscanify;
+        }
+
+        // Load JScanify browser version from public directory
+        return new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = '/jscanify.js';
+          script.onload = () => {
+            // JScanify should be available as a global
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((window as any).jscanify) {
+              console.log('✅ JScanify browser version loaded successfully');
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              resolve((window as any).jscanify);
+            } else {
+              console.warn('⚠️ JScanify loaded but not found in global scope');
+              resolve(null);
+            }
+          };
+          script.onerror = (error) => {
+            console.warn('⚠️ Failed to load JScanify browser version:', error);
+            resolve(null);
+          };
+          document.head.appendChild(script);
+        });
+      } catch (error) {
+        console.warn('⚠️ Error loading JScanify:', error);
+        return null;
+      }
+    }
+    return null;
   }
 
   /**

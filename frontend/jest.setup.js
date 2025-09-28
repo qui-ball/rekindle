@@ -123,7 +123,7 @@ global.Worker = class MockWorker {
   terminate() {}
 };
 
-// Mock Canvas and CanvasRenderingContext2D for PhotoDetector
+// Mock Canvas and CanvasRenderingContext2D for SmartPhotoDetector and camera capture
 global.HTMLCanvasElement.prototype.getContext = jest.fn((contextType) => {
   if (contextType === '2d') {
     return {
@@ -151,3 +151,35 @@ global.HTMLCanvasElement.prototype.getContext = jest.fn((contextType) => {
 
 // Mock canvas toDataURL method
 global.HTMLCanvasElement.prototype.toDataURL = jest.fn(() => 'data:image/png;base64,mock-canvas-data');
+
+// Mock TextEncoder/TextDecoder for JScanify
+global.TextEncoder = class TextEncoder {
+  encode(input) {
+    return new Uint8Array(Buffer.from(input, 'utf8'));
+  }
+};
+
+global.TextDecoder = class TextDecoder {
+  decode(input) {
+    return Buffer.from(input).toString('utf8');
+  }
+};
+
+// Mock JScanify module
+jest.mock('jscanify', () => {
+  return jest.fn().mockImplementation(() => ({
+    findPaperContour: jest.fn(),
+    getCornerPoints: jest.fn(),
+    extractPaper: jest.fn()
+  }));
+});
+
+// Mock OpenCV for JScanify
+global.cv = {
+  Mat: jest.fn(),
+  imread: jest.fn(() => ({
+    delete: jest.fn()
+  })),
+  imshow: jest.fn(),
+  waitKey: jest.fn()
+};

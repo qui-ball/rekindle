@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JScanify Test</title>
+</head>
+<body>
+    <h1>JScanify Test</h1>
+    <div id="status">Loading...</div>
+    
+    <script src="/jscanify.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusDiv = document.getElementById('status');
+            
+            if (typeof jscanify !== 'undefined') {
+                statusDiv.innerHTML = '✅ JScanify loaded successfully!<br>Type: ' + typeof jscanify;
+                console.log('JScanify available:', jscanify);
+                
+                // Test creating an instance
+                try {
+                    const scanner = new jscanify();
+                    statusDiv.innerHTML += '<br>✅ JScanify instance created successfully!';
+                    console.log('JScanify instance:', scanner);
+                } catch (error) {
+                    statusDiv.innerHTML += '<br>❌ Error creating JScanify instance: ' + error.message;
+                    console.error('JScanify instance error:', error);
+                }
+            } else {
+                statusDiv.innerHTML = '❌ JScanify not found in global scope';
+                console.error('JScanify not available');
+            }
+        });
+    </script>
+</body>
+</html>

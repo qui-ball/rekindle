@@ -6,7 +6,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: false, // Enable PWA in development for testing
+  disable: process.env.NODE_ENV === 'development', // Disable PWA in development to avoid GenerateSW warnings
   runtimeCaching: [
     {
       urlPattern: /^https?.*/,
@@ -40,20 +40,36 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   // Webpack configuration for JScanify and OpenCV.js
-  webpack: (config, { isServer }) => {
-    // Don't bundle OpenCV.js on the server side
+  webpack: (config, { isServer, dev }) => {
+    // Don't bundle JScanify on the server side
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push('jscanify');
     }
 
-    // Handle large dependencies
+    // Handle Node.js modules that JScanify tries to import
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
       path: false,
       crypto: false,
+      net: false,
+      tls: false,
+      child_process: false,
+      'http-proxy-agent': false,
+      'https-proxy-agent': false,
+      'agent-base': false,
     };
+
+    // Only externalize JScanify's Node.js dependencies in production builds
+    // In development, let webpack handle the bundling for better error messages
+    if (!isServer && !dev) {
+      config.externals = config.externals || [];
+      config.externals.push({
+        'jsdom': 'commonjs jsdom',
+        'canvas': 'commonjs canvas',
+      });
+    }
 
     return config;
   },
