@@ -10,5 +10,5 @@ export interface CameraCaptureModalProps {
   closeOnEscape?: boolean;
   closeOnOutsideClick?: boolean;
   facingMode?: 'user' | 'environment';
-  // aspectRatio removed for native camera behavior
+  aspectRatio?: number; // Default: 4/3 (dynamic: 3/4 mobile portrait, 4/3 mobile landscape/desktop)
 }

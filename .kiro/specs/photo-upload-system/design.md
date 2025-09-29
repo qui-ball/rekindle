@@ -116,28 +116,28 @@ interface PhotoUploadContainerProps {
 ```
 
 #### CameraCapture
-**Purpose:** Native-quality mobile camera interface that matches device camera app behavior
-**Technology:** react-camera-pro with advanced configuration for maximum resolution and native layout behavior
+**Purpose:** Native-quality camera interface with dynamic aspect ratio that matches device camera app behavior
+**Technology:** react-camera-pro with dynamic aspect ratio configuration for native camera app experience
 **Props:**
 ```typescript
 interface CameraCaptureProps {
   onCapture: (imageData: string) => void; // base64 encoded at full resolution
   onError: (error: CameraError) => void;
   facingMode: 'user' | 'environment'; // Default: 'environment'
-  // aspectRatio removed - no constraints for native behavior
+  aspectRatio: number; // Dynamic: 3:4 mobile portrait, 4:3 mobile landscape/desktop
 }
 ```
 
 **Key Features:**
-- Native camera app behavior with no aspect ratio constraints
-- Maximum device resolution capture (4K/8MP+ when available)
-- Portrait mode: capture area fixed at top, controls at bottom (native layout)
-- Landscape mode: capture area fixed at left, controls on right (native layout)
-- Advanced MediaDevices constraints for highest quality
+- Dynamic aspect ratio camera view matching native camera apps (3:4 mobile portrait, 4:3 mobile landscape/desktop)
+- Maximum device resolution capture (4K/8MP+ when available) within dynamic aspect ratio constraints
+- Portrait mode: camera view positioned at top, controls and indicators in bottom area
+- Landscape mode: camera view positioned at left, controls and indicators in right area
+- Advanced MediaDevices constraints for highest quality within dynamic aspect ratio
 - Zero compression or downscaling during capture
-- CSS viewport manipulation for true native full-screen experience
-- Orientation-aware control positioning that doesn't overlap capture area
-- Real-time quality indicators positioned outside main capture zone
+- Native camera app layout with dedicated control areas
+- Orientation-aware repositioning with dynamic aspect ratio adjustment
+- Real-time quality indicators positioned in dedicated control areas
 
 #### CameraCaptureFlow
 **Purpose:** Manages complete camera capture workflow including preview state

@@ -174,7 +174,7 @@ export interface CameraCaptureProps {
   onCapture: (imageData: string) => void; // base64 encoded at full resolution
   onError: (error: CameraError) => void;
   facingMode?: 'user' | 'environment'; // Default: 'environment'
-  // aspectRatio removed - no constraints for native camera behavior
+  aspectRatio?: number; // Default: 4/3 (dynamic: 3/4 mobile portrait, 4/3 mobile landscape/desktop)
 }
 
 

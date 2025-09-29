@@ -113,9 +113,18 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         }
       });
     } else {
-      const padding = 40;
-      availableWidth = containerWidth - padding * 2;
-      availableHeight = containerHeight - padding * 2;
+      // For non-full-screen mode, use the full container size since it's already constrained by CSS
+      // (e.g., aspect-[3/4] class constrains the container to the correct aspect ratio)
+      availableWidth = containerWidth;
+      availableHeight = containerHeight;
+      
+      console.log('🎯 Non-full-screen container dimensions:', {
+        containerWidth,
+        containerHeight,
+        availableWidth,
+        availableHeight,
+        note: 'Using full container size (already constrained by CSS aspect ratio)'
+      });
     }
 
     const imageAspectRatio = naturalWidth / naturalHeight;
@@ -150,22 +159,32 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
       displayHeight = availableHeight;
       console.log('🎯 Full-screen crop view - filling container completely for optimal visibility');
     } else {
-      // For non-full-screen mode, apply the same aspect ratio matching logic
+      // For non-full-screen mode, respect container aspect ratio for visual continuity
+      // but maximize image visibility within those constraints
       const aspectRatioMatch = Math.abs(imageAspectRatio - availableAspectRatio) < 0.2;
       const aspectRatioDifference = Math.abs(imageAspectRatio - availableAspectRatio);
 
-      console.log('🔍 Aspect ratio matching (non-full-screen mode):', {
+      console.log('🔍 Non-full-screen crop view aspect ratio analysis:', {
         imageAspectRatio: imageAspectRatio.toFixed(3),
         availableAspectRatio: availableAspectRatio.toFixed(3),
         difference: aspectRatioDifference.toFixed(3),
-        match: aspectRatioMatch
+        match: aspectRatioMatch,
+        containerDimensions: { width: availableWidth, height: availableHeight }
       });
 
-      // For crop view, always fill the container to maximize visibility
-      // This ensures users can see the entire photo without black bars
+      // For non-full-screen crop view, always fill the available container space
+      // This ensures the image fills the aspect-ratio constrained container (like aspect-[3/4])
+      // while maintaining visual continuity with the camera view
       displayWidth = availableWidth;
       displayHeight = availableHeight;
-      console.log('🎯 Crop view - filling container completely for optimal visibility');
+      console.log('🎯 Non-full-screen crop view - filling constrained container for visual continuity:', {
+        finalDimensions: { width: displayWidth, height: displayHeight },
+        containerDimensions: { width: containerWidth, height: containerHeight },
+        aspectRatios: {
+          image: imageAspectRatio.toFixed(3),
+          container: availableAspectRatio.toFixed(3)
+        }
+      });
     }
 
     // Ensure minimum dimensions
@@ -520,7 +539,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
             src={image}
             alt="Crop preview"
             fill
-            className="object-contain"
+            className="object-cover"
             onLoad={handleImageLoad}
             draggable={false}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

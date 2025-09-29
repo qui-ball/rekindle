@@ -2,12 +2,17 @@
  * CameraCaptureFlow Component
  * 
  * Manages the complete camera capture flow including:
- * 1. Camera capture page
+ * 1. Camera capture page with dynamic aspect ratio layout
  * 2. Direct transition to cropping interface
  * 3. Quadrilateral cropping with corner handles
  * 
  * Features:
- * - Full-screen camera interface
+ * - Dynamic aspect ratio camera interface matching native camera apps
+ * - Mobile Portrait: 3:4 aspect ratio (taller)
+ * - Mobile Landscape: 4:3 aspect ratio (wider)
+ * - Desktop: 4:3 aspect ratio (matches webcams)
+ * - Portrait: camera at top, controls at bottom
+ * - Landscape: camera at left, controls at right
  * - Direct capture to cropping (no preview step)
  * - Mobile touch support for cropping
  * - Automatic photo boundary detection
@@ -43,6 +48,9 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedCropArea, setDetectedCropArea] = useState<CropAreaPixels | null>(null);
   const [smartDetector, setSmartDetector] = useState<SmartPhotoDetector | null>(null);
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [cameraQuality, setCameraQuality] = useState({ lighting: 'analyzing', focus: 'analyzing' });
 
   // Initialize SmartPhotoDetector only on client-side
   useEffect(() => {
@@ -58,6 +66,48 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     };
 
     initializeDetector();
+  }, []);
+
+  // Handle orientation changes and device detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+
+    const detectMobile = () => {
+      // Detect mobile devices using user agent and screen size
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isMobileScreen = window.innerWidth <= 768; // Common mobile breakpoint
+      setIsMobile(isMobileUA || isMobileScreen);
+    };
+
+    // Set initial values
+    handleResize();
+    detectMobile();
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
+
+  // Monitor camera quality from CameraCapture component
+  useEffect(() => {
+    const checkQuality = () => {
+      const windowWithCamera = window as Window & { 
+        cameraQuality?: { lighting: string; focus: string };
+      };
+      if (windowWithCamera.cameraQuality) {
+        setCameraQuality(windowWithCamera.cameraQuality);
+      }
+    };
+
+    const interval = setInterval(checkQuality, 100); // Check every 100ms for responsive updates
+    return () => clearInterval(interval);
   }, []);
 
   // Handle close - reset state and close modal
@@ -217,50 +267,204 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     }
   }, [isOpen, handleKeyDown]);
 
+  // Calculate appropriate aspect ratio based on device and orientation
+  const getAspectRatio = useCallback(() => {
+    if (isMobile) {
+      // Mobile: 3:4 for portrait, 4:3 for landscape
+      return isLandscape ? 4/3 : 3/4;
+    } else {
+      // Desktop: Always 3:4 (more natural for photo capture and restoration)
+      return 3/4;
+    }
+  }, [isMobile, isLandscape]);
+
+  const getAspectRatioClass = useCallback(() => {
+    if (isMobile) {
+      // Mobile: 3:4 for portrait, 4:3 for landscape
+      return isLandscape ? 'aspect-[4/3]' : 'aspect-[3/4]';
+    } else {
+      // Desktop: Always 3:4
+      return 'aspect-[3/4]';
+    }
+  }, [isMobile, isLandscape]);
+
   if (!isOpen) {
     return null;
   }
 
-  const renderCaptureView = () => (
-    <div className="h-screen w-screen bg-gray-900 relative">
-      {/* Title - positioned safely inside screen bounds */}
-      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-10 px-4">
-        <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded shadow-lg">
-          Take Photo
-        </h1>
-      </div>
-      
-      {/* Close button - positioned safely inside screen bounds */}
-      <button
-        onClick={handleClose}
-        className="absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white shadow-lg"
-        aria-label="Close camera"
-      >
-        ✕
-      </button>
+  const renderCaptureView = () => {
+    return (
+      <div className="h-screen w-screen bg-black relative overflow-hidden">
+        {/* Camera View Area - fills screen with dynamic aspect ratio positioning */}
+        <div className={`absolute ${
+          isLandscape 
+            ? 'left-0 top-0 h-full' // Landscape: starts from left edge, full height
+            : 'top-0 left-0 w-full'  // Portrait: starts from top edge, full width
+        } ${getAspectRatioClass()}`}>
+          <CameraCapture
+            onCapture={handleCameraCapture}
+            onError={handleCameraError}
+            facingMode={facingMode}
+            aspectRatio={getAspectRatio()}
+            isLandscape={isLandscape}
+            isMobile={isMobile}
+          />
+        </div>
 
-      {/* Camera Component - Full screen with UI overlaid */}
-      <div className="absolute inset-0">
-        <CameraCapture
-          onCapture={handleCameraCapture}
-          onError={handleCameraError}
-          facingMode={facingMode}
-        />
+        {/* Overlaid Header - centered title and right-aligned close button */}
+        <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
+          <div className="flex-1 flex justify-center">
+            <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded shadow-lg">
+              Take Photo
+            </h1>
+          </div>
+          <button
+            onClick={handleClose}
+            className="w-10 h-10 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white shadow-lg ml-4"
+            aria-label="Close camera"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Control Area - positioned based on orientation */}
+        <div className={`absolute z-20 ${
+          isLandscape 
+            ? 'right-0 top-0 bottom-0 w-32 flex flex-col justify-center items-center' // Landscape: right side, vertical center
+            : 'bottom-0 left-0 right-0 h-32 flex justify-center items-center'        // Portrait: bottom, horizontal center
+        }`}>
+          
+          {/* Quality Indicators - positioned relative to capture button */}
+          <div className={`flex ${
+            isLandscape 
+              ? 'flex-col gap-4 mb-8' // Landscape: vertical stack, above capture button
+              : 'gap-6 mr-20'         // Portrait: horizontal, left of capture button
+          }`}>
+            {/* Lighting Quality Indicator */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+              cameraQuality.lighting === 'good' 
+                ? 'bg-green-500 bg-opacity-70' 
+                : cameraQuality.lighting === 'poor' 
+                  ? 'bg-red-500 bg-opacity-70' 
+                  : 'bg-yellow-500 bg-opacity-70'
+            }`}>
+              <div className="w-4 h-4 text-white text-xs flex items-center justify-center">
+                💡
+              </div>
+            </div>
+            
+            {/* Focus Quality Indicator */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+              cameraQuality.focus === 'good' 
+                ? 'bg-green-500 bg-opacity-70' 
+                : cameraQuality.focus === 'poor' 
+                  ? 'bg-red-500 bg-opacity-70' 
+                  : 'bg-yellow-500 bg-opacity-70'
+            }`}>
+              <div className="w-4 h-4 text-white text-xs flex items-center justify-center">
+                🎯
+              </div>
+            </div>
+          </div>
+
+          {/* Capture Button - color reflects quality status */}
+          <button
+            onClick={() => {
+              // Trigger capture on CameraCapture component via global function
+              const windowWithCapture = window as Window & { triggerCameraCapture?: () => void };
+              if (windowWithCapture.triggerCameraCapture) {
+                windowWithCapture.triggerCameraCapture();
+              }
+            }}
+            className={`w-16 h-16 rounded-full border-4 border-white active:scale-95 
+              flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300 ${
+              cameraQuality.lighting === 'good' && cameraQuality.focus === 'good'
+                ? 'bg-green-500 hover:bg-green-600'  // Both good = green
+                : cameraQuality.lighting === 'poor' || cameraQuality.focus === 'poor'
+                  ? 'bg-red-500 hover:bg-red-600'    // Any poor = red
+                  : 'bg-yellow-500 hover:bg-yellow-600' // Analyzing = yellow
+            }`}
+            aria-label="Capture photo"
+          >
+            <span className="text-white">📷</span>
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderCroppingView = () => {
     if (!capturedImage) return null;
 
     return (
-      <QuadrilateralCropper
-        image={capturedImage}
-        onCropComplete={handleCropComplete}
-        onCancel={handleCropCancel}
-        initialCropArea={detectedCropArea || undefined}
-        isFullScreen={true}
-      />
+      <div className="h-screen w-screen bg-black relative overflow-hidden">
+        {/* Cropping Area - matches camera view aspect ratio for visual continuity */}
+        <div className={`absolute ${
+          isLandscape 
+            ? 'left-0 top-0 h-full' // Landscape: starts from left edge, full height (same as camera)
+            : 'top-0 left-0 w-full'  // Portrait: starts from top edge, full width (same as camera)
+        } ${getAspectRatioClass()}`}>
+          <QuadrilateralCropper
+            image={capturedImage}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+            initialCropArea={detectedCropArea || undefined}
+            isFullScreen={false}
+            alignTop={!isLandscape} // Top align for portrait mode, center for landscape
+          />
+        </div>
+
+        {/* Overlaid Header - same as camera view for continuity */}
+        <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
+          <div className="flex-1 flex justify-center">
+            <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded shadow-lg">
+              Crop Photo
+            </h1>
+          </div>
+          <button
+            onClick={handleCropCancel}
+            className="w-10 h-10 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white shadow-lg ml-4"
+            aria-label="Cancel cropping"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Control Area - positioned based on orientation, same as camera view */}
+        <div className={`absolute z-20 ${
+          isLandscape 
+            ? 'right-0 top-0 bottom-0 w-32 flex flex-col justify-center items-center' // Landscape: right side, vertical center
+            : 'bottom-0 left-0 right-0 h-32 flex justify-center items-center'        // Portrait: bottom, horizontal center
+        }`}>
+          
+          {/* Placeholder for quality indicators (hidden in crop mode) */}
+          <div className={`flex ${
+            isLandscape 
+              ? 'flex-col gap-4 mb-8' // Landscape: vertical stack, above accept button
+              : 'gap-6 mr-20'         // Portrait: horizontal, left of accept button
+          }`}>
+            {/* Empty space to maintain layout consistency */}
+            <div className="w-8 h-8 opacity-0"></div>
+            <div className="w-8 h-8 opacity-0"></div>
+          </div>
+
+          {/* Accept Crop Button - same position as capture button for continuity */}
+          <button
+            onClick={() => {
+              // Trigger crop completion - we'll need to expose this from QuadrilateralCropper
+              // For now, we'll use a simple approach
+              if (detectedCropArea) {
+                handleCropComplete({ x: 0, y: 0, width: 1, height: 1 }, detectedCropArea);
+              }
+            }}
+            className="w-16 h-16 rounded-full border-4 border-white bg-green-500 hover:bg-green-600 active:scale-95 
+              flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300"
+            aria-label="Accept crop"
+          >
+            <span className="text-white">✓</span>
+          </button>
+        </div>
+      </div>
     );
   };
 

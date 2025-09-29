@@ -371,15 +371,15 @@ export const useOpenCVInitialization = () => {
     - Maintain escape key handling and modal dismissal functionality
     - _Requirements: 8.1, 1.6, 1.7_
 
-  - [x] 4.5 Implement native camera quality and layout behavior
-    - Remove all aspect ratio constraints from camera configuration
-    - Implement maximum resolution MediaDevices constraints for highest quality capture
-    - Create native camera layout with fixed capture areas (top in portrait, left in landscape)
-    - Implement advanced CSS viewport manipulation for true full-screen native behavior
-    - Position UI controls outside main capture area to match native camera apps
-    - Add orientation-aware control positioning that adapts seamlessly
-    - Ensure zero compression or downscaling during photo capture
-    - Test across multiple Android and iOS devices for consistent native behavior
+  - [x] 4.5 Implement dynamic aspect ratio camera layout matching native camera apps
+    - Configure camera to use dynamic aspect ratio: 3:4 mobile portrait, 4:3 mobile landscape/desktop
+    - Position camera view at top of screen (portrait) or left of screen (landscape)
+    - Reserve remaining screen space for quality indicators and control buttons
+    - Implement maximum resolution MediaDevices constraints within dynamic aspect ratio
+    - Create native camera layout with dedicated control areas separate from camera view
+    - Add orientation-aware repositioning with dynamic aspect ratio adjustment
+    - Ensure seamless transition from camera capture to cropping interface
+    - Test across multiple Android and iOS devices for consistent native camera app experience
     - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9_
 
 - [ ] 5. Build professional smart cropping with JScanify integration

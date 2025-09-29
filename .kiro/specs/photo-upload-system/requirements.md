@@ -16,9 +16,9 @@ The upload system directly supports our core mission of "bringing memories to li
 
 1. WHEN a user accesses the upload interface on mobile THEN the system SHALL provide a prominent "Take Photo" option
 2. WHEN a user selects "Take Photo" THEN the system SHALL open a full-screen camera interface with back-facing camera as default
-3. WHEN the camera is active THEN the system SHALL fill the entire screen without any aspect ratio constraints, padding, or letterboxing in any orientation
-4. WHEN the camera is active in portrait mode THEN the capture area SHALL remain fixed at the top portion of the screen (similar to native camera apps)
-5. WHEN the camera is active in landscape mode THEN the capture area SHALL remain fixed on the left portion of the screen with the same dimensions as portrait mode
+3. WHEN the camera is active THEN the system SHALL display a dynamic aspect ratio camera view that matches native camera app behavior (3:4 for mobile portrait, 4:3 for mobile landscape and desktop)
+4. WHEN the camera is active in portrait mode THEN the camera view SHALL be positioned at the top portion of the screen with controls and indicators in the remaining bottom area
+5. WHEN the camera is active in landscape mode THEN the camera view SHALL be positioned at the left portion of the screen with controls and indicators in the remaining right area
 6. WHEN the camera is initialized THEN the system SHALL request the highest available resolution from the device camera
 7. WHEN the camera is active THEN the system SHALL use the device's native camera resolution without downscaling or compression
 8. WHEN the camera is active THEN the system SHALL display real-time lighting and focus quality indicators positioned outside the main capture area
@@ -140,12 +140,12 @@ The upload system directly supports our core mission of "bringing memories to li
 
 #### Acceptance Criteria
 
-1. WHEN the camera interface loads THEN the system SHALL match the native camera app's viewport behavior with no aspect ratio limitations
-2. WHEN in portrait orientation THEN the camera view SHALL fill the entire screen with controls positioned at the bottom, mimicking native camera layout
-3. WHEN in landscape orientation THEN the camera view SHALL fill the entire screen with controls positioned on the right side, mimicking native camera layout
+1. WHEN the camera interface loads THEN the system SHALL display a dynamic aspect ratio camera view that matches native camera app proportions (3:4 mobile portrait, 4:3 mobile landscape/desktop)
+2. WHEN in portrait orientation THEN the camera view SHALL occupy the top portion of the screen with controls positioned in the bottom area, mimicking native camera layout
+3. WHEN in landscape orientation THEN the camera view SHALL occupy the left portion of the screen with controls positioned in the right area, mimicking native camera layout
 4. WHEN requesting camera access THEN the system SHALL request the maximum available resolution supported by the device
 5. WHEN capturing a photo THEN the system SHALL use the device's full sensor resolution without any downscaling or quality reduction
 6. WHEN the camera stream is active THEN the system SHALL maintain the same field of view and zoom level as the native camera app
-7. WHEN switching between orientations THEN the camera view SHALL adapt seamlessly without aspect ratio distortion or black bars
+7. WHEN switching between orientations THEN the camera view SHALL dynamically adjust aspect ratio (3:4 portrait, 4:3 landscape) and reposition appropriately (top/left) without distortion
 8. WHEN the photo is captured THEN the system SHALL preserve the original image quality and resolution for processing
 9. IF the device supports multiple camera resolutions THEN the system SHALL automatically select the highest quality option available
