@@ -1,14 +1,15 @@
 /**
  * CameraCapture Component
  * 
- * Native PWA-optimized camera interface with maximum device resolution and native app behavior.
- * Integrated from PWACameraModal with enhanced orientation control and PWA detection.
+ * Native PWA-optimized camera interface with dynamic aspect ratio matching native camera apps.
+ * Designed to fit within a parent container with controls positioned outside the camera view.
  * 
  * Features:
- * - Native camera quality with maximum device resolution
- * - True full-screen behavior like native camera apps
+ * - Dynamic aspect ratio camera view (3:4 mobile portrait, 4:3 mobile landscape/desktop)
+ * - Maximum device resolution within aspect ratio constraints
  * - PWA compatible with iOS and Android optimization
- * - Native camera layout (portrait: controls at bottom, landscape: controls on right)
+ * - Quality indicators positioned within camera view
+ * - Capture button positioned at bottom of camera view
  * - Back camera default for physical photo capture
  * - PWA mode detection and optimization
  * - High-quality JPEG capture (0.95 quality) with no compression
@@ -18,14 +19,21 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { CameraCaptureProps, CameraError } from './types';
 
-export const CameraCapture: React.FC<CameraCaptureProps> = ({
+interface CameraCaptureExtendedProps extends CameraCaptureProps {
+  isLandscape?: boolean;
+  isMobile?: boolean;
+}
+
+export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
   onCapture,
   onError,
-  facingMode = 'environment' // Back camera default
+  facingMode = 'environment', // Back camera default
+  aspectRatio = 3/4 // Default to 3/4 for natural photo capture
+  // isLandscape and isMobile are available for future use
 }) => {
   const [status, setStatus] = useState<string>('Starting camera...');
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isLandscape, setIsLandscape] = useState<boolean>(false);
+
   const [isPWA, setIsPWA] = useState<boolean>(false);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
@@ -35,12 +43,13 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isStartingRef = useRef<boolean>(false);
+  const captureRef = useRef<() => void>();
 
   // Detect PWA mode
   useEffect(() => {
     const checkPWA = () => {
       const isPWAMode = window.matchMedia('(display-mode: standalone)').matches ||
-                       (window.navigator as any).standalone ||
+                       (window.navigator as Navigator & { standalone?: boolean }).standalone ||
                        document.referrer.includes('android-app://');
       setIsPWA(isPWAMode);
       console.log('PWA mode detected:', isPWAMode);
@@ -90,152 +99,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     onError(cameraError);
   }, [onError]);
 
-  // Start camera with PWA optimizations and progressive fallback
-  const startCamera = async () => {
-    // Prevent multiple simultaneous starts
-    if (isStartingRef.current || streamRef.current) {
-      console.log('Camera already starting or started, skipping...');
-      return;
-    }
-    
-    try {
-      isStartingRef.current = true;
-      setStatus('Requesting camera access...');
-      
-      console.log('Starting PWA-optimized camera...');
-      
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera API not supported');
-      }
-      
-      // Progressive fallback constraints - try highest quality first
-      const constraintOptions = [
-        // Try maximum quality first
-        {
-          video: {
-            facingMode,
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 30 }
-          },
-          audio: false
-        },
-        // Fallback to lower resolution
-        {
-          video: {
-            facingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 }
-          },
-          audio: false
-        },
-        // Basic fallback
-        {
-          video: {
-            facingMode,
-            width: { ideal: 640 },
-            height: { ideal: 480 }
-          },
-          audio: false
-        },
-        // Minimal constraints as last resort
-        {
-          video: { facingMode },
-          audio: false
-        }
-      ];
-      
-      let mediaStream: MediaStream | null = null;
-      let lastError: Error | null = null;
-      
-      // Try each constraint set until one works
-      for (let i = 0; i < constraintOptions.length; i++) {
-        const constraints = constraintOptions[i];
-        try {
-          console.log(`Trying camera constraints (attempt ${i + 1}):`, constraints);
-          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-          console.log(`Camera constraints successful on attempt ${i + 1}`);
-          break;
-        } catch (error) {
-          console.warn(`Camera constraints failed on attempt ${i + 1}:`, error);
-          lastError = error as Error;
-          
-          // If this is an OverconstrainedError or TypeError (unsupported constraints), try the next fallback
-          if (error instanceof Error && (
-            error.name === 'OverconstrainedError' || 
-            error.name === 'TypeError' ||
-            error.message.includes('constraints are not supported')
-          )) {
-            continue;
-          }
-          
-          // For other errors (permission, etc.), don't try fallbacks
-          throw error;
-        }
-      }
-      
-      // If all attempts failed, throw the last error
-      if (!mediaStream) {
-        throw lastError || new Error('All camera constraint attempts failed');
-      }
-      
-      console.log('PWA camera stream obtained with progressive fallback');
-      
-      setStream(mediaStream);
-      streamRef.current = mediaStream;
-      setStatus('Camera ready');
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        
-        videoRef.current.onloadedmetadata = () => {
-          console.log('PWA video metadata loaded');
-          setStatus('Camera ready');
-          
-          // Log actual resolution achieved
-          if (videoRef.current) {
-            console.log('Camera initialized with resolution:', 
-              videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
-          }
-          
-          // Try to set zoom to 1x (wide angle) after initialization
-          setInitialZoom();
-          
-          // Start quality analysis
-          startQualityAnalysis();
-          
-          // PWA-specific orientation lock
-          if (isPWA && screen.orientation && 'lock' in screen.orientation) {
-            (screen.orientation as any).lock('any').catch((error: any) => {
-              console.log('PWA orientation lock failed:', error);
-            });
-          }
-        };
-        
-        videoRef.current.onerror = (e) => {
-          console.error('PWA video error:', e);
-          handleCameraError(new Error('Video playback failed'));
-        };
-        
-        try {
-          await videoRef.current.play();
-          console.log('PWA video playing');
-        } catch (playError) {
-          console.warn('PWA autoplay failed:', playError);
-          setStatus('Camera ready (tap to play)');
-        }
-      }
-      
-    } catch (err) {
-      console.error('PWA camera error:', err);
-      const error = err as Error;
-      handleCameraError(error);
-    } finally {
-      isStartingRef.current = false;
-    }
-  };
-
   // Set initial zoom to wide angle (1x)
   const setInitialZoom = useCallback(async () => {
     if (!streamRef.current) return;
@@ -246,17 +109,21 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
       // Check if zoom is supported
       const capabilities = videoTrack.getCapabilities();
-      if (capabilities.zoom) {
-        console.log('Zoom capabilities:', capabilities.zoom);
+      const capabilitiesWithZoom = capabilities as MediaTrackCapabilities & { 
+        zoom?: { min: number; max: number; step: number } 
+      };
+      
+      if ('zoom' in capabilities && capabilitiesWithZoom.zoom) {
+        console.log('Zoom capabilities:', capabilitiesWithZoom.zoom);
         
         // Set zoom to minimum (widest angle)
         await videoTrack.applyConstraints({
           advanced: [{
-            zoom: capabilities.zoom.min || 1.0
-          }]
+            zoom: capabilitiesWithZoom.zoom.min || 1.0
+          } as MediaTrackConstraintSet & { zoom: number }]
         });
         
-        console.log('Zoom set to:', capabilities.zoom.min || 1.0);
+        console.log('Zoom set to:', capabilitiesWithZoom.zoom.min || 1.0);
       } else {
         console.log('Zoom not supported on this device');
       }
@@ -342,6 +209,185 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Start camera with PWA optimizations and progressive fallback
+  const startCamera = useCallback(async () => {
+    // Prevent multiple simultaneous starts
+    if (isStartingRef.current || streamRef.current) {
+      console.log('Camera already starting or started, skipping...');
+      return;
+    }
+    
+    try {
+      isStartingRef.current = true;
+      setStatus('Requesting camera access...');
+      
+      console.log('Starting PWA-optimized camera with aspect ratio:', aspectRatio);
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not supported');
+      }
+      
+      // NATIVE CAMERA CONSTRAINTS: Prioritize specified aspect ratio for native camera app behavior
+      const constraintOptions = [
+        // Try maximum quality with specified aspect ratio
+        {
+          video: {
+            facingMode,
+            width: { ideal: aspectRatio >= 1 ? 1600 : 1200 },
+            height: { ideal: aspectRatio >= 1 ? Math.round(1600 / aspectRatio) : Math.round(1200 * aspectRatio) },
+            aspectRatio: { ideal: aspectRatio },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        },
+        // High quality fallback
+        {
+          video: {
+            facingMode,
+            width: { ideal: aspectRatio >= 1 ? 1280 : 960 },
+            height: { ideal: aspectRatio >= 1 ? Math.round(1280 / aspectRatio) : Math.round(960 * aspectRatio) },
+            aspectRatio: { ideal: aspectRatio },
+            frameRate: { ideal: 30 }
+          },
+          audio: false
+        },
+        // Standard fallback
+        {
+          video: {
+            facingMode,
+            width: { ideal: aspectRatio >= 1 ? 1024 : 768 },
+            height: { ideal: aspectRatio >= 1 ? Math.round(1024 / aspectRatio) : Math.round(768 * aspectRatio) },
+            aspectRatio: { ideal: aspectRatio }
+          },
+          audio: false
+        },
+        // Basic fallback
+        {
+          video: {
+            facingMode,
+            width: { ideal: aspectRatio >= 1 ? 800 : 600 },
+            height: { ideal: aspectRatio >= 1 ? Math.round(800 / aspectRatio) : Math.round(600 * aspectRatio) },
+            aspectRatio: { ideal: aspectRatio }
+          },
+          audio: false
+        },
+        // Minimal constraints as last resort
+        {
+          video: { facingMode },
+          audio: false
+        }
+      ];
+      
+      let mediaStream: MediaStream | null = null;
+      let lastError: Error | null = null;
+      
+      // Try each constraint set until one works
+      for (let i = 0; i < constraintOptions.length; i++) {
+        const constraints = constraintOptions[i];
+        try {
+          console.log(`Trying camera constraints (attempt ${i + 1}):`, constraints);
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          console.log(`✅ Camera constraints successful on attempt ${i + 1} with aspect ratio:`, aspectRatio);
+          break;
+        } catch (error) {
+          console.warn(`Camera constraints failed on attempt ${i + 1}:`, error);
+          lastError = error as Error;
+          
+          // If this is an OverconstrainedError or TypeError (unsupported constraints), try the next fallback
+          if (error instanceof Error && (
+            error.name === 'OverconstrainedError' || 
+            error.name === 'TypeError' ||
+            error.message.includes('constraints are not supported')
+          )) {
+            continue;
+          }
+          
+          // For other errors (permission, etc.), don't try fallbacks
+          throw error;
+        }
+      }
+      
+      // If all attempts failed, throw the last error
+      if (!mediaStream) {
+        throw lastError || new Error('All camera constraint attempts failed');
+      }
+      
+      console.log('PWA camera stream obtained with progressive fallback');
+      
+      setStream(mediaStream);
+      streamRef.current = mediaStream;
+      setStatus('Camera ready');
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        
+        videoRef.current.onloadedmetadata = () => {
+          console.log('PWA video metadata loaded');
+          setStatus('Camera ready');
+          
+          // Log actual resolution and aspect ratio achieved
+          if (videoRef.current) {
+            const width = videoRef.current.videoWidth;
+            const height = videoRef.current.videoHeight;
+            const aspectRatio = width / height;
+            const aspectRatioString = aspectRatio.toFixed(2);
+            
+            console.log('📹 Camera initialized:', {
+              resolution: `${width}x${height}`,
+              aspectRatio: aspectRatioString,
+              aspectRatioType: aspectRatio > 1.7 ? '16:9' : aspectRatio > 1.4 ? '3:2' : '4:3'
+            });
+            
+            // Log if we achieved the desired 4:3 aspect ratio for photo accuracy
+            if (aspectRatio >= 1.25 && aspectRatio <= 1.4) {
+              console.log('✅ Camera using 4:3 aspect ratio - optimal for photo capture accuracy');
+            } else if (aspectRatio > 1.7) {
+              console.warn('⚠️ Camera using 16:9 aspect ratio - cropping interface will show black bars but maintain accuracy');
+            }
+          }
+          
+          // Try to set zoom to 1x (wide angle) after initialization
+          setInitialZoom();
+          
+          // Start quality analysis
+          startQualityAnalysis();
+          
+          // PWA-specific orientation lock
+          if (isPWA && screen.orientation && 'lock' in screen.orientation) {
+            (screen.orientation as ScreenOrientation & { lock: (orientation: string) => Promise<void> })
+              .lock('any').catch((error: Error) => {
+              console.log('PWA orientation lock failed:', error);
+            });
+          }
+        };
+        
+        videoRef.current.onerror = (e) => {
+          console.error('PWA video error:', e);
+          handleCameraError(new Error('Video playback failed'));
+        };
+        
+        try {
+          await videoRef.current.play();
+          console.log('PWA video playing');
+        } catch (playError) {
+          console.warn('PWA autoplay failed:', playError);
+          setStatus('Camera ready (tap to play)');
+        }
+      }
+      
+    } catch (err) {
+      console.error('PWA camera error:', err);
+      const error = err as Error;
+      handleCameraError(error);
+    } finally {
+      isStartingRef.current = false;
+    }
+  }, [facingMode, handleCameraError, isPWA, setInitialZoom, startQualityAnalysis, aspectRatio]);
+
+
+
+
+
   // Capture photo with PWA optimizations
   const capturePhoto = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isCapturing) return;
@@ -357,18 +403,49 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         throw new Error('Canvas context not available');
       }
 
-      // Set canvas to video's native resolution for maximum quality
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Calculate crop dimensions to match desired aspect ratio
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoAspectRatio = videoWidth / videoHeight;
+      
+      let cropWidth, cropHeight, cropX, cropY;
+      
+      if (Math.abs(videoAspectRatio - aspectRatio) < 0.01) {
+        // Video already matches desired aspect ratio
+        cropWidth = videoWidth;
+        cropHeight = videoHeight;
+        cropX = 0;
+        cropY = 0;
+      } else if (videoAspectRatio > aspectRatio) {
+        // Video is wider than desired - crop width
+        cropHeight = videoHeight;
+        cropWidth = Math.round(videoHeight * aspectRatio);
+        cropX = Math.round((videoWidth - cropWidth) / 2);
+        cropY = 0;
+      } else {
+        // Video is taller than desired - crop height
+        cropWidth = videoWidth;
+        cropHeight = Math.round(videoWidth / aspectRatio);
+        cropX = 0;
+        cropY = Math.round((videoHeight - cropHeight) / 2);
+      }
 
-      // Draw the current video frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Set canvas to cropped dimensions
+      canvas.width = cropWidth;
+      canvas.height = cropHeight;
+
+      // Draw the cropped video frame
+      ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
 
       // Convert to high-quality JPEG (0.95 quality for maximum detail)
       const imageData = canvas.toDataURL('image/jpeg', 0.95);
 
-      console.log('PWA photo captured, resolution:', video.videoWidth, 'x', video.videoHeight);
-      console.log('PWA photo size:', Math.round(imageData.length / 1024), 'KB');
+      console.log('📷 Photo captured:');
+      console.log('  Original video:', videoWidth, 'x', videoHeight, `(${videoAspectRatio.toFixed(2)})`);
+      console.log('  Desired aspect ratio:', aspectRatio.toFixed(2));
+      console.log('  Cropped to:', cropWidth, 'x', cropHeight, `(${(cropWidth/cropHeight).toFixed(2)})`);
+      console.log('  Crop area:', `x:${cropX}, y:${cropY}, w:${cropWidth}, h:${cropHeight}`);
+      console.log('  Final size:', Math.round(imageData.length / 1024), 'KB');
       
       onCapture(imageData);
     } catch (error) {
@@ -382,7 +459,26 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [onCapture, onError, isCapturing]);
+  }, [onCapture, onError, isCapturing, aspectRatio]);
+
+  // Expose capture function to parent
+  useEffect(() => {
+    captureRef.current = capturePhoto;
+  }, [capturePhoto]);
+
+  // Expose capture function and quality states globally for parent to access
+  useEffect(() => {
+    const windowWithCamera = window as Window & { 
+      triggerCameraCapture?: () => void;
+      cameraQuality?: { lighting: string; focus: string };
+    };
+    windowWithCamera.triggerCameraCapture = capturePhoto;
+    windowWithCamera.cameraQuality = { lighting: lightingQuality, focus: focusQuality };
+    return () => {
+      delete windowWithCamera.triggerCameraCapture;
+      delete windowWithCamera.cameraQuality;
+    };
+  }, [capturePhoto, lightingQuality, focusQuality]);
 
   // Cleanup camera resources
   const cleanup = useCallback(() => {
@@ -401,7 +497,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     
     // Unlock orientation when cleaning up
     if (isPWA && screen.orientation && 'unlock' in screen.orientation) {
-      (screen.orientation as any).unlock();
+      (screen.orientation as ScreenOrientation & { unlock: () => void }).unlock();
     }
     
     // Reset starting flag and quality indicators
@@ -411,113 +507,44 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
     setFocusQuality('analyzing');
   }, [isPWA]);
 
-  // Handle orientation changes for PWA
-  useEffect(() => {
-    const handleOrientationChange = () => {
-      // In PWA mode, use more sophisticated orientation detection
-      if (isPWA) {
-        const orientation = screen.orientation?.angle || window.orientation || 0;
-        const isCurrentlyLandscape = Math.abs(orientation) === 90;
-        setIsLandscape(isCurrentlyLandscape);
-        console.log('PWA orientation changed:', orientation, 'landscape:', isCurrentlyLandscape);
-      } else {
-        // Fallback for browser mode
-        const isCurrentlyLandscape = window.innerWidth > window.innerHeight;
-        setIsLandscape(isCurrentlyLandscape);
-        console.log('Browser orientation changed, landscape:', isCurrentlyLandscape);
-      }
-    };
 
-    if (isPWA && screen.orientation) {
-      screen.orientation.addEventListener('change', handleOrientationChange);
-    } else {
-      window.addEventListener('resize', handleOrientationChange);
-      window.addEventListener('orientationchange', handleOrientationChange);
-    }
-    
-    handleOrientationChange();
-    
-    return () => {
-      if (isPWA && screen.orientation) {
-        screen.orientation.removeEventListener('change', handleOrientationChange);
-      } else {
-        window.removeEventListener('resize', handleOrientationChange);
-        window.removeEventListener('orientationchange', handleOrientationChange);
-      }
-    };
-  }, [isPWA]);
 
   // Start camera on mount and cleanup on unmount
   useEffect(() => {
     startCamera();
-    return () => {
-      cleanup();
-    };
-  }, []); // Empty dependency array - only run once on mount
+    return cleanup;
+  }, [startCamera, cleanup]);
 
   return (
     <div className="h-full w-full relative bg-black overflow-hidden">
       {/* Hidden canvas for photo capture */}
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* PWA Status Indicator */}
-      {isPWA && (
-        <div className="absolute top-2 right-2 z-20">
-          <div className="bg-green-500 text-white text-xs px-2 py-1 rounded">
-            PWA
-          </div>
-        </div>
-      )}
-      
-      {/* Quality Indicators */}
-      {stream && (
-        <div className={`absolute z-10 transition-all duration-300 ${
-          isLandscape 
-            ? 'bottom-8 right-8 flex flex-col gap-2'
-            : 'bottom-20 left-4 flex gap-2'
-        }`}>
-          {/* Lighting Quality Indicator */}
-          <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
-            <div className={`w-2 h-2 rounded-full ${
-              lightingQuality === 'good' ? 'bg-green-400' : 
-              lightingQuality === 'poor' ? 'bg-red-400' : 'bg-yellow-400'
-            }`}></div>
-            <span>Light</span>
-          </div>
-          
-          {/* Focus Quality Indicator */}
-          <div className="flex items-center gap-1 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs">
-            <div className={`w-2 h-2 rounded-full ${
-              focusQuality === 'good' ? 'bg-green-400' : 
-              focusQuality === 'poor' ? 'bg-red-400' : 'bg-yellow-400'
-            }`}></div>
-            <span>Focus</span>
+      {/* Status indicator - only show when camera is starting */}
+      {!stream && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="bg-blue-500 text-white text-sm px-4 py-2 rounded">
+            {status}
           </div>
         </div>
       )}
 
-      {/* Video - PWA optimized with hardware acceleration */}
+      {/* Video - fills the container completely */}
       <video
         ref={videoRef}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain"
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit: 'contain',
           objectPosition: 'center',
-          transform: 'none',
           transition: 'none',
           touchAction: 'none',
           userSelect: 'none',
-          // PWA-optimized viewport
-          // Enhanced hardware acceleration for PWA
+          // Hardware acceleration for smooth performance
           transform: 'translateZ(0)',
           backfaceVisibility: 'hidden',
           perspective: '1000px',
-          // PWA-specific optimizations
           WebkitTransform: 'translateZ(0)',
           WebkitBackfaceVisibility: 'hidden'
         }}
@@ -529,32 +556,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         onContextMenu={(e) => e.preventDefault()}
       />
 
-      {/* Capture Button - PWA native positioning */}
-      <div className={`absolute z-20 transition-all duration-300 ease-in-out ${
-        isLandscape 
-          ? 'right-8 top-1/2 transform -translate-y-1/2'
-          : 'bottom-8 left-1/2 transform -translate-x-1/2'
-      }`}>
-        <button
-          onClick={capturePhoto}
-          disabled={!stream || isCapturing}
-          className={`
-            w-20 h-20 rounded-full border-4 transition-all duration-200 shadow-2xl
-            flex items-center justify-center text-3xl relative
-            ${!stream || isCapturing
-              ? 'border-gray-400 bg-gray-300 opacity-50 cursor-not-allowed'
-              : 'border-white bg-red-500 hover:bg-red-600 active:scale-95 text-white'
-            }
-          `}
-          aria-label="Capture photo"
-        >
-          {isCapturing ? (
-            <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full"></div>
-          ) : (
-            <span>📷</span>
-          )}
-        </button>
-      </div>
+      {/* Capture loading indicator - shown during capture */}
+      {isCapturing && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black bg-opacity-30">
+          <div className="animate-spin w-8 h-8 border-3 border-white border-t-transparent rounded-full"></div>
+        </div>
+      )}
     </div>
   );
 };

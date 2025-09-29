@@ -1,7 +1,6 @@
 'use client';
 
 import { PhotoUploadContainer } from '@/components/PhotoUpload/PhotoUploadContainer';
-import Link from 'next/link';
 
 export default function HomePage() {
   return (
