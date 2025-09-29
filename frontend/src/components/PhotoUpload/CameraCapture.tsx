@@ -218,34 +218,57 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         throw new Error('Camera API not supported');
       }
       
-      // Progressive fallback constraints - try highest quality first
+      // OPTIMIZED CAMERA CONSTRAINTS: Prioritize 16:9 aspect ratio to minimize black bars
       const constraintOptions = [
-        // Try maximum quality first
+        // Try maximum quality with 16:9 aspect ratio (best for full-screen display)
         {
           video: {
             facingMode,
             width: { ideal: 1920 },
             height: { ideal: 1080 },
+            aspectRatio: { ideal: 16/9 },
             frameRate: { ideal: 30 }
           },
           audio: false
         },
-        // Fallback to lower resolution
+        // High quality 16:9 fallback
         {
           video: {
             facingMode,
             width: { ideal: 1280 },
             height: { ideal: 720 },
+            aspectRatio: { ideal: 16/9 },
             frameRate: { ideal: 30 }
           },
           audio: false
         },
-        // Basic fallback
+        // Medium quality 16:9 fallback
+        {
+          video: {
+            facingMode,
+            width: { ideal: 960 },
+            height: { ideal: 540 },
+            aspectRatio: { ideal: 16/9 }
+          },
+          audio: false
+        },
+        // Standard HD 16:9 fallback
+        {
+          video: {
+            facingMode,
+            width: { ideal: 854 },
+            height: { ideal: 480 },
+            aspectRatio: { ideal: 16/9 }
+          },
+          audio: false
+        },
+        // 4:3 fallback only if 16:9 not supported (older devices)
         {
           video: {
             facingMode,
             width: { ideal: 640 },
-            height: { ideal: 480 }
+            height: { ideal: 480 },
+            aspectRatio: { ideal: 4/3 }
           },
           audio: false
         },
@@ -303,10 +326,23 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           console.log('PWA video metadata loaded');
           setStatus('Camera ready');
           
-          // Log actual resolution achieved
+          // Log actual resolution and aspect ratio achieved
           if (videoRef.current) {
-            console.log('Camera initialized with resolution:', 
-              videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+            const width = videoRef.current.videoWidth;
+            const height = videoRef.current.videoHeight;
+            const aspectRatio = width / height;
+            const aspectRatioString = aspectRatio.toFixed(2);
+            
+            console.log('📹 Camera initialized:', {
+              resolution: `${width}x${height}`,
+              aspectRatio: aspectRatioString,
+              aspectRatioType: aspectRatio > 1.7 ? '16:9' : aspectRatio > 1.4 ? '3:2' : '4:3'
+            });
+            
+            // Log if we're using a 4:3 aspect ratio (which causes more black bars)
+            if (aspectRatio < 1.4) {
+              console.warn('⚠️ Camera using 4:3 aspect ratio - this may cause black bars in cropping interface');
+            }
           }
           
           // Try to set zoom to 1x (wide angle) after initialization

@@ -8,6 +8,7 @@ export interface QuadrilateralCropperProps {
   onCancel?: () => void;
   initialCropArea?: CropAreaPixels;
   isFullScreen?: boolean; // Default: true
+  alignTop?: boolean; // Default: false (center), true for top alignment in portrait mode
 }
 
 interface QuadPoint {
@@ -27,7 +28,8 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
   onCropComplete,
   onCancel,
   initialCropArea,
-  isFullScreen = true
+  isFullScreen = true,
+  alignTop = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -51,16 +53,16 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         bottomRight: { x: imageX + 250, y: imageY + 250 }
       };
     }
-    
+
     // Scale the rect coordinates to display coordinates
     const scaleX = displayDimensions.width / imageDimensions.width;
     const scaleY = displayDimensions.height / imageDimensions.height;
-    
+
     const displayX = imageX + (rect.x * scaleX);
     const displayY = imageY + (rect.y * scaleY);
     const displayWidth = rect.width * scaleX;
     const displayHeight = rect.height * scaleY;
-    
+
     return {
       topLeft: { x: displayX, y: displayY },
       topRight: { x: displayX + displayWidth, y: displayY },
@@ -75,101 +77,178 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
 
     const img = imageRef.current;
     const container = containerRef.current;
-    
+
     // Get actual image dimensions with fallbacks for tests
     const naturalWidth = img.naturalWidth || 800;
     const naturalHeight = img.naturalHeight || 600;
     setImageDimensions({ width: naturalWidth, height: naturalHeight });
-    
+
     // Calculate display dimensions while preserving aspect ratio
     const containerRect = container.getBoundingClientRect();
     const containerWidth = containerRect.width || window.innerWidth || 1024;
     const containerHeight = containerRect.height || window.innerHeight || 768;
-    
-    // For full-screen mode, maximize image size while ensuring crop corners are accessible
+
+    // Calculate available space for image display
     let availableWidth, availableHeight;
-    
+
     if (isFullScreen) {
-      // Reserve minimal space for UI elements to minimize black bars
-      const bottomUISpace = 80; // Minimal space for buttons
-      const sideMargin = 20; // Minimal side margins for corner handles
-      const topMargin = 20; // Minimal top margin for corner handles
-      
+      // MINIMIZE BLACK BARS: Reserve only essential space for UI elements
+      const bottomUISpace = 80; // Space for buttons at bottom
+      const sideMargin = 20;    // Minimal side margins for corner handle accessibility
+      const topMargin = 20;     // Minimal top margin for corner handle accessibility
+
+      // Maximize available space by using minimal margins
       availableWidth = containerWidth - (sideMargin * 2);
       availableHeight = containerHeight - bottomUISpace - topMargin;
+
+      console.log('🎯 Full-screen space calculation:', {
+        containerWidth,
+        containerHeight,
+        availableWidth,
+        availableHeight,
+        reservedSpace: {
+          bottom: bottomUISpace,
+          sides: sideMargin * 2,
+          top: topMargin
+        }
+      });
     } else {
       const padding = 40;
       availableWidth = containerWidth - padding * 2;
       availableHeight = containerHeight - padding * 2;
     }
-    
+
     const imageAspectRatio = naturalWidth / naturalHeight;
     const availableAspectRatio = availableWidth / availableHeight;
-    
+
     let displayWidth, displayHeight;
-    
+
     if (isFullScreen) {
-      // For full-screen mode, use object-contain behavior for visual continuity
-      // This ensures the user sees exactly what they captured, with crop area always visible
-      if (imageAspectRatio > availableAspectRatio) {
-        // Image is wider - fit to available width, show full image with letterboxing
-        displayWidth = availableWidth;
-        displayHeight = displayWidth / imageAspectRatio;
-      } else {
-        // Image is taller - fit to available height, show full image with letterboxing
-        displayHeight = availableHeight;
-        displayWidth = displayHeight * imageAspectRatio;
-      }
+      // PHOTO ACCURACY OPTIMIZATION: Handle 4:3 camera aspect ratio optimally
+      console.log('📐 Aspect ratio analysis:', {
+        imageAspectRatio: imageAspectRatio.toFixed(2),
+        availableAspectRatio: availableAspectRatio.toFixed(2),
+        imageType: imageAspectRatio > 1.7 ? '16:9' : imageAspectRatio > 1.4 ? '3:2' : imageAspectRatio > 1.0 ? '4:3' : imageAspectRatio > 0.7 ? '3:4' : 'other',
+        containerType: availableAspectRatio > 1.7 ? '16:9' : availableAspectRatio > 1.4 ? '3:2' : availableAspectRatio > 1.0 ? '4:3' : '3:4',
+        imageDimensions: { width: naturalWidth, height: naturalHeight },
+        containerDimensions: { width: availableWidth, height: availableHeight }
+      });
+
+      // For 4:3 and 3:4 images (our preferred camera formats), optimize display
+      const is43Image = imageAspectRatio >= 1.2 && imageAspectRatio <= 1.5; // 4:3 landscape (more inclusive)
+      const is34Image = imageAspectRatio >= 0.65 && imageAspectRatio <= 0.85;  // 3:4 portrait (more inclusive)
+      const isCameraFormat = is43Image || is34Image;
+
+      console.log('� Camerra format detection:', {
+        imageAspectRatio: imageAspectRatio.toFixed(3),
+        isCameraFormat: is43Image ? '4:3' : is34Image ? '3:4' : false
+      });
+
+      // For crop view in full-screen mode, always fill the container to maximize visibility
+      // This ensures users can see the entire photo without black bars for accurate cropping
+      displayWidth = availableWidth;
+      displayHeight = availableHeight;
+      console.log('🎯 Full-screen crop view - filling container completely for optimal visibility');
     } else {
-      // For non-full-screen mode, use contain behavior with padding
-      if (imageAspectRatio > availableAspectRatio) {
-        // Image is wider than available space
-        displayWidth = availableWidth;
-        displayHeight = availableWidth / imageAspectRatio;
-      } else {
-        // Image is taller than available space
-        displayHeight = availableHeight;
-        displayWidth = availableHeight * imageAspectRatio;
-      }
+      // For non-full-screen mode, apply the same aspect ratio matching logic
+      const aspectRatioMatch = Math.abs(imageAspectRatio - availableAspectRatio) < 0.2;
+      const aspectRatioDifference = Math.abs(imageAspectRatio - availableAspectRatio);
+
+      console.log('🔍 Aspect ratio matching (non-full-screen mode):', {
+        imageAspectRatio: imageAspectRatio.toFixed(3),
+        availableAspectRatio: availableAspectRatio.toFixed(3),
+        difference: aspectRatioDifference.toFixed(3),
+        match: aspectRatioMatch
+      });
+
+      // For crop view, always fill the container to maximize visibility
+      // This ensures users can see the entire photo without black bars
+      displayWidth = availableWidth;
+      displayHeight = availableHeight;
+      console.log('🎯 Crop view - filling container completely for optimal visibility');
     }
-    
+
     // Ensure minimum dimensions
     displayWidth = Math.max(displayWidth, 200);
     displayHeight = Math.max(displayHeight, 200);
-    
-    // Center the image (for full-screen, this centers the crop area within the larger image)
-    const imageX = (containerWidth - displayWidth) / 2;
-    const imageY = (containerHeight - displayHeight) / 2;
-    
+
+    // CENTER THE IMAGE: Position image in the center of available space
+    let imageX, imageY;
+
+    if (isFullScreen) {
+      // For full-screen, position based on alignTop preference
+      const topMargin = 20;
+      const availableVerticalSpace = containerHeight - 80 - topMargin; // Bottom UI space + top margin
+
+      imageX = (containerWidth - displayWidth) / 2;
+
+      if (alignTop) {
+        // Position at top with small margin
+        imageY = topMargin;
+      } else {
+        // Center vertically in available space
+        imageY = topMargin + (availableVerticalSpace - displayHeight) / 2;
+      }
+
+      console.log('🎯 Image positioning (full-screen):', {
+        containerDimensions: { width: containerWidth, height: containerHeight },
+        displayDimensions: { width: displayWidth, height: displayHeight },
+        imagePosition: { x: imageX, y: imageY },
+        alignTop,
+        margins: { top: topMargin, bottom: 80 }
+      });
+    } else {
+      // For windowed mode, use alignTop preference
+      imageX = (containerWidth - displayWidth) / 2;
+
+      if (alignTop) {
+        // Position at top with small margin
+        imageY = 10;
+      } else {
+        // Center vertically
+        imageY = (containerHeight - displayHeight) / 2;
+      }
+    }
+
     setDisplayDimensions({ width: displayWidth, height: displayHeight });
     setImagePosition({ x: imageX, y: imageY });
-    
-    // Set initial quadrilateral area - centered on the image center
-    const defaultQuadArea = initialCropArea ? 
+
+    // Set initial quadrilateral area - CENTERED ON IMAGE CENTER
+    const defaultQuadArea = initialCropArea ?
       convertRectToQuad(initialCropArea, imageX, imageY) :
       (() => {
-        // Calculate crop area centered on the image center
+        // MATHEMATICAL CENTER: Calculate crop area centered on the exact image center
         const imageCenterX = imageX + displayWidth / 2;
         const imageCenterY = imageY + displayHeight / 2;
-        
-        // Crop area should be 80% of image size, centered on image center
+
+        // Crop area is 80% of image size, perfectly centered
         const cropWidth = displayWidth * 0.8;
         const cropHeight = displayHeight * 0.8;
-        
+
         const cropHalfWidth = cropWidth / 2;
         const cropHalfHeight = cropHeight / 2;
-        
-        return {
+
+        const centeredCropArea = {
           topLeft: { x: imageCenterX - cropHalfWidth, y: imageCenterY - cropHalfHeight },
           topRight: { x: imageCenterX + cropHalfWidth, y: imageCenterY - cropHalfHeight },
           bottomLeft: { x: imageCenterX - cropHalfWidth, y: imageCenterY + cropHalfHeight },
           bottomRight: { x: imageCenterX + cropHalfWidth, y: imageCenterY + cropHalfHeight }
         };
+
+        console.log('📐 Centered crop area calculation:', {
+          imagePosition: { x: imageX, y: imageY },
+          displayDimensions: { width: displayWidth, height: displayHeight },
+          imageCenter: { x: imageCenterX, y: imageCenterY },
+          cropDimensions: { width: cropWidth, height: cropHeight },
+          cropArea: centeredCropArea
+        });
+
+        return centeredCropArea;
       })();
-    
+
     setQuadArea(defaultQuadArea);
     setImageLoaded(true);
-  }, [initialCropArea, convertRectToQuad, isFullScreen]);
+  }, [initialCropArea, convertRectToQuad, isFullScreen, alignTop]);
 
 
 
@@ -180,30 +259,30 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     const maxX = Math.max(quad.topLeft.x, quad.topRight.x, quad.bottomLeft.x, quad.bottomRight.x);
     const minY = Math.min(quad.topLeft.y, quad.topRight.y, quad.bottomLeft.y, quad.bottomRight.y);
     const maxY = Math.max(quad.topLeft.y, quad.topRight.y, quad.bottomLeft.y, quad.bottomRight.y);
-    
+
     // Convert display coordinates to image coordinates
     const scaleX = imageDimensions.width / displayDimensions.width;
     const scaleY = imageDimensions.height / imageDimensions.height;
-    
+
     const imageX = (minX - imagePosition.x) * scaleX;
     const imageY = (minY - imagePosition.y) * scaleY;
     const imageWidth = (maxX - minX) * scaleX;
     const imageHeight = (maxY - minY) * scaleY;
-    
+
     const pixels: CropAreaPixels = {
       x: Math.max(0, Math.round(imageX)),
       y: Math.max(0, Math.round(imageY)),
       width: Math.round(Math.min(imageWidth, imageDimensions.width - imageX)),
       height: Math.round(Math.min(imageHeight, imageDimensions.height - imageY))
     };
-    
+
     const area: CropArea = {
       x: (pixels.x / imageDimensions.width) * 100,
       y: (pixels.y / imageDimensions.height) * 100,
       width: (pixels.width / imageDimensions.width) * 100,
       height: (pixels.height / imageDimensions.height) * 100
     };
-    
+
     return { area, pixels };
   }, [imageDimensions, displayDimensions, imagePosition]);
 
@@ -228,9 +307,9 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
 
     const deltaX = clientX - dragStart.x;
     const deltaY = clientY - dragStart.y;
-    
+
     const newQuadArea = { ...quadArea };
-    
+
     // Update only the dragged corner
     switch (isDragging) {
       case 'topLeft':
@@ -328,9 +407,9 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
   }, [isFullScreen]);
 
   const containerClasses = isFullScreen
-    ? 'fixed inset-0 z-50 bg-black flex items-center justify-center'
-    : 'relative w-full h-96 bg-black rounded-lg overflow-hidden flex items-center justify-center';
-  
+    ? 'fixed inset-0 z-50 bg-black'
+    : 'relative w-full h-full bg-black overflow-hidden';
+
   const containerStyle = isFullScreen ? {
     width: '100vw',
     height: '100vh'
@@ -340,8 +419,8 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     <div
       key={corner}
       className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 transition-colors shadow-lg z-10 touch-none select-none"
-      style={{ 
-        left: Math.round(point.x || 0), 
+      style={{
+        left: Math.round(point.x || 0),
         top: Math.round(point.y || 0),
         touchAction: 'none',
         userSelect: 'none',
@@ -356,12 +435,12 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     // Get container dimensions for proper SVG sizing
     const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
     const containerHeight = containerRef.current?.clientHeight || window.innerHeight;
-    
+
     const points = `${Math.round(quad.topLeft.x)},${Math.round(quad.topLeft.y)} ${Math.round(quad.topRight.x)},${Math.round(quad.topRight.y)} ${Math.round(quad.bottomRight.x)},${Math.round(quad.bottomRight.y)} ${Math.round(quad.bottomLeft.x)},${Math.round(quad.bottomLeft.y)}`;
-    
+
     return (
-      <svg 
-        className="absolute inset-0 pointer-events-none" 
+      <svg
+        className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 5 }}
         width={containerWidth}
         height={containerHeight}
@@ -374,13 +453,13 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
             <polygon points={points} fill="black" />
           </mask>
         </defs>
-        <rect 
-          width="100%" 
-          height="100%" 
-          fill="rgba(0, 0, 0, 0.6)" 
-          mask="url(#cropMask)" 
+        <rect
+          width="100%"
+          height="100%"
+          fill="rgba(0, 0, 0, 0.6)"
+          mask="url(#cropMask)"
         />
-        
+
         {/* Quadrilateral border */}
         <polygon
           points={points}
@@ -389,7 +468,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
           strokeWidth="2"
           strokeDasharray="5,5"
         />
-        
+
         {/* Grid lines inside quadrilateral */}
         <g stroke="#3b82f6" strokeWidth="1" opacity="0.5">
           {/* Horizontal grid lines */}
@@ -452,7 +531,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         {imageLoaded && quadArea && (
           <>
             {renderQuadrilateral(quadArea)}
-            
+
             {/* Corner Handles */}
             {renderCornerHandle('topLeft', quadArea.topLeft)}
             {renderCornerHandle('topRight', quadArea.topRight)}
@@ -473,7 +552,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
             Cancel
           </button>
         )}
-        
+
         <button
           onClick={handleAccept}
           disabled={!quadArea}
