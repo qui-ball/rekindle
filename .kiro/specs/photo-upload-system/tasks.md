@@ -408,7 +408,7 @@ export const useOpenCVInitialization = () => {
     - Cache OpenCV.js in browser for instant subsequent app loads
     - _Requirements: Performance optimization, User experience_
 
-  - [ ] 5.3 Enhance QuadrilateralCropper with JScanify corner points
+  - [x] 5.3 Enhance QuadrilateralCropper with JScanify corner points
     - Modify existing QuadrilateralCropper to accept JScanify corner point format
     - Convert JScanify corner points to quadrilateral crop area coordinates
     - Maintain existing circular draggable corner handles for manual adjustment

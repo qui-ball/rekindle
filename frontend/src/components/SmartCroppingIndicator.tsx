@@ -7,13 +7,20 @@ import { useAppInitialization } from '../hooks/useAppInitialization';
 interface SmartCroppingIndicatorProps {
   show?: boolean;
   className?: string;
+  hasSmartDetection?: boolean;
+  confidence?: number;
 }
 
 export const SmartCroppingIndicator: React.FC<SmartCroppingIndicatorProps> = ({
   show = true,
-  className = ''
+  className = '',
+  hasSmartDetection: propHasSmartDetection,
+  confidence
 }) => {
-  const { status, progress, hasSmartDetection } = useAppInitialization();
+  const { status, progress, hasSmartDetection: hookHasSmartDetection } = useAppInitialization();
+  
+  // Use prop value if provided, otherwise fall back to hook value
+  const hasSmartDetection = propHasSmartDetection !== undefined ? propHasSmartDetection : hookHasSmartDetection;
 
   if (!show) return null;
 
@@ -29,7 +36,14 @@ export const SmartCroppingIndicator: React.FC<SmartCroppingIndicatorProps> = ({
       {status === 'ready' && hasSmartDetection && (
         <div className="flex items-center gap-2 text-green-600">
           <div className="w-3 h-3 bg-green-600 rounded-full"></div>
-          <span>Smart detection ready</span>
+          <span>
+            Smart detection ready
+            {confidence !== undefined && (
+              <span className="ml-2 text-xs opacity-75">
+                ({Math.round(confidence * 100)}% confidence)
+              </span>
+            )}
+          </span>
         </div>
       )}
       

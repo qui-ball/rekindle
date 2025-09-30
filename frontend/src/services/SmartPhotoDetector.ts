@@ -6,10 +6,13 @@
 import { jscanifyService, DetectionResult as JScanifyDetectionResult } from './jscanifyService';
 import { CropAreaPixels } from '../types/upload';
 
+import type { CornerPoints } from '../types/jscanify';
+
 export interface DetectionResult {
   detected: boolean;
   cropArea: CropAreaPixels;
   confidence: number;
+  cornerPoints?: CornerPoints;
 }
 
 /**
@@ -71,7 +74,8 @@ export class SmartPhotoDetector {
       const result: DetectionResult = {
         detected: jscanifyResult.detected,
         cropArea: jscanifyResult.cropArea,
-        confidence: jscanifyResult.confidence
+        confidence: jscanifyResult.confidence,
+        cornerPoints: jscanifyResult.cornerPoints
       };
 
       if (result.detected && result.confidence > 0.7) {
