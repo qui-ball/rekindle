@@ -39,8 +39,14 @@ export class OpenCVLoader {
 
     this.loadPromise = new Promise<void>((resolve, reject) => {
       try {
+        // Check if we're in browser environment
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+          reject(new Error('Not in browser environment'));
+          return;
+        }
+
         // Check if OpenCV is already loaded
-        if (typeof window !== 'undefined' && window.cv && window.cv.Mat) {
+        if (window.cv && window.cv.Mat) {
           this.isLoaded = true;
           this.isLoading = false;
           this.notifyCallbacks({ status: 'ready' });
@@ -52,6 +58,7 @@ export class OpenCVLoader {
         const script = document.createElement('script');
         script.src = 'https://docs.opencv.org/4.7.0/opencv.js';
         script.async = true;
+        script.defer = true;
 
         // Track loading progress (approximate)
         let progressInterval: NodeJS.Timeout;
@@ -99,9 +106,18 @@ export class OpenCVLoader {
           reject(new Error(errorMessage));
         };
 
-        // Start progress tracking and append script
+        // Start progress tracking and append script with error handling
         startProgressTracking();
-        document.head.appendChild(script);
+        try {
+          document.head.appendChild(script);
+        } catch (appendError) {
+          stopProgressTracking();
+          this.isLoading = false;
+          const errorMessage = `Failed to append OpenCV script: ${appendError instanceof Error ? appendError.message : 'Unknown error'}`;
+          this.notifyCallbacks({ status: 'error', error: errorMessage });
+          this.clearCallbacks();
+          reject(new Error(errorMessage));
+        }
 
         // Timeout after 30 seconds
         setTimeout(() => {

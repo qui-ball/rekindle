@@ -7,7 +7,7 @@ describe('OpenCVLoader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset window.cv
-    delete (window as Window & { cv?: unknown }).cv;
+    (window as any).cv = undefined;
     // Create fresh instance for each test
     loader = new OpenCVLoader();
   });

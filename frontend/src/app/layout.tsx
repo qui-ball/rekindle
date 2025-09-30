@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { DevMenu } from '@/components/DevMenu';
+import { AppInitializationProvider } from '@/components/AppInitializationProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -51,8 +52,10 @@ export default function RootLayout({
         <meta name="permissions-policy" content="camera=*, microphone=*, geolocation=*" />
       </head>
       <body className={inter.className}>
-        {children}
-        <DevMenu />
+        <AppInitializationProvider>
+          {children}
+          <DevMenu />
+        </AppInitializationProvider>
       </body>
     </html>
   );

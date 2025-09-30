@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { CropArea, CropAreaPixels } from './types';
+import { SmartCroppingIndicator } from '../SmartCroppingIndicator';
 
 export interface QuadrilateralCropperProps {
   image: string; // base64 or URL
@@ -146,7 +147,6 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
       // For 4:3 and 3:4 images (our preferred camera formats), optimize display
       const is43Image = imageAspectRatio >= 1.2 && imageAspectRatio <= 1.5; // 4:3 landscape (more inclusive)
       const is34Image = imageAspectRatio >= 0.65 && imageAspectRatio <= 0.85;  // 3:4 portrait (more inclusive)
-      const isCameraFormat = is43Image || is34Image;
 
       console.log('� Camerra format detection:', {
         imageAspectRatio: imageAspectRatio.toFixed(3),
@@ -539,7 +539,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
             src={image}
             alt="Crop preview"
             fill
-            className="object-cover"
+            className="object-contain"
             onLoad={handleImageLoad}
             draggable={false}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -558,6 +558,13 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
             {renderCornerHandle('bottomRight', quadArea.bottomRight)}
           </>
         )}
+      </div>
+
+      {/* Smart Detection Status - positioned at top */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+        <div className="bg-black bg-opacity-75 text-white px-3 py-2 rounded-lg">
+          <SmartCroppingIndicator />
+        </div>
       </div>
 
       {/* Controls - positioned safely inside screen bounds */}
