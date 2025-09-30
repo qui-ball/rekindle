@@ -37,10 +37,12 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
     return {"message": "Rekindle API is running", "version": "0.1.0"}
+
 
 @app.get("/health")
 async def health_check():
@@ -48,5 +50,5 @@ async def health_check():
     return {
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
-        "version": "0.1.0"
+        "version": "0.1.0",
     }
