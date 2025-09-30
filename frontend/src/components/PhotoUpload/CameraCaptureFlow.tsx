@@ -47,6 +47,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedCropArea, setDetectedCropArea] = useState<CropAreaPixels | null>(null);
+  const [jscanifyCornerPoints, setJscanifyCornerPoints] = useState<any>(null);
+  const [detectionConfidence, setDetectionConfidence] = useState<number | undefined>(undefined);
   const [smartDetector, setSmartDetector] = useState<SmartPhotoDetector | null>(null);
   const [isLandscape, setIsLandscape] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -144,6 +146,10 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             );
             detectedArea = detection.cropArea;
             
+            // Store JScanify corner points and confidence for QuadrilateralCropper
+            setJscanifyCornerPoints(detection.cornerPoints || null);
+            setDetectionConfidence(detection.confidence);
+            
             // Log detection success for debugging
             if (detection.detected && detection.confidence > 0.7) {
               console.log('🎯 Smart photo detection successful with confidence:', detection.confidence);
@@ -157,6 +163,10 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
               width: Math.round(img.naturalWidth * 0.8),
               height: Math.round(img.naturalHeight * 0.8)
             };
+            
+            // Clear JScanify data for fallback
+            setJscanifyCornerPoints(null);
+            setDetectionConfidence(undefined);
           }
           
           setDetectedCropArea(detectedArea);
@@ -207,6 +217,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const handleCropCancel = useCallback(() => {
     setCapturedImage(null);
     setDetectedCropArea(null);
+    setJscanifyCornerPoints(null);
+    setDetectionConfidence(undefined);
     setCaptureState('capturing');
   }, []);
 
@@ -409,6 +421,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             onCropComplete={handleCropComplete}
             onCancel={handleCropCancel}
             initialCropArea={detectedCropArea || undefined}
+            jscanifyCornerPoints={jscanifyCornerPoints}
+            detectionConfidence={detectionConfidence}
             isFullScreen={false}
             alignTop={!isLandscape} // Top align for portrait mode, center for landscape
           />
