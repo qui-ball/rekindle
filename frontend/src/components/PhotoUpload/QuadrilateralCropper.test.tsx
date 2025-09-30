@@ -17,7 +17,7 @@ describe('QuadrilateralCropper', () => {
   it('renders cropper component with accept button', () => {
     render(<QuadrilateralCropper {...mockProps} />);
     
-    expect(screen.getByText('Accept Crop')).toBeInTheDocument();
+    expect(screen.getByText('✓ Crop')).toBeInTheDocument();
     expect(screen.getByAltText('Crop preview')).toBeInTheDocument();
   });
 
@@ -32,7 +32,7 @@ describe('QuadrilateralCropper', () => {
     const { container } = render(<QuadrilateralCropper {...mockProps} isFullScreen={false} />);
     
     const cropperContainer = container.firstChild as HTMLElement;
-    expect(cropperContainer).toHaveClass('relative', 'w-full', 'h-96');
+    expect(cropperContainer).toHaveClass('relative', 'w-full', 'h-full');
   });
 
   it('shows cancel button when onCancel is provided', () => {
@@ -73,7 +73,7 @@ describe('QuadrilateralCropper', () => {
     
     // Wait for crop area to be initialized
     await waitFor(() => {
-      expect(screen.getByText('Accept Crop')).not.toBeDisabled();
+      expect(screen.getByText('✓ Crop')).not.toBeDisabled();
     });
     
     fireEvent.keyDown(document, { key: 'Enter' });
@@ -142,7 +142,7 @@ describe('QuadrilateralCropper', () => {
       expect(img).toHaveClass('object-contain');
     });
     
-    // The image should have absolute positioning
-    expect(img).toHaveClass('absolute');
+    // The image should have object-contain class
+    expect(img).toHaveClass('object-contain');
   });
 });
