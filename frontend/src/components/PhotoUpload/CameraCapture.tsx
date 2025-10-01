@@ -531,11 +531,11 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
       {/* Video - fills the container completely */}
       <video
         ref={videoRef}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-cover"
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'contain',
+          objectFit: 'cover',
           objectPosition: 'center',
           transition: 'none',
           touchAction: 'none',

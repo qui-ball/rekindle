@@ -21,6 +21,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import NextImage from 'next/image';
 import { CameraCapture } from './CameraCapture';
 import { CameraCaptureProps } from './types';
 import { SmartPhotoDetector } from '../../services/SmartPhotoDetector';
@@ -259,6 +260,49 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     return null;
   }
 
+  // Grid-based control area component - 5x5 grid covering entire Control Area
+  const ControlGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    return (
+      <div className={`fixed z-20 ${
+        isLandscape 
+          ? 'top-0 bottom-0' // Landscape: right side, full height
+          : 'left-0 right-0' // Portrait: bottom, full width
+      }`} style={{
+        // Position Control Area to start exactly where camera view ends
+        // Based on actual testing: camera takes up 70% of screen on mobile
+        // Use fixed positioning to ensure consistent coordinates regardless of content
+        [isLandscape ? 'left' : 'top']: isLandscape 
+          ? '70vw' // Landscape: camera takes 70% of viewport width
+          : '70vh', // Portrait: camera takes 70% of viewport height
+        // Control Area takes remaining space
+        width: isLandscape ? '30vw' : '100vw', // Remaining 30% for landscape, full width for portrait
+        height: isLandscape ? '100vh' : '30vh', // Full height for landscape, remaining 30% for portrait
+        // Control Area styling (no debugging visuals)
+        // Ensure no overflow or cutoff
+        boxSizing: 'border-box',
+        overflow: 'hidden'
+      }}>
+        {/* 5x5 Grid container covering entire Control Area */}
+        <div className={`h-full w-full grid grid-cols-5 grid-rows-5`} style={{
+          // Force full coverage with explicit dimensions
+          height: '100%',
+          width: '100%',
+          minHeight: '100%',
+          minWidth: '100%',
+          // Grid styling (no visual indicators)
+          // Ensure grid items fill their cells exactly
+          gridTemplateRows: 'repeat(5, 1fr)',
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          // Force grid items to fill their cells
+          alignItems: 'stretch',
+          justifyItems: 'stretch'
+        }}>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
   const renderCaptureView = () => {
     return (
       <div className="h-screen w-screen bg-black relative overflow-hidden">
@@ -294,20 +338,29 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           </button>
         </div>
 
-        {/* Control Area - positioned based on orientation */}
-        <div className={`absolute z-20 ${
-          isLandscape 
-            ? 'right-0 top-0 bottom-0 w-32 flex flex-col justify-center items-center' // Landscape: right side, vertical center
-            : 'bottom-0 left-0 right-0 h-32 flex justify-center items-center'        // Portrait: bottom, horizontal center
-        }`}>
+        {/* 5x5 Grid-based Control Area */}
+        <ControlGrid>
+          {/* Empty cells for grid structure */}
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
           
-          {/* Quality Indicators - positioned relative to capture button */}
-          <div className={`flex ${
-            isLandscape 
-              ? 'flex-col gap-4 mb-8' // Landscape: vertical stack, above capture button
-              : 'gap-6 mr-20'         // Portrait: horizontal, left of capture button
-          }`}>
-            {/* Lighting Quality Indicator */}
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          
+          {/* Row 3 - Center row with quality indicators and capture button */}
+          {/* Lighting Quality Indicator - positioned in Row 3, Col 1 (portrait) or Row 5, Col 3 (landscape) */}
+          <div className="flex items-center justify-center relative" style={{ 
+            width: '100%', 
+            height: '100%',
+            gridRow: isLandscape ? '5' : '3',
+            gridColumn: isLandscape ? '3' : '1'
+          }}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
               cameraQuality.lighting === 'good' 
                 ? 'bg-green-500 bg-opacity-70' 
@@ -319,8 +372,15 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
                 💡
               </div>
             </div>
-            
-            {/* Focus Quality Indicator */}
+          </div>
+          
+          {/* Focus Quality Indicator - positioned in Row 3, Col 2 (portrait) or Row 4, Col 3 (landscape) */}
+          <div className="flex items-center justify-center relative" style={{ 
+            width: '100%', 
+            height: '100%',
+            gridRow: isLandscape ? '4' : '3',
+            gridColumn: isLandscape ? '3' : '2'
+          }}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
               cameraQuality.focus === 'good' 
                 ? 'bg-green-500 bg-opacity-70' 
@@ -333,29 +393,51 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Capture Button - color reflects quality status */}
-          <button
-            onClick={() => {
-              // Trigger capture on CameraCapture component via global function
-              const windowWithCapture = window as Window & { triggerCameraCapture?: () => void };
-              if (windowWithCapture.triggerCameraCapture) {
-                windowWithCapture.triggerCameraCapture();
-              }
-            }}
-            className={`w-16 h-16 rounded-full border-4 border-white active:scale-95 
-              flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300 ${
-              cameraQuality.lighting === 'good' && cameraQuality.focus === 'good'
-                ? 'bg-green-500 hover:bg-green-600'  // Both good = green
-                : cameraQuality.lighting === 'poor' || cameraQuality.focus === 'poor'
-                  ? 'bg-red-500 hover:bg-red-600'    // Any poor = red
-                  : 'bg-yellow-500 hover:bg-yellow-600' // Analyzing = yellow
-            }`}
-            aria-label="Capture photo"
-          >
-            <span className="text-white">📷</span>
-          </button>
-        </div>
+          
+          {/* Capture Button - positioned in Row 3, Col 3 (center) */}
+          <div className="flex items-center justify-center relative" style={{ 
+            width: '100%', 
+            height: '100%',
+            gridRow: isLandscape ? '3' : '3',
+            gridColumn: isLandscape ? '3' : '3'
+          }}>
+            <button
+              onClick={() => {
+                // Trigger capture on CameraCapture component via global function
+                const windowWithCapture = window as Window & { triggerCameraCapture?: () => void };
+                if (windowWithCapture.triggerCameraCapture) {
+                  windowWithCapture.triggerCameraCapture();
+                }
+              }}
+              className={`w-16 h-16 rounded-full border-4 border-white active:scale-95 
+                flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300 ${
+                cameraQuality.lighting === 'good' && cameraQuality.focus === 'good'
+                  ? 'bg-green-500 hover:bg-green-600'  // Both good = green
+                  : cameraQuality.lighting === 'poor' || cameraQuality.focus === 'poor'
+                    ? 'bg-red-500 hover:bg-red-600'    // Any poor = red
+                    : 'bg-yellow-500 hover:bg-yellow-600' // Analyzing = yellow
+              }`}
+              aria-label="Capture photo"
+            >
+              <span className="text-white">📷</span>
+            </button>
+          </div>
+          
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+          <div style={{ width: '100%', height: '100%' }}></div>
+        </ControlGrid>
       </div>
     );
   };
@@ -376,7 +458,15 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           {detectionResult && (detectionResult.detected || detectionResult.cornerPoints) ? (
             <SmartCroppingInterface
               image={capturedImage}
-              detectionResult={detectionResult}
+              detectionResult={{
+                ...detectionResult,
+                cornerPoints: detectionResult.cornerPoints ? {
+                  topLeft: detectionResult.cornerPoints.topLeftCorner,
+                  topRight: detectionResult.cornerPoints.topRightCorner,
+                  bottomLeft: detectionResult.cornerPoints.bottomLeftCorner,
+                  bottomRight: detectionResult.cornerPoints.bottomRightCorner
+                } : undefined
+              }}
               onCropComplete={handleCropComplete}
               onCancel={handleClose}
               isLandscape={isLandscape}
@@ -384,10 +474,12 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
               isMobile={isMobile}
             />
           ) : (
-            <img
+            <NextImage
               src={capturedImage}
               alt="Captured photo preview"
-              className="w-full h-full object-contain"
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           )}
         </div>
@@ -418,43 +510,70 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           </div>
         )}
 
-
-
-        {/* Control Area - positioned based on orientation, same as camera view */}
-        <div className={`absolute z-20 ${
-          isLandscape 
-            ? 'right-0 top-0 bottom-0 w-32 flex flex-col justify-center items-center' // Landscape: right side, vertical center
-            : 'bottom-0 left-0 right-0 h-32 flex justify-center items-center'        // Portrait: bottom, horizontal center
-        }`}>
-          
-          {/* Retake and Accept buttons - only show if not in smart crop mode */}
-          {(!detectionResult || (!detectionResult.detected && !detectionResult.cornerPoints)) && (
-            <div className={`flex ${
-              isLandscape 
-                ? 'flex-col gap-4 mb-8' // Landscape: vertical stack, above accept button
-                : 'gap-6 mr-20'         // Portrait: horizontal, left of accept button
-            }`}>
-              {/* Retake Button */}
+        {/* 5x5 Grid-based Control Area - always show */}
+        <ControlGrid>
+            {/* Empty cells for grid structure */}
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            
+            {/* Row 3 - Center row with retake and accept buttons */}
+            {/* Retake Button - positioned in Row 3, Col 2 (portrait) or Row 4, Col 3 (landscape) */}
+            <div className="flex items-center justify-center relative" style={{ 
+              width: '100%', 
+              height: '100%',
+              gridRow: isLandscape ? '4' : '3',
+              gridColumn: isLandscape ? '3' : '2'
+            }}>
               <button
                 onClick={handlePreviewRetake}
-                className="w-10 h-10 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white shadow-lg"
+                className="w-12 h-12 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white shadow-lg transition-all duration-300"
                 aria-label="Retake photo"
               >
-                ↶
+                <span className="text-lg">↶</span>
               </button>
             </div>
-          )}
-
-          {/* Accept Photo Button - same position as capture button for continuity */}
-          <button
-            onClick={handlePreviewAccept}
-            className="w-16 h-16 rounded-full border-4 border-white bg-green-500 hover:bg-green-600 active:scale-95 
-              flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300"
-            aria-label="Accept photo"
-          >
-            <span className="text-white">✓</span>
-          </button>
-        </div>
+            
+            {/* Accept Button - positioned in Row 3, Col 3 (portrait and landscape) */}
+            <div className="flex items-center justify-center relative" style={{ 
+              width: '100%', 
+              height: '100%',
+              gridRow: '3',
+              gridColumn: '3'
+            }}>
+              <button
+                onClick={handlePreviewAccept}
+                className="w-16 h-16 rounded-full border-4 border-white bg-green-500 hover:bg-green-600 active:scale-95 
+                  flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300"
+                aria-label="Accept photo"
+              >
+                <span className="text-white">✓</span>
+              </button>
+            </div>
+            
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+            <div style={{ width: '100%', height: '100%' }}></div>
+          </ControlGrid>
       </div>
     );
   };

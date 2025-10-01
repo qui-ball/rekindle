@@ -460,40 +460,6 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
         )}
       </div>
 
-      {/* Control Area */}
-      <div className={`absolute z-20 ${
-        isLandscape 
-          ? 'right-0 top-0 bottom-0 w-32 flex flex-col justify-center items-center'
-          : 'bottom-0 left-0 right-0 h-32 flex justify-center items-center'
-      }`}>
-        
-        {/* Cancel and Accept buttons */}
-        <div className={`flex ${
-          isLandscape 
-            ? 'flex-col gap-4 mb-8'
-            : 'gap-6 mr-20'
-        }`}>
-          {/* Cancel Button */}
-          <button
-            onClick={onCancel}
-            className="w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-lg"
-            aria-label="Cancel cropping"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Accept Crop Button */}
-        <button
-          onClick={handleCropComplete}
-          disabled={!cropArea}
-          className="w-16 h-16 rounded-full border-4 border-white bg-green-500 hover:bg-green-600 active:scale-95 
-            flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300"
-          aria-label="Accept crop"
-        >
-          <span className="text-white">✓</span>
-        </button>
-      </div>
     </div>
   );
 };
