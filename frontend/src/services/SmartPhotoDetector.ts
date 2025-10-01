@@ -57,13 +57,9 @@ export class SmartPhotoDetector {
     imageWidth: number,
     imageHeight: number
   ): Promise<DetectionResult> {
-    if (!this.isReady || !jscanifyService.isInitialized()) {
-      console.log('📋 SmartPhotoDetector not ready, using fallback crop area');
-      return this.getFallbackCropArea(imageWidth, imageHeight);
-    }
 
     try {
-      // Use JScanify service for professional detection
+      // Always try JScanify service - let it handle its own fallbacks
       const jscanifyResult: JScanifyDetectionResult = await jscanifyService.detectPhotoBoundaries(
         imageData,
         imageWidth,
@@ -78,15 +74,10 @@ export class SmartPhotoDetector {
         cornerPoints: jscanifyResult.cornerPoints
       };
 
-      if (result.detected && result.confidence > 0.7) {
-        console.log('🎯 Smart detection successful with confidence:', result.confidence);
-      } else {
-        console.log('📋 Smart detection low confidence, using result anyway');
-      }
 
       return result;
     } catch (error) {
-      console.error('❌ Smart detection error:', error);
+      console.error('❌ SmartPhotoDetector error:', error);
       return this.getFallbackCropArea(imageWidth, imageHeight);
     }
   }

@@ -1,32 +1,32 @@
 /**
  * CameraCaptureFlow Component
  * 
- * Manages the complete camera capture flow including:
+ * Manages the camera capture flow:
  * 1. Camera capture page with dynamic aspect ratio layout
- * 2. Direct transition to cropping interface
- * 3. Quadrilateral cropping with corner handles
+ * 2. Smart photo detection using JScanify
+ * 3. Photo preview with accept/retake options
+ * 4. Direct capture to full image (no cropping)
  * 
  * Features:
  * - Dynamic aspect ratio camera interface matching native camera apps
- * - Mobile Portrait: 3:4 aspect ratio (taller)
- * - Mobile Landscape: 4:3 aspect ratio (wider)
- * - Desktop: 4:3 aspect ratio (matches webcams)
+ * - Portrait: 3:4 aspect ratio (taller) - both mobile and desktop
+ * - Landscape: 4:3 aspect ratio (wider) - both mobile and desktop
  * - Portrait: camera at top, controls at bottom
  * - Landscape: camera at left, controls at right
- * - Direct capture to cropping (no preview step)
- * - Mobile touch support for cropping
- * - Automatic photo boundary detection
+ * - Smart photo boundary detection using JScanify
+ * - Photo preview with detection results
+ * - Quality indicators for lighting and focus
  * - Proper cancel handling
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CameraCapture } from './CameraCapture';
-import { QuadrilateralCropper } from './QuadrilateralCropper';
-import { CameraCaptureProps, CropArea, CropAreaPixels } from './types';
+import { CameraCaptureProps } from './types';
 import { SmartPhotoDetector } from '../../services/SmartPhotoDetector';
+import { SmartCroppingInterface } from './SmartCroppingInterface';
 
-type CaptureState = 'capturing' | 'cropping';
+type CaptureState = 'capturing' | 'preview';
 
 interface CameraCaptureFlowProps extends Omit<CameraCaptureProps, 'onCapture'> {
   isOpen: boolean;
@@ -46,10 +46,27 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
 }) => {
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [detectedCropArea, setDetectedCropArea] = useState<CropAreaPixels | null>(null);
-  const [jscanifyCornerPoints, setJscanifyCornerPoints] = useState<any>(null);
-  const [detectionConfidence, setDetectionConfidence] = useState<number | undefined>(undefined);
   const [smartDetector, setSmartDetector] = useState<SmartPhotoDetector | null>(null);
+  const [detectionResult, setDetectionResult] = useState<{
+    detected: boolean;
+    confidence: number;
+    cropArea: { x: number; y: number; width: number; height: number };
+    cornerPoints?: {
+      topLeftCorner: { x: number; y: number };
+      topRightCorner: { x: number; y: number };
+      bottomLeftCorner: { x: number; y: number };
+      bottomRightCorner: { x: number; y: number };
+    };
+    source?: 'jscanify' | 'fallback' | 'generic';
+    metrics?: {
+      areaRatio: number;
+      edgeRatio: number;
+      minDistance: number;
+      imageSize: string;
+      detectedSize: string;
+    };
+  } | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cameraQuality, setCameraQuality] = useState({ lighting: 'analyzing', focus: 'analyzing' });
@@ -62,7 +79,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
         await detector.initialize();
         setSmartDetector(detector);
       } catch (error) {
-        console.warn('SmartPhotoDetector initialization failed:', error);
+        console.warn('⚠️ SmartPhotoDetector initialization failed:', error);
         setSmartDetector(null);
       }
     };
@@ -126,83 +143,55 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     }
   }, [closeOnEscape, handleClose]);
 
-  // Handle camera capture - move directly to cropping with photo detection
+  // Handle camera capture - go to preview state with smart detection
   const handleCameraCapture = useCallback(async (imageData: string) => {
     setCapturedImage(imageData);
     
-    try {
-      // Create a temporary image to get dimensions
-      const img = new Image();
-      img.onload = async () => {
-        try {
-          let detectedArea;
-          
-          if (smartDetector && smartDetector.isInitialized()) {
-            // Use JScanify-powered smart detection for professional accuracy
+    // Always try smart detection if detector exists (let it handle its own fallbacks)
+    if (smartDetector) {
+      try {
+        setIsDetecting(true);
+        
+        // Create a temporary image to get dimensions
+        const img = new Image();
+        img.onload = async () => {
+          try {
             const detection = await smartDetector.detectPhotoBoundaries(
               imageData,
               img.naturalWidth,
               img.naturalHeight
             );
-            detectedArea = detection.cropArea;
             
-            // Store JScanify corner points and confidence for QuadrilateralCropper
-            setJscanifyCornerPoints(detection.cornerPoints || null);
-            setDetectionConfidence(detection.confidence);
-            
-            // Log detection success for debugging
-            if (detection.detected && detection.confidence > 0.7) {
-              console.log('🎯 Smart photo detection successful with confidence:', detection.confidence);
-            }
-          } else {
-            // Fallback to generic crop area when SmartPhotoDetector is not available
-            console.log('📋 Using fallback crop area - SmartPhotoDetector not ready');
-            detectedArea = {
-              x: Math.round(img.naturalWidth * 0.1),
-              y: Math.round(img.naturalHeight * 0.1),
-              width: Math.round(img.naturalWidth * 0.8),
-              height: Math.round(img.naturalHeight * 0.8)
-            };
-            
-            // Clear JScanify data for fallback
-            setJscanifyCornerPoints(null);
-            setDetectionConfidence(undefined);
+            setDetectionResult(detection);
+          } catch (error) {
+            console.error('❌ Smart detection failed:', error);
+            setDetectionResult(null);
+          } finally {
+            setIsDetecting(false);
+            setCaptureState('preview');
           }
-          
-          setDetectedCropArea(detectedArea);
-          setCaptureState('cropping');
-        } catch (error) {
-          console.error('Photo detection failed:', error);
-          // Fallback to generic crop area
-          setDetectedCropArea({
-            x: Math.round(img.naturalWidth * 0.1),
-            y: Math.round(img.naturalHeight * 0.1),
-            width: Math.round(img.naturalWidth * 0.8),
-            height: Math.round(img.naturalHeight * 0.8)
-          });
-          setCaptureState('cropping');
-        }
-      };
-      
-      // Handle image load error
-      img.onerror = () => {
-        console.error('Failed to load captured image');
-        // Still proceed to cropping with default area
-        setDetectedCropArea({
-          x: 50,
-          y: 50,
-          width: 200,
-          height: 200
-        });
-        setCaptureState('cropping');
-      };
-      
-      img.src = imageData;
-    } catch (error) {
-      console.error('Error processing captured image:', error);
-      onError({ code: 'PROCESSING_ERROR', message: 'Failed to process captured image', name: 'ProcessingError' });
+        };
+        
+        img.onerror = () => {
+          console.error('❌ Failed to load image for detection');
+          setDetectionResult(null);
+          setIsDetecting(false);
+          setCaptureState('preview');
+        };
+        
+        img.src = imageData;
+      } catch (error) {
+        console.error('❌ Smart detection error:', error);
+        setDetectionResult(null);
+        setIsDetecting(false);
+        setCaptureState('preview');
+      }
+    } else {
+      console.log('📋 SmartPhotoDetector not available - skipping detection');
+      setDetectionResult(null);
+      setCaptureState('preview');
     }
-  }, [smartDetector, onError]);
+  }, [smartDetector]);
 
   // Handle camera errors
   const handleCameraError = useCallback((error: { code: string; message: string; name: string }) => {
@@ -213,52 +202,27 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     }
   }, [onError, handleClose]);
 
-  // Handle crop cancellation - go back to capturing
-  const handleCropCancel = useCallback(() => {
+  // Handle preview actions
+  const handlePreviewAccept = useCallback(() => {
+    if (capturedImage) {
+      console.log('✅ Preview accepted - submitting full image');
+      onCapture(capturedImage);
+      handleClose();
+    }
+  }, [capturedImage, onCapture, handleClose]);
+
+  const handlePreviewRetake = useCallback(() => {
+    console.log('🔄 Retaking photo - returning to camera');
     setCapturedImage(null);
-    setDetectedCropArea(null);
-    setJscanifyCornerPoints(null);
-    setDetectionConfidence(undefined);
+    setDetectionResult(null);
     setCaptureState('capturing');
   }, []);
 
-  // Handle crop completion
-  const handleCropComplete = useCallback(async (croppedArea: CropArea, croppedAreaPixels: CropAreaPixels) => {
-    if (!capturedImage) return;
-
-    try {
-      // Apply crop to the image using canvas
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const image = new Image();
-
-      image.onload = () => {
-        canvas.width = croppedAreaPixels.width;
-        canvas.height = croppedAreaPixels.height;
-
-        ctx?.drawImage(
-          image,
-          croppedAreaPixels.x,
-          croppedAreaPixels.y,
-          croppedAreaPixels.width,
-          croppedAreaPixels.height,
-          0,
-          0,
-          croppedAreaPixels.width,
-          croppedAreaPixels.height
-        );
-
-        const croppedImageData = canvas.toDataURL('image/jpeg', 0.9);
-        onCapture(croppedImageData);
-        handleClose();
-      };
-
-      image.src = capturedImage;
-    } catch (error) {
-      console.error('Error cropping image:', error);
-      onError({ code: 'CROP_ERROR', message: 'Failed to crop image', name: 'CropError' });
-    }
-  }, [capturedImage, onCapture, handleClose, onError]);
+  const handleCropComplete = useCallback((croppedImageData: string) => {
+    console.log('✅ Crop completed - submitting cropped image');
+    onCapture(croppedImageData);
+    handleClose();
+  }, [onCapture, handleClose]);
 
 
 
@@ -281,24 +245,15 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
 
   // Calculate appropriate aspect ratio based on device and orientation
   const getAspectRatio = useCallback(() => {
-    if (isMobile) {
-      // Mobile: 3:4 for portrait, 4:3 for landscape
-      return isLandscape ? 4/3 : 3/4;
-    } else {
-      // Desktop: Always 3:4 (more natural for photo capture and restoration)
-      return 3/4;
-    }
-  }, [isMobile, isLandscape]);
+    // Use more flexible aspect ratios that work better with actual camera hardware
+    // Desktop cameras often don't support exact 3:4 ratios, so we use more common ratios
+    return isLandscape ? 4/3 : 3/4; // Keep the target ratio, but let the camera use its native ratio
+  }, [isLandscape]);
 
   const getAspectRatioClass = useCallback(() => {
-    if (isMobile) {
-      // Mobile: 3:4 for portrait, 4:3 for landscape
-      return isLandscape ? 'aspect-[4/3]' : 'aspect-[3/4]';
-    } else {
-      // Desktop: Always 3:4
-      return 'aspect-[3/4]';
-    }
-  }, [isMobile, isLandscape]);
+    // Both mobile and desktop: 3:4 for portrait, 4:3 for landscape
+    return isLandscape ? 'aspect-[4/3]' : 'aspect-[3/4]';
+  }, [isLandscape]);
 
   if (!isOpen) {
     return null;
@@ -405,44 +360,65 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     );
   };
 
-  const renderCroppingView = () => {
+  // Removed separate cropping view - integrated into preview
+
+  const renderPreviewView = () => {
     if (!capturedImage) return null;
 
     return (
       <div className="h-screen w-screen bg-black relative overflow-hidden">
-        {/* Cropping Area - matches camera view aspect ratio for visual continuity */}
+        {/* Preview Image with Smart Cropping - matches camera view aspect ratio for visual continuity */}
         <div className={`absolute ${
           isLandscape 
             ? 'left-0 top-0 h-full' // Landscape: starts from left edge, full height (same as camera)
             : 'top-0 left-0 w-full'  // Portrait: starts from top edge, full width (same as camera)
         } ${getAspectRatioClass()}`}>
-          <QuadrilateralCropper
-            image={capturedImage}
-            onCropComplete={handleCropComplete}
-            onCancel={handleCropCancel}
-            initialCropArea={detectedCropArea || undefined}
-            jscanifyCornerPoints={jscanifyCornerPoints}
-            detectionConfidence={detectionConfidence}
-            isFullScreen={false}
-            alignTop={!isLandscape} // Top align for portrait mode, center for landscape
-          />
+          {detectionResult && (detectionResult.detected || detectionResult.cornerPoints) ? (
+            <SmartCroppingInterface
+              image={capturedImage}
+              detectionResult={detectionResult}
+              onCropComplete={handleCropComplete}
+              onCancel={handleClose}
+              isLandscape={isLandscape}
+              aspectRatio={getAspectRatio()}
+              isMobile={isMobile}
+            />
+          ) : (
+            <img
+              src={capturedImage}
+              alt="Captured photo preview"
+              className="w-full h-full object-contain"
+            />
+          )}
         </div>
 
-        {/* Overlaid Header - same as camera view for continuity */}
+        {/* Overlaid Header - centered title and right-aligned close button */}
         <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
           <div className="flex-1 flex justify-center">
             <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded shadow-lg">
-              Crop Photo
+              {detectionResult && (detectionResult.detected || detectionResult.cornerPoints) ? 'Smart Crop' : 'Photo Preview'}
             </h1>
           </div>
           <button
-            onClick={handleCropCancel}
+            onClick={handleClose}
             className="w-10 h-10 rounded-full bg-black bg-opacity-70 hover:bg-opacity-90 flex items-center justify-center text-white shadow-lg ml-4"
-            aria-label="Cancel cropping"
+            aria-label="Close preview"
           >
             ✕
           </button>
         </div>
+
+        {/* Smart Detection Status */}
+        {isDetecting && (
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20">
+            <div className="bg-blue-500 bg-opacity-90 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm font-medium">Analyzing photo...</span>
+            </div>
+          </div>
+        )}
+
+
 
         {/* Control Area - positioned based on orientation, same as camera view */}
         <div className={`absolute z-20 ${
@@ -451,29 +427,30 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             : 'bottom-0 left-0 right-0 h-32 flex justify-center items-center'        // Portrait: bottom, horizontal center
         }`}>
           
-          {/* Placeholder for quality indicators (hidden in crop mode) */}
-          <div className={`flex ${
-            isLandscape 
-              ? 'flex-col gap-4 mb-8' // Landscape: vertical stack, above accept button
-              : 'gap-6 mr-20'         // Portrait: horizontal, left of accept button
-          }`}>
-            {/* Empty space to maintain layout consistency */}
-            <div className="w-8 h-8 opacity-0"></div>
-            <div className="w-8 h-8 opacity-0"></div>
-          </div>
+          {/* Retake and Accept buttons - only show if not in smart crop mode */}
+          {(!detectionResult || (!detectionResult.detected && !detectionResult.cornerPoints)) && (
+            <div className={`flex ${
+              isLandscape 
+                ? 'flex-col gap-4 mb-8' // Landscape: vertical stack, above accept button
+                : 'gap-6 mr-20'         // Portrait: horizontal, left of accept button
+            }`}>
+              {/* Retake Button */}
+              <button
+                onClick={handlePreviewRetake}
+                className="w-10 h-10 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white shadow-lg"
+                aria-label="Retake photo"
+              >
+                ↶
+              </button>
+            </div>
+          )}
 
-          {/* Accept Crop Button - same position as capture button for continuity */}
+          {/* Accept Photo Button - same position as capture button for continuity */}
           <button
-            onClick={() => {
-              // Trigger crop completion - we'll need to expose this from QuadrilateralCropper
-              // For now, we'll use a simple approach
-              if (detectedCropArea) {
-                handleCropComplete({ x: 0, y: 0, width: 1, height: 1 }, detectedCropArea);
-              }
-            }}
+            onClick={handlePreviewAccept}
             className="w-16 h-16 rounded-full border-4 border-white bg-green-500 hover:bg-green-600 active:scale-95 
               flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300"
-            aria-label="Accept crop"
+            aria-label="Accept photo"
           >
             <span className="text-white">✓</span>
           </button>
@@ -486,8 +463,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     switch (captureState) {
       case 'capturing':
         return renderCaptureView();
-      case 'cropping':
-        return renderCroppingView();
+      case 'preview':
+        return renderPreviewView();
       default:
         return renderCaptureView();
     }

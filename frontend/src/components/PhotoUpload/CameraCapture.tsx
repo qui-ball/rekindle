@@ -5,7 +5,7 @@
  * Designed to fit within a parent container with controls positioned outside the camera view.
  * 
  * Features:
- * - Dynamic aspect ratio camera view (3:4 mobile portrait, 4:3 mobile landscape/desktop)
+ * - Dynamic aspect ratio camera view (3:4 portrait, 4:3 landscape) - both mobile and desktop
  * - Maximum device resolution within aspect ratio constraints
  * - PWA compatible with iOS and Android optimization
  * - Quality indicators positioned within camera view
@@ -38,6 +38,7 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
   const [focusQuality, setFocusQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
+  const [actualAspectRatio, setActualAspectRatio] = useState<number>(aspectRatio);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -227,15 +228,14 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
         throw new Error('Camera API not supported');
       }
       
-      // NATIVE CAMERA CONSTRAINTS: Prioritize specified aspect ratio for native camera app behavior
+      // NATIVE CAMERA CONSTRAINTS: Prioritize high quality over exact aspect ratio
       const constraintOptions = [
-        // Try maximum quality with specified aspect ratio
+        // Try maximum quality with flexible aspect ratio
         {
           video: {
             facingMode,
-            width: { ideal: aspectRatio >= 1 ? 1600 : 1200 },
-            height: { ideal: aspectRatio >= 1 ? Math.round(1600 / aspectRatio) : Math.round(1200 * aspectRatio) },
-            aspectRatio: { ideal: aspectRatio },
+            width: { ideal: 1920, max: 4096 },
+            height: { ideal: 1080, max: 2160 },
             frameRate: { ideal: 30 }
           },
           audio: false
@@ -244,9 +244,8 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
         {
           video: {
             facingMode,
-            width: { ideal: aspectRatio >= 1 ? 1280 : 960 },
-            height: { ideal: aspectRatio >= 1 ? Math.round(1280 / aspectRatio) : Math.round(960 * aspectRatio) },
-            aspectRatio: { ideal: aspectRatio },
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
             frameRate: { ideal: 30 }
           },
           audio: false
@@ -255,9 +254,9 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
         {
           video: {
             facingMode,
-            width: { ideal: aspectRatio >= 1 ? 1024 : 768 },
-            height: { ideal: aspectRatio >= 1 ? Math.round(1024 / aspectRatio) : Math.round(768 * aspectRatio) },
-            aspectRatio: { ideal: aspectRatio }
+            width: { ideal: 1024, max: 1280 },
+            height: { ideal: 768, max: 720 },
+            frameRate: { ideal: 30 }
           },
           audio: false
         },
@@ -265,9 +264,9 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
         {
           video: {
             facingMode,
-            width: { ideal: aspectRatio >= 1 ? 800 : 600 },
-            height: { ideal: aspectRatio >= 1 ? Math.round(800 / aspectRatio) : Math.round(600 * aspectRatio) },
-            aspectRatio: { ideal: aspectRatio }
+            width: { ideal: 800, max: 1024 },
+            height: { ideal: 600, max: 768 },
+            frameRate: { ideal: 30 }
           },
           audio: false
         },
@@ -329,21 +328,21 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
           if (videoRef.current) {
             const width = videoRef.current.videoWidth;
             const height = videoRef.current.videoHeight;
-            const aspectRatio = width / height;
-            const aspectRatioString = aspectRatio.toFixed(2);
+            const actualAspectRatio = width / height;
+            const aspectRatioString = actualAspectRatio.toFixed(2);
             
             console.log('📹 Camera initialized:', {
               resolution: `${width}x${height}`,
               aspectRatio: aspectRatioString,
-              aspectRatioType: aspectRatio > 1.7 ? '16:9' : aspectRatio > 1.4 ? '3:2' : '4:3'
+              aspectRatioType: actualAspectRatio > 1.7 ? '16:9' : actualAspectRatio > 1.4 ? '3:2' : '4:3'
             });
             
-            // Log if we achieved the desired 4:3 aspect ratio for photo accuracy
-            if (aspectRatio >= 1.25 && aspectRatio <= 1.4) {
-              console.log('✅ Camera using 4:3 aspect ratio - optimal for photo capture accuracy');
-            } else if (aspectRatio > 1.7) {
-              console.warn('⚠️ Camera using 16:9 aspect ratio - cropping interface will show black bars but maintain accuracy');
-            }
+            // Update the aspect ratio to match the actual camera
+            setActualAspectRatio(actualAspectRatio);
+            
+            // Log the actual aspect ratio achieved
+            console.log(`📐 Camera using ${aspectRatioString} aspect ratio (${actualAspectRatio > 1.7 ? '16:9' : actualAspectRatio > 1.4 ? '3:2' : '4:3'})`);
+            console.log('ℹ️ SmartCroppingInterface will automatically crop to match the camera view aspect ratio');
           }
           
           // Try to set zoom to 1x (wide angle) after initialization

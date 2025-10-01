@@ -154,42 +154,89 @@ export class JScanifyService {
               throw new Error('Could not get canvas context');
             }
 
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            // Normalize working size for stability (downscale very large images)
+            const maxSide = Math.max(img.width, img.height);
+            const scale = maxSide > 1600 ? 1600 / maxSide : 1;
+            const workW = Math.max(1, Math.round(img.width * scale));
+            const workH = Math.max(1, Math.round(img.height * scale));
+            canvas.width = workW;
+            canvas.height = workH;
+            ctx.drawImage(img, 0, 0, workW, workH);
 
             // Convert to OpenCV Mat
             const cv = opencvLoader.getOpenCV();
             const src = cv.imread(canvas);
 
+            // Helper to scale corner points from work size back to original image size
+            const scaleBackX = imageWidth / workW;
+            const scaleBackY = imageHeight / workH;
+            const scaleCorners = (pts: CornerPoints): CornerPoints => ({
+              topLeftCorner: { x: pts.topLeftCorner.x * scaleBackX, y: pts.topLeftCorner.y * scaleBackY },
+              topRightCorner: { x: pts.topRightCorner.x * scaleBackX, y: pts.topRightCorner.y * scaleBackY },
+              bottomRightCorner: { x: pts.bottomRightCorner.x * scaleBackX, y: pts.bottomRightCorner.y * scaleBackY },
+              bottomLeftCorner: { x: pts.bottomLeftCorner.x * scaleBackX, y: pts.bottomLeftCorner.y * scaleBackY }
+            } as CornerPoints);
+
             // Use JScanify for professional edge detection
             const contour = this.scanner!.findPaperContour(src);
             
             if (contour) {
-              const cornerPoints = this.scanner!.getCornerPoints(contour) as CornerPoints | null;
+              let cornerPoints = this.scanner!.getCornerPoints(contour) as CornerPoints | null;
               
-              if (cornerPoints && this.isHighConfidenceDetection(cornerPoints, imageWidth, imageHeight)) {
-                const cropArea = this.convertCornerPointsToCropArea(cornerPoints, imageWidth, imageHeight);
-                const confidence = this.calculateConfidence(cornerPoints, imageWidth, imageHeight);
-                
-                // Clean up OpenCV objects
-                src.delete();
-                
-                console.log('🎯 Smart detection successful with confidence:', confidence);
-                resolve({
-                  detected: true,
-                  cropArea,
-                  confidence,
-                  cornerPoints
-                });
-                return;
+              // Refine corners using Shi-Tomasi snapping near each detected corner
+              if (cornerPoints) {
+                cornerPoints = this.refineCornerPointsWithShiTomasi(cv, src, cornerPoints);
               }
+              
+              if (cornerPoints) {
+                // Scale back to original image coordinates
+                const scaledCorners = scaleCorners(cornerPoints);
+                
+                if (this.isHighConfidenceDetection(scaledCorners, imageWidth, imageHeight)) {
+                  const cropArea = this.convertCornerPointsToCropArea(scaledCorners, imageWidth, imageHeight);
+                  const confidenceResult = this.calculateConfidence(scaledCorners, imageWidth, imageHeight);
+                  
+                  // Clean up OpenCV objects
+                  src.delete();
+                  
+                  resolve({
+                    detected: true,
+                    cropArea,
+                    confidence: confidenceResult.confidence,
+                    cornerPoints: scaledCorners,
+                    source: 'jscanify',
+                    metrics: confidenceResult.metrics
+                  });
+                  return;
+                }
+              }
+            }
+
+            // If JScanify failed or low confidence, attempt contour-based fallback
+            const fallbackCorners = this.fallbackDetectQuadrilateral(cv, src);
+            
+            if (fallbackCorners) {
+              const scaledFallback = scaleCorners(fallbackCorners);
+              
+              const cropArea = this.convertCornerPointsToCropArea(scaledFallback, imageWidth, imageHeight);
+              const confidenceResult = this.calculateConfidence(scaledFallback, imageWidth, imageHeight);
+              src.delete();
+              resolve({ 
+                detected: true, 
+                cropArea, 
+                confidence: confidenceResult.confidence, 
+                cornerPoints: scaledFallback,
+                source: 'fallback',
+                metrics: confidenceResult.metrics
+              });
+              return;
+            } else {
+              console.log('❌ Fallback detection also failed');
             }
 
             // Clean up OpenCV objects
             src.delete();
             
-            console.log('📋 Smart detection failed, using fallback');
             resolve(this.getFallbackCropArea(imageWidth, imageHeight));
             
           } catch (error) {
@@ -228,14 +275,15 @@ export class JScanifyService {
     const detectedArea = detectedWidth * detectedHeight;
     const imageArea = imageWidth * imageHeight;
     
-    // Detected area should be at least 20% of image but not more than 95%
+    // Much more permissive area ratio - accept almost anything reasonable
     const areaRatio = detectedArea / imageArea;
-    if (areaRatio < 0.2 || areaRatio > 0.95) {
+    if (areaRatio < 0.05 || areaRatio > 0.98) {
+      console.log('❌ Area ratio rejected:', areaRatio, 'must be between 0.05 and 0.98');
       return false;
     }
     
-    // Check if corners form a reasonable quadrilateral
-    const minDistance = Math.min(imageWidth, imageHeight) * 0.1;
+    // Check if corners form a reasonable quadrilateral - very permissive
+    const minDistance = Math.min(imageWidth, imageHeight) * 0.02; // Much smaller minimum
     const corners = [topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner];
     
     for (let i = 0; i < corners.length; i++) {
@@ -246,9 +294,17 @@ export class JScanifyService {
       );
       
       if (distance < minDistance) {
+        console.log('❌ Corner distance rejected:', distance, 'must be >=', minDistance);
         return false;
       }
     }
+    
+    console.log('✅ High confidence detection passed:', {
+      areaRatio: Math.round(areaRatio * 100) / 100,
+      minDistance: Math.round(minDistance),
+      imageSize: `${imageWidth}x${imageHeight}`,
+      detectedSize: `${Math.round(detectedWidth)}x${Math.round(detectedHeight)}`
+    });
     
     return true;
   }
@@ -297,26 +353,145 @@ export class JScanifyService {
   }
 
   /**
-   * Calculate confidence score for detection
+   * Calculate confidence score for detection with detailed metrics
    */
   private calculateConfidence(
     cornerPoints: CornerPoints,
     imageWidth: number,
     imageHeight: number
-  ): number {
+  ): { confidence: number; metrics: any } {
     const cropArea = this.convertCornerPointsToCropArea(cornerPoints, imageWidth, imageHeight);
     const detectedArea = cropArea.width * cropArea.height;
     const imageArea = imageWidth * imageHeight;
     const areaRatio = detectedArea / imageArea;
     
-    // Higher confidence for reasonable area ratios
-    if (areaRatio >= 0.4 && areaRatio <= 0.8) {
-      return 0.9;
-    } else if (areaRatio >= 0.2 && areaRatio <= 0.95) {
-      return 0.7;
-    } else {
-      return 0.5;
+    // Calculate edge lengths for quality assessment
+    const { topLeftCorner, topRightCorner, bottomLeftCorner, bottomRightCorner } = cornerPoints;
+    const topEdge = Math.sqrt(Math.pow(topRightCorner.x - topLeftCorner.x, 2) + Math.pow(topRightCorner.y - topLeftCorner.y, 2));
+    const rightEdge = Math.sqrt(Math.pow(bottomRightCorner.x - topRightCorner.x, 2) + Math.pow(bottomRightCorner.y - topRightCorner.y, 2));
+    const bottomEdge = Math.sqrt(Math.pow(bottomLeftCorner.x - bottomRightCorner.x, 2) + Math.pow(bottomLeftCorner.y - bottomRightCorner.y, 2));
+    const leftEdge = Math.sqrt(Math.pow(topLeftCorner.x - bottomLeftCorner.x, 2) + Math.pow(topLeftCorner.y - bottomLeftCorner.y, 2));
+    
+    const minEdge = Math.min(topEdge, rightEdge, bottomEdge, leftEdge);
+    const maxEdge = Math.max(topEdge, rightEdge, bottomEdge, leftEdge);
+    const edgeRatio = minEdge / maxEdge;
+    
+    // Calculate minimum distance between adjacent corners
+    const corners = [topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner];
+    let minDistance = Infinity;
+    for (let i = 0; i < corners.length; i++) {
+      const current = corners[i];
+      const next = corners[(i + 1) % corners.length];
+      const distance = Math.sqrt(Math.pow(next.x - current.x, 2) + Math.pow(next.y - current.y, 2));
+      minDistance = Math.min(minDistance, distance);
     }
+    
+    // Confidence calculation
+    let confidence = 0.5;
+    if (areaRatio >= 0.4 && areaRatio <= 0.8) {
+      confidence = 0.9;
+    } else if (areaRatio >= 0.2 && areaRatio <= 0.95) {
+      confidence = 0.7;
+    }
+    
+    // Adjust for edge quality
+    if (edgeRatio > 0.7) confidence += 0.1;
+    if (minDistance > Math.min(imageWidth, imageHeight) * 0.1) confidence += 0.1;
+    
+    return {
+      confidence: Math.min(1.0, confidence),
+      metrics: {
+        areaRatio: Math.round(areaRatio * 100) / 100,
+        edgeRatio: Math.round(edgeRatio * 100) / 100,
+        minDistance: Math.round(minDistance),
+        imageSize: `${imageWidth}x${imageHeight}`,
+        detectedSize: `${cropArea.width}x${cropArea.height}`
+      }
+    };
+  }
+
+  /**
+   * Contour-based fallback quadrilateral detection when JScanify fails
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private fallbackDetectQuadrilateral(cv: any, src: any): CornerPoints | null {
+    try {
+      const gray = new cv.Mat();
+      const blurred = new cv.Mat();
+      const edged = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+      cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+      cv.Canny(blurred, edged, 30, 100);
+
+      const contours = new cv.MatVector();
+      const hierarchy = new cv.Mat();
+      cv.findContours(edged, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+      let best: { area: number; approx: any } | null = null;
+      const imageArea = src.cols * src.rows;
+
+      for (let i = 0; i < contours.size(); i++) {
+        const cnt = contours.get(i);
+        const peri = cv.arcLength(cnt, true);
+        const approx = new cv.Mat();
+        cv.approxPolyDP(cnt, approx, 0.03 * peri, true);
+        if (approx.rows === 4) {
+          const rect = cv.boundingRect(approx);
+          const area = rect.width * rect.height;
+          const ratio = area / imageArea;
+          if (ratio > 0.05 && ratio < 0.98) {
+            if (!best || area > best.area) {
+              if (best && best.approx) best.approx.delete();
+              best = { area, approx };
+            } else {
+              approx.delete();
+            }
+          } else {
+            approx.delete();
+          }
+        } else {
+          approx.delete();
+        }
+        cnt.delete();
+      }
+
+      let result: CornerPoints | null = null;
+      if (best) {
+        const pts = best.approx;
+        const points = [] as Array<{ x: number; y: number }>;
+        for (let i = 0; i < pts.rows; i++) {
+          const p = pts.intPtr(i);
+          points.push({ x: p[0], y: p[1] });
+        }
+
+        // Order points: top-left, top-right, bottom-right, bottom-left
+        const ordered = this.orderQuadrilateralPoints(points);
+        result = {
+          topLeftCorner: ordered[0],
+          topRightCorner: ordered[1],
+          bottomRightCorner: ordered[2],
+          bottomLeftCorner: ordered[3]
+        } as CornerPoints;
+        pts.delete();
+      }
+
+      gray.delete();
+      blurred.delete();
+      edged.delete();
+      contours.delete();
+      hierarchy.delete();
+      return result;
+    } catch {
+      return null;
+    }
+  }
+
+  private orderQuadrilateralPoints(points: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+    // Sort by y then x to separate top vs bottom
+    const sorted = [...points].sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
+    const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
+    const bottom = sorted.slice(2).sort((a, b) => a.x - b.x);
+    return [top[0], top[1], bottom[1], bottom[0]];
   }
 
   /**
@@ -331,8 +506,71 @@ export class JScanifyService {
         width: Math.round(imageWidth * 0.8),
         height: Math.round(imageHeight * 0.8)
       },
-      confidence: 0.5
+      confidence: 0.5,
+      source: 'generic',
+      metrics: {
+        areaRatio: 0.64,
+        edgeRatio: 1.0,
+        minDistance: Math.min(imageWidth, imageHeight) * 0.1,
+        imageSize: `${imageWidth}x${imageHeight}`,
+        detectedSize: `${Math.round(imageWidth * 0.8)}x${Math.round(imageHeight * 0.8)}`
+      }
     };
+  }
+
+  /**
+   * Refine corner points using Shi-Tomasi corner detection
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private refineCornerPointsWithShiTomasi(cv: any, src: any, cornerPoints: CornerPoints): CornerPoints {
+    try {
+      const gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+      
+      // Convert corner points to OpenCV format
+      const corners = new cv.Mat(4, 1, cv.CV_32FC2);
+      corners.data32F[0] = cornerPoints.topLeftCorner.x;
+      corners.data32F[1] = cornerPoints.topLeftCorner.y;
+      corners.data32F[2] = cornerPoints.topRightCorner.x;
+      corners.data32F[3] = cornerPoints.topRightCorner.y;
+      corners.data32F[4] = cornerPoints.bottomRightCorner.x;
+      corners.data32F[5] = cornerPoints.bottomRightCorner.y;
+      corners.data32F[6] = cornerPoints.bottomLeftCorner.x;
+      corners.data32F[7] = cornerPoints.bottomLeftCorner.y;
+      
+      // Use cornerSubPix for sub-pixel accuracy
+      const criteria = new cv.TermCriteria(cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1);
+      cv.cornerSubPix(gray, corners, new cv.Size(5, 5), new cv.Size(-1, -1), criteria);
+      
+      // Extract refined points
+      const refined: CornerPoints = {
+        topLeftCorner: {
+          x: corners.data32F[0],
+          y: corners.data32F[1]
+        },
+        topRightCorner: {
+          x: corners.data32F[2],
+          y: corners.data32F[3]
+        },
+        bottomRightCorner: {
+          x: corners.data32F[4],
+          y: corners.data32F[5]
+        },
+        bottomLeftCorner: {
+          x: corners.data32F[6],
+          y: corners.data32F[7]
+        }
+      };
+      
+      // Clean up
+      gray.delete();
+      corners.delete();
+      
+      return refined;
+    } catch (error) {
+      console.warn('⚠️ Shi-Tomasi refinement failed, using original points:', error);
+      return cornerPoints;
+    }
   }
 
   /**

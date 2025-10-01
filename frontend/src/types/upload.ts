@@ -122,6 +122,27 @@ export interface EdgeDetectionResult {
   suggestedCrop?: CropArea;
 }
 
+// Smart Detection Types
+export interface DetectionResult {
+  detected: boolean;
+  cropArea: CropAreaPixels;
+  confidence: number;
+  cornerPoints?: {
+    topLeft: { x: number; y: number };
+    topRight: { x: number; y: number };
+    bottomLeft: { x: number; y: number };
+    bottomRight: { x: number; y: number };
+  };
+  source?: 'jscanify' | 'fallback' | 'generic';
+  metrics?: {
+    areaRatio: number;
+    edgeRatio: number;
+    minDistance: number;
+    imageSize: string;
+    detectedSize: string;
+  };
+}
+
 export interface CropSuggestion {
   cropArea: CropArea;
   confidence: number;
