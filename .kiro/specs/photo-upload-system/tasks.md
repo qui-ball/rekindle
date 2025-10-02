@@ -416,7 +416,7 @@ export const useOpenCVInitialization = () => {
     - Add confidence indicator showing detection quality to user
     - _Requirements: 8.5, 8.6, 8.7, Manual adjustment capability_
 
-  - [ ] 5.4 Integrate smart detection into camera capture flow
+  - [x] 5.4 Integrate smart detection into camera capture flow
     - Update CameraCaptureFlow to use SmartPhotoDetector service
     - Add processing indicator during 0.5-2 second edge detection phase
     - Implement progressive enhancement: show generic crop first, then smart detection
