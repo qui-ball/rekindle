@@ -30,6 +30,8 @@ const handle = app.getRequestHandler();
 // Try multiple certificate locations for flexibility
 function loadCertificates() {
   const certPaths = [
+    // New trusted certificates (created with mkcert)
+    { key: './certs/localhost+3-key.pem', cert: './certs/localhost+3.pem' },
     // Docker mounted certificates
     { key: './certs/key.pem', cert: './certs/cert.pem' },
     // Legacy certificates

@@ -43,9 +43,16 @@ class Settings(BaseSettings):
 
     # CORS
     ALLOWED_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"]
+        default=[
+            "http://localhost:3000", 
+            "http://127.0.0.1:3000",
+            "https://localhost:3000",
+            "https://127.0.0.1:3000",
+            "https://192.168.2.11:3000",  # Mobile device access
+            "http://192.168.2.11:3000"   # Mobile device access (HTTP fallback)
+        ]
     )
-    ALLOWED_HOSTS: List[str] = Field(default=["localhost", "127.0.0.1", "test"])
+    ALLOWED_HOSTS: List[str] = Field(default=["localhost", "127.0.0.1", "test", "192.168.2.11", "backend", "frontend"])
 
     # ComfyUI
     COMFYUI_URL: str = Field(default="http://127.0.0.1:8188", description="ComfyUI server URL")

@@ -19,19 +19,31 @@ case "$1" in
     docker-compose down 2>/dev/null || true
     echo "✅ All services stopped!"
     ;;
+  "--no-logs")
+    # Handle --no-logs as first argument
+    exec "$SCRIPT_DIR/scripts/dev-docker.sh" --no-logs "${@:2}"
+    ;;
   *)
     echo "Usage: $0 [start|https|stop] [options]"
     echo ""
     echo "Commands:"
-    echo "  start (default)  Start HTTP development environment in Docker"
-    echo "  https           Start HTTPS development environment in Docker"
+    echo "  start (default)  Start full development environment (frontend + backend)"
+    echo "  https           Start HTTPS development environment for mobile camera testing"
     echo "  stop            Stop all development services"
     echo ""
     echo "Examples:"
-    echo "  $0              # Start HTTP development server"
-    echo "  $0 start        # Start HTTP development server"
+    echo "  $0              # Start full development environment"
+    echo "  $0 start        # Start full development environment"
     echo "  $0 https        # Start HTTPS server for mobile camera testing"
     echo "  $0 stop         # Stop everything"
+    echo ""
+    echo "🚀 Services included:"
+    echo "   Frontend: Next.js app on http://localhost:3000"
+    echo "   Backend:  FastAPI API on http://localhost:8000"
+    echo "   Redis:    Job queue on localhost:6379"
+    echo "   Database: PostgreSQL on localhost:5432 (with tables auto-created)"
+    echo "   Celery:   Background workers for AI processing"
+    echo "   Flower:   Celery monitoring on http://localhost:5555"
     echo ""
     echo "📱 For mobile camera testing:"
     echo "   Use '$0 https' to enable HTTPS with local certificates"

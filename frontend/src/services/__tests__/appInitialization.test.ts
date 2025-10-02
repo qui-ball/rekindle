@@ -25,7 +25,7 @@ describe('AppInitializationService', () => {
     const mockCallback = jest.fn();
     
     // Mock successful OpenCV loading
-    mockOpenCVLoader.loadOpenCV.mockImplementation((callback?: (status: any) => void) => {
+    mockOpenCVLoader.loadOpenCV.mockImplementation((callback?: (status: { status: string; progress?: number }) => void) => {
       // Simulate loading progress
       setTimeout(() => callback?.({ status: 'loading', progress: 50 }), 10);
       setTimeout(() => callback?.({ status: 'ready' }), 20);
@@ -51,7 +51,7 @@ describe('AppInitializationService', () => {
     const mockCallback = jest.fn();
     
     // Mock OpenCV loading failure
-    mockOpenCVLoader.loadOpenCV.mockImplementation((callback?: (status: any) => void) => {
+    mockOpenCVLoader.loadOpenCV.mockImplementation((callback?: (status: { status: string; progress?: number }) => void) => {
       setTimeout(() => callback?.({ status: 'error', error: 'Failed to load' }), 10);
       return Promise.reject(new Error('Failed to load'));
     });
@@ -75,7 +75,7 @@ describe('AppInitializationService', () => {
     const mockCallback = jest.fn();
     
     // Mock OpenCV loading that never completes
-    mockOpenCVLoader.loadOpenCV.mockImplementation((callback?: (status: any) => void) => {
+    mockOpenCVLoader.loadOpenCV.mockImplementation((callback?: (status: { status: string; progress?: number }) => void) => {
       setTimeout(() => callback?.({ status: 'loading', progress: 50 }), 10);
       // Never calls ready or error
       return new Promise(() => {}); // Never resolves
@@ -103,7 +103,7 @@ describe('AppInitializationService', () => {
     const mockCallback = jest.fn();
     
     // First initialization
-    mockOpenCVLoader.loadOpenCV.mockImplementation((callback: any) => {
+    mockOpenCVLoader.loadOpenCV.mockImplementation((callback: (status: { status: string; progress?: number }) => void) => {
       setTimeout(() => callback({ status: 'ready' }), 10);
       return Promise.resolve();
     });

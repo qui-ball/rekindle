@@ -29,7 +29,7 @@ export const TestJScanifyIntegration: React.FC = () => {
     setConfidence(undefined);
   };
 
-  const handleCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+  const handleCropComplete = (croppedArea: unknown, croppedAreaPixels: unknown) => {
     console.log('Crop completed:', { croppedArea, croppedAreaPixels });
   };
 
@@ -62,7 +62,7 @@ export const TestJScanifyIntegration: React.FC = () => {
           image={testImage}
           onCropComplete={handleCropComplete}
           onCancel={() => console.log('Crop cancelled')}
-          jscanifyCornerPoints={mockCornerPoints}
+          jscanifyCornerPoints={mockCornerPoints || undefined}
           detectionConfidence={confidence}
           isFullScreen={false}
           alignTop={false}

@@ -203,9 +203,7 @@ export class JScanifyService {
                     detected: true,
                     cropArea,
                     confidence: confidenceResult.confidence,
-                    cornerPoints: scaledCorners,
-                    source: 'jscanify',
-                    metrics: confidenceResult.metrics
+                    cornerPoints: scaledCorners
                   });
                   return;
                 }
@@ -225,9 +223,7 @@ export class JScanifyService {
                 detected: true, 
                 cropArea, 
                 confidence: confidenceResult.confidence, 
-                cornerPoints: scaledFallback,
-                source: 'fallback',
-                metrics: confidenceResult.metrics
+                cornerPoints: scaledFallback
               });
               return;
             } else {
@@ -359,7 +355,7 @@ export class JScanifyService {
     cornerPoints: CornerPoints,
     imageWidth: number,
     imageHeight: number
-  ): { confidence: number; metrics: any } {
+  ): { confidence: number; metrics: { areaRatio: number; edgeRatio: number; minDistance: number; imageSize: string; detectedSize: string } } {
     const cropArea = this.convertCornerPointsToCropArea(cornerPoints, imageWidth, imageHeight);
     const detectedArea = cropArea.width * cropArea.height;
     const imageArea = imageWidth * imageHeight;
@@ -427,7 +423,7 @@ export class JScanifyService {
       const hierarchy = new cv.Mat();
       cv.findContours(edged, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-      let best: { area: number; approx: any } | null = null;
+      let best: { area: number; approx: { delete: () => void; rows: number; intPtr: (i: number) => number[] } } | null = null;
       const imageArea = src.cols * src.rows;
 
       for (let i = 0; i < contours.size(); i++) {
@@ -506,15 +502,7 @@ export class JScanifyService {
         width: Math.round(imageWidth * 0.8),
         height: Math.round(imageHeight * 0.8)
       },
-      confidence: 0.5,
-      source: 'generic',
-      metrics: {
-        areaRatio: 0.64,
-        edgeRatio: 1.0,
-        minDistance: Math.min(imageWidth, imageHeight) * 0.1,
-        imageSize: `${imageWidth}x${imageHeight}`,
-        detectedSize: `${Math.round(imageWidth * 0.8)}x${Math.round(imageHeight * 0.8)}`
-      }
+      confidence: 0.5
     };
   }
 

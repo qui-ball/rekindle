@@ -46,11 +46,11 @@ interface SmartCroppingInterfaceProps {
 export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
   image,
   detectionResult,
-  onCropComplete,
-  onCancel,
-  isLandscape,
+  onCropComplete: _onCropComplete,
+  onCancel: _onCancel,
+  isLandscape: _isLandscape,
   aspectRatio,
-  isMobile
+  isMobile: _isMobile
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -73,8 +73,8 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
       // Helpers
       const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(val, max));
       const isFiniteNumber = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
-      const isValidPoint = (p: any) => p && isFiniteNumber(p.x) && isFiniteNumber(p.y);
-      const firstDefined = (...vals: any[]) => vals.find(v => v !== undefined && v !== null);
+      const isValidPoint = (p: unknown) => p && typeof p === 'object' && p !== null && 'x' in p && 'y' in p && isFiniteNumber((p as {x: number}).x) && isFiniteNumber((p as {y: number}).y);
+      const firstDefined = (...vals: unknown[]) => vals.find(v => v !== undefined && v !== null);
 
       // Convert from image coordinates to display coordinates
       const scaleX = displayDimensions.width / imageDimensions.width;
@@ -84,7 +84,7 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
 
       // Prefer precise corner points if available
       if (detectionResult.cornerPoints) {
-        const cp: any = detectionResult.cornerPoints as any;
+        const cp = detectionResult.cornerPoints as unknown as Record<string, unknown>;
         // Support multiple naming conventions from detectors
         const rawTopLeft = firstDefined(cp.topLeft, cp.top_left, cp.tl, cp.topLeftCorner);
         const rawTopRight = firstDefined(cp.topRight, cp.top_right, cp.tr, cp.topRightCorner);
@@ -98,10 +98,10 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
           });
 
           initialCropArea = {
-            topLeft: toDisplay(rawTopLeft),
-            topRight: toDisplay(rawTopRight),
-            bottomLeft: toDisplay(rawBottomLeft),
-            bottomRight: toDisplay(rawBottomRight)
+            topLeft: toDisplay(rawTopLeft as { x: number; y: number }),
+            topRight: toDisplay(rawTopRight as { x: number; y: number }),
+            bottomLeft: toDisplay(rawBottomLeft as { x: number; y: number }),
+            bottomRight: toDisplay(rawBottomRight as { x: number; y: number })
           };
         }
       } else if (detectionResult.cropArea) {
@@ -289,64 +289,6 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     setIsDragging(null);
   }, []);
 
-  // Handle crop completion
-  const handleCropComplete = useCallback(() => {
-    if (!cropArea) return;
-
-    try {
-      // Create canvas for cropping
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      
-      img.onload = () => {
-        if (!ctx) return;
-
-        // Calculate crop bounding box in image coordinates (handles arbitrary quadrilateral)
-        const scaleX = imageDimensions.width / displayDimensions.width;
-        const scaleY = imageDimensions.height / displayDimensions.height;
-
-        const xs = [cropArea.topLeft.x, cropArea.topRight.x, cropArea.bottomRight.x, cropArea.bottomLeft.x];
-        const ys = [cropArea.topLeft.y, cropArea.topRight.y, cropArea.bottomRight.y, cropArea.bottomLeft.y];
-
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-
-        const cropX = Math.max(0, Math.round(minX * scaleX));
-        const cropY = Math.max(0, Math.round(minY * scaleY));
-        const cropWidth = Math.round((maxX - minX) * scaleX);
-        const cropHeight = Math.round((maxY - minY) * scaleY);
-
-        // Set canvas size to crop dimensions
-        canvas.width = cropWidth;
-        canvas.height = cropHeight;
-
-        // Draw cropped image
-        ctx.drawImage(
-          img,
-          cropX, cropY, cropWidth, cropHeight,
-          0, 0, cropWidth, cropHeight
-        );
-
-        // Get cropped image data
-        const croppedImageData = canvas.toDataURL('image/jpeg', 0.9);
-        onCropComplete(croppedImageData);
-
-        console.log('✂️ Crop completed (maintaining camera view aspect ratio):', {
-          cropArea: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
-          canvasSize: { width: canvas.width, height: canvas.height },
-          finalAspectRatio: (cropWidth / cropHeight).toFixed(2),
-          cameraAspectRatio: aspectRatio.toFixed(2)
-        });
-      };
-      
-      img.src = image;
-    } catch (error) {
-      console.error('❌ Crop completion failed:', error);
-    }
-  }, [cropArea, imageDimensions, displayDimensions, image, onCropComplete, aspectRatio]);
 
   // Set up mouse and touch event listeners
   useEffect(() => {
@@ -459,6 +401,7 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
           </>
         )}
       </div>
+
 
     </div>
   );

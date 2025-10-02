@@ -56,10 +56,11 @@ export class RetryService {
   /**
    * Check if error is retryable based on strategy
    */
-  private static isRetryableError(error: any, strategy: RetryStrategy): boolean {
+  private static isRetryableError(error: unknown, strategy: RetryStrategy): boolean {
     // Check if it's an UploadError with proper structure
     if (error && typeof error === 'object' && 'type' in error && 'retryable' in error) {
-      return error.retryable && strategy.retryableErrors.includes(error.type);
+      const uploadError = error as { retryable: boolean; type: string };
+      return uploadError.retryable && strategy.retryableErrors.includes(uploadError.type as ErrorType);
     }
     
     // For regular errors, assume they're retryable if strategy allows it

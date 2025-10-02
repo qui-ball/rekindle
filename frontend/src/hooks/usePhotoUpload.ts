@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { UploadState, UploadResult, UploadError, UploadOptions, ErrorType } from '../types/upload';
+import { UploadState, UploadResult, UploadError, UploadOptions } from '../types/upload';
 import { Result } from '../types';
 import { S3UploadService } from '../services/uploadService';
 import { UploadErrorHandler } from '../utils/errorHandler';
@@ -17,13 +17,19 @@ export const usePhotoUpload = () => {
   });
 
   // Initialize services
-  const uploadService = useMemo(() => new S3UploadService(), []);
+  const uploadService = useMemo(() => {
+    // Use the same domain as frontend (Next.js proxy handles HTTPS->HTTP)
+    const backendUrl = typeof window !== 'undefined' 
+      ? '/api'
+      : 'http://localhost:8000/api';
+    return new S3UploadService(backendUrl);
+  }, []);
   const errorHandler = useMemo(() => new UploadErrorHandler(), []);
 
   const uploadPhoto = useCallback(async (
     file: File, 
     options?: UploadOptions
-  ): Promise<Result<UploadResult>> => {
+  ): Promise<Result<UploadResult, UploadError>> => {
     setUploadState(prev => ({
       ...prev,
       status: 'uploading',
@@ -49,7 +55,7 @@ export const usePhotoUpload = () => {
       const result = await RetryService.executeWithRetry(
         () => uploadService.uploadFile(file, uploadOptions),
         retryStrategies.upload,
-        (attempt, error) => {
+        (_attempt, _error) => {
           setUploadState(prev => ({
             ...prev,
             status: 'uploading',
@@ -70,7 +76,7 @@ export const usePhotoUpload = () => {
       const uploadError = error as UploadError;
       
       // Handle error with proper error handling
-      const errorResponse = errorHandler.handleError(uploadError);
+      errorHandler.handleError(uploadError);
       
       setUploadState(prev => ({
         ...prev,
@@ -81,7 +87,7 @@ export const usePhotoUpload = () => {
       options?.onError?.(uploadError);
       return { success: false, error: uploadError };
     }
-  }, []);
+  }, [uploadService, errorHandler]);
 
   const resetUpload = useCallback(() => {
     setUploadState({
@@ -91,7 +97,7 @@ export const usePhotoUpload = () => {
     });
   }, []);
 
-  const retryUpload = useCallback(async (): Promise<Result<UploadResult>> => {
+  const retryUpload = useCallback(async (): Promise<Result<UploadResult, UploadError>> => {
     if (!uploadState.selectedFile) {
       return { 
         success: false, 

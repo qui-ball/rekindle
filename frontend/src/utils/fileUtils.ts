@@ -1,72 +1,75 @@
 /**
- * File utility functions for upload system
- * Provides common file operations and validations
+ * Utility functions for file handling and conversion
  */
 
 /**
- * Convert file size to human readable format
+ * Convert base64 string to File object
+ * @param base64String - Base64 encoded image data
+ * @param filename - Name for the file
+ * @param mimeType - MIME type for the file (default: image/jpeg)
+ * @returns File object
  */
-export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
+export const base64ToFile = (
+  base64String: string, 
+  filename: string, 
+  mimeType: string = 'image/jpeg'
+): File => {
+  // Remove data URL prefix if present
+  const base64Data = base64String.includes(',') 
+    ? base64String.split(',')[1] 
+    : base64String;
   
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  // Convert base64 to binary
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
   
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-/**
- * Get file extension from filename
- */
-export const getFileExtension = (filename: string): string => {
-  return filename.slice((filename.lastIndexOf('.') - 1 >>> 0) + 2).toLowerCase();
-};
-
-/**
- * Check if file type is supported
- */
-export const isSupportedFileType = (file: File): boolean => {
-  const supportedTypes = ['image/jpeg', 'image/png', 'image/heic', 'image/webp'];
-  return supportedTypes.includes(file.type);
-};
-
-/**
- * Generate unique filename with timestamp
- */
-export const generateUniqueFilename = (originalName: string): string => {
-  const timestamp = Date.now();
-  const extension = getFileExtension(originalName);
-  const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
   
-  return `${nameWithoutExt}_${timestamp}.${extension}`;
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  
+  return new File([blob], filename, { type: mimeType });
 };
 
 /**
- * Convert File to base64 string
+ * Get image dimensions from base64 string
+ * @param base64String - Base64 encoded image data
+ * @returns Promise with width and height
  */
-export const fileToBase64 = (file: File): Promise<string> => {
+export const getImageDimensionsFromBase64 = (base64String: string): Promise<{ width: number; height: number }> => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      reject(new Error('Failed to load image'));
+    };
+    img.src = base64String;
   });
 };
 
 /**
- * Convert base64 string to File
+ * Validate file size and type
+ * @param file - File object to validate
+ * @param maxSize - Maximum file size in bytes
+ * @param allowedTypes - Array of allowed MIME types
+ * @returns Validation result
  */
-export const base64ToFile = (base64: string, filename: string): File => {
-  const arr = base64.split(',');
-  const mime = arr[0].match(/:(.*?);/)![1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
+export const validateFile = (
+  file: File, 
+  maxSize: number = 50 * 1024 * 1024, // 50MB default
+  allowedTypes: string[] = ['image/jpeg', 'image/png', 'image/heic', 'image/webp']
+): { valid: boolean; error?: string } => {
+  if (file.size > maxSize) {
+    return { valid: false, error: `File too large. Maximum size: ${Math.round(maxSize / 1024 / 1024)}MB` };
   }
   
-  return new File([u8arr], filename, { type: mime });
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: `Unsupported file type. Allowed: ${allowedTypes.join(', ')}` };
+  }
+  
+  return { valid: true };
 };

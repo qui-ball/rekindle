@@ -38,7 +38,7 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
   const [focusQuality, setFocusQuality] = useState<'good' | 'poor' | 'analyzing'>('analyzing');
-  const [actualAspectRatio, setActualAspectRatio] = useState<number>(aspectRatio);
+  const [, setActualAspectRatio] = useState<number>(aspectRatio);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

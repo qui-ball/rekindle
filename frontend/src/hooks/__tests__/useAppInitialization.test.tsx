@@ -40,7 +40,7 @@ describe('useAppInitialization', () => {
 
   it('should initialize when not ready', async () => {
     mockAppInitialization.isReady.mockReturnValue(false);
-    mockAppInitialization.initialize.mockImplementation((callback?: (state: any) => void) => {
+    mockAppInitialization.initialize.mockImplementation((callback?: (state: { status: string; progress: number; message: string }) => void) => {
       // Simulate initialization progress
       setTimeout(() => callback?.({
         status: 'loading',

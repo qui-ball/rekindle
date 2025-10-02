@@ -76,17 +76,66 @@ docker-compose down 2>/dev/null || true
 echo "🔨 Building and starting containers..."
 docker-compose up --build -d
 
-# Wait for container to be ready
-echo "⏳ Waiting for server to start..."
-sleep 5
+# Wait for containers to be ready
+echo "⏳ Waiting for services to start..."
+sleep 10
+
+# Check if backend is healthy
+echo "🔍 Checking backend health..."
+for i in {1..30}; do
+    if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+        echo "✅ Backend is healthy"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "⚠️  Backend may not be ready yet, but continuing..."
+    fi
+    sleep 1
+done
+
+# Setup database tables
+echo "🗄️  Setting up database tables..."
+docker-compose exec -T postgres psql -U rekindle -d rekindle -c "
+CREATE TABLE IF NOT EXISTS jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    selected_restore_id UUID,
+    latest_animation_id UUID
+);
+
+CREATE TABLE IF NOT EXISTS restore_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID REFERENCES jobs(id),
+    s3_key VARCHAR(500),
+    model VARCHAR(100),
+    params JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS animation_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID REFERENCES jobs(id),
+    restore_id UUID REFERENCES restore_attempts(id),
+    preview_s3_key VARCHAR(500),
+    result_s3_key VARCHAR(500),
+    thumb_s3_key VARCHAR(500),
+    model VARCHAR(100),
+    params JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+" 2>/dev/null && echo "✅ Database tables ready" || echo "⚠️  Database tables may already exist"
 
 echo ""
 echo "✅ Docker Development Environment Ready!"
 echo ""
 echo "🔧 Mode: $MODE_DESC"
 echo "🔗 Access URLs:"
-echo "   🏠 Local:   $PROTOCOL://localhost:3000"
-echo "   🌐 Network: $PROTOCOL://$LOCAL_IP:3000"
+echo "   🏠 Frontend: $PROTOCOL://localhost:3000"
+echo "   🌐 Frontend: $PROTOCOL://$LOCAL_IP:3000"
+echo "   🔧 Backend:  http://localhost:8000"
+echo "   📊 API Docs: http://localhost:8000/docs"
+echo "   🌸 Flower:   http://localhost:5555 (Celery Monitor)"
 echo ""
 
 if [ "$HTTPS_MODE" = true ]; then
@@ -103,14 +152,20 @@ fi
 
 echo ""
 echo "🔧 Development Commands:"
-echo "   View logs:     docker-compose logs -f"
-echo "   Stop:          docker-compose down"
-echo "   Restart:       docker-compose restart"
-echo "   Shell access:  docker-compose exec frontend sh"
+echo "   View all logs:     docker-compose logs -f"
+echo "   View frontend:     docker-compose logs -f frontend"
+echo "   View backend:      docker-compose logs -f backend"
+echo "   View celery:       docker-compose logs -f celery"
+echo "   View flower:       docker-compose logs -f flower"
+echo "   Stop:              docker-compose down"
+echo "   Restart:           docker-compose restart"
+echo "   Frontend shell:    docker-compose exec frontend sh"
+echo "   Backend shell:     docker-compose exec backend sh"
+echo "   Celery shell:      docker-compose exec celery sh"
 echo ""
 
 # Show logs if requested
 if [ "$SHOW_LOGS" = true ]; then
     echo "📋 Container logs (Ctrl+C to exit):"
-    docker-compose logs -f frontend
+    docker-compose logs -f frontend backend celery
 fi

@@ -64,11 +64,11 @@ describe('usePhotoUpload', () => {
     };
 
     // Mock successful upload
-    const mockUploadService = require('../../services/uploadService').S3UploadService;
-    mockUploadService.prototype.uploadFile = jest.fn().mockResolvedValue(mockResult);
-
-    const mockRetryService = require('../../utils/retryService').RetryService;
-    mockRetryService.executeWithRetry = jest.fn().mockResolvedValue(mockResult);
+    const { S3UploadService } = await import('../../services/uploadService');
+    const { RetryService } = await import('../../utils/retryService');
+    
+    jest.spyOn(S3UploadService.prototype, 'uploadFile').mockResolvedValue(mockResult);
+    jest.spyOn(RetryService, 'executeWithRetry').mockResolvedValue(mockResult);
 
     await act(async () => {
       const uploadResult = await result.current.uploadPhoto(mockFile);
@@ -93,8 +93,8 @@ describe('usePhotoUpload', () => {
     };
 
     // Mock retry service to throw error after retries
-    const mockRetryService = require('../../utils/retryService').RetryService;
-    mockRetryService.executeWithRetry = jest.fn().mockRejectedValue(mockError);
+    const { RetryService } = await import('../../utils/retryService');
+    jest.spyOn(RetryService, 'executeWithRetry').mockRejectedValue(mockError);
 
     await act(async () => {
       const uploadResult = await result.current.uploadPhoto(mockFile);
@@ -132,8 +132,8 @@ describe('usePhotoUpload', () => {
     };
 
     // Mock successful retry
-    const mockRetryService = require('../../utils/retryService').RetryService;
-    mockRetryService.executeWithRetry = jest.fn().mockResolvedValue(mockResult);
+    const { RetryService } = await import('../../utils/retryService');
+    jest.spyOn(RetryService, 'executeWithRetry').mockResolvedValue(mockResult);
 
     // Set up state with selected file
     act(() => {
@@ -193,6 +193,7 @@ describe('usePhotoUpload', () => {
   it('should check if error can be retried', () => {
     const { result } = renderHook(() => usePhotoUpload());
     
+    // Test variables for retry logic
     const retryableError = {
       name: 'UploadError',
       code: 'UPLOAD_FAILED',
@@ -208,6 +209,10 @@ describe('usePhotoUpload', () => {
       type: ErrorType.VALIDATION_ERROR,
       retryable: false
     };
+
+    // Test the retry logic
+    expect(result.current.canRetry(retryableError)).toBe(true);
+    expect(result.current.canRetry(nonRetryableError)).toBe(false);
 
     expect(typeof result.current.canRetry).toBe('function');
     expect(result.current.canRetry(undefined)).toBe(false);

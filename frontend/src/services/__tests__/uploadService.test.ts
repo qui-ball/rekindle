@@ -113,10 +113,11 @@ describe('S3UploadService', () => {
 
       try {
         await uploadService.uploadFile(file, options);
-      } catch (error: any) {
-        expect(error.code).toBe('UPLOAD_FAILED');
-        expect(error.type).toBe(ErrorType.UPLOAD_ERROR);
-        expect(error.retryable).toBe(true);
+      } catch (error: unknown) {
+        const uploadError = error as { code: string; type: string; retryable: boolean };
+        expect(uploadError.code).toBe('UPLOAD_FAILED');
+        expect(uploadError.type).toBe(ErrorType.UPLOAD_ERROR);
+        expect(uploadError.retryable).toBe(true);
       }
     });
   });
