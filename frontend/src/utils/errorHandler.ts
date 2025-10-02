@@ -32,19 +32,81 @@ export const defaultRetryStrategy: RetryStrategy = {
  * Provides comprehensive error handling for upload flows
  */
 export class UploadErrorHandler implements ErrorHandler {
-  handleError(_error: UploadError): ErrorResponse {
-    // Implementation will be added in task 11.1
-    throw new Error('Not implemented yet');
+  handleError(error: UploadError): ErrorResponse {
+    const message = this.getUserMessage(error);
+    const retryable = this.isRetryable(error);
+    
+    return {
+      message,
+      retryable,
+      action: retryable ? 'retry' : 'contact_support'
+    };
   }
 
-  getRetryStrategy(_error: UploadError): RetryStrategy {
-    // Implementation will be added in task 7.2
-    throw new Error('Not implemented yet');
+  getRetryStrategy(error: UploadError): RetryStrategy {
+    if (!this.isRetryable(error)) {
+      return {
+        maxAttempts: 0,
+        backoffMultiplier: 1,
+        initialDelay: 0,
+        maxDelay: 0,
+        retryableErrors: []
+      };
+    }
+
+    // Customize retry strategy based on error type
+    switch (error.type) {
+      case ErrorType.NETWORK_ERROR:
+        return {
+          maxAttempts: 5,
+          backoffMultiplier: 2,
+          initialDelay: 1000,
+          maxDelay: 30000,
+          retryableErrors: [ErrorType.NETWORK_ERROR]
+        };
+      case ErrorType.UPLOAD_ERROR:
+        return {
+          maxAttempts: 3,
+          backoffMultiplier: 2,
+          initialDelay: 2000,
+          maxDelay: 10000,
+          retryableErrors: [ErrorType.UPLOAD_ERROR]
+        };
+      default:
+        return defaultRetryStrategy;
+    }
   }
 
   getUserMessage(error: UploadError): string {
-    // Implementation will be added in task 11.1
-    return this.getDefaultMessage(error.code);
+    // Check for specific error codes first
+    if (error.code) {
+      const specificMessage = this.getDefaultMessage(error.code);
+      if (specificMessage !== 'An unexpected error occurred. Please try again.') {
+        return specificMessage;
+      }
+    }
+    
+    // Fallback to type-based messages
+    switch (error.type) {
+      case ErrorType.VALIDATION_ERROR:
+        return 'Please check your file and try again.';
+      case ErrorType.UPLOAD_ERROR:
+        return 'Upload failed. Please check your connection and try again.';
+      case ErrorType.PROCESSING_ERROR:
+        return 'Processing failed. Please try again.';
+      case ErrorType.NETWORK_ERROR:
+        return 'Network error. Please check your connection and try again.';
+      case ErrorType.PERMISSION_ERROR:
+        return 'Permission denied. Please check your settings and try again.';
+      case ErrorType.STORAGE_ERROR:
+        return 'Storage error. Please try again later.';
+      default:
+        return 'An unexpected error occurred. Please try again.';
+    }
+  }
+
+  private isRetryable(error: UploadError): boolean {
+    return error.retryable && defaultRetryStrategy.retryableErrors.includes(error.type);
   }
 
   private getDefaultMessage(errorCode: string): string {
