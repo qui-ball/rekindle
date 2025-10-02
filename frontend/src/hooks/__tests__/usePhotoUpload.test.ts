@@ -4,8 +4,36 @@ import { ErrorType } from '../../types/upload';
 
 // Mock the services
 jest.mock('../../services/uploadService');
-jest.mock('../../utils/errorHandler');
 jest.mock('../../utils/retryService');
+
+// Mock the error handler with proper implementation
+jest.mock('../../utils/errorHandler', () => ({
+  UploadErrorHandler: jest.fn().mockImplementation(() => ({
+    getUserMessage: jest.fn().mockImplementation((error) => {
+      if (!error) return '';
+      switch (error.type) {
+        case 'upload_error':
+          return 'Upload failed. Please check your connection and try again.';
+        case 'validation_error':
+          return 'Please check your file and try again.';
+        default:
+          return 'An unexpected error occurred. Please try again.';
+      }
+    }),
+    getRetryStrategy: jest.fn().mockImplementation((error) => ({
+      maxAttempts: error?.retryable ? 3 : 0,
+      backoffMultiplier: 2,
+      initialDelay: 1000,
+      maxDelay: 10000,
+      retryableErrors: ['upload_error', 'network_error']
+    })),
+    handleError: jest.fn().mockImplementation((error) => ({
+      message: 'Test error message',
+      retryable: error?.retryable || false,
+      action: 'retry'
+    }))
+  }))
+}));
 
 describe('usePhotoUpload', () => {
   const mockFile = new File(['test content'], 'test.jpg', { type: 'image/jpeg' });

@@ -50,7 +50,6 @@ export const usePhotoUpload = () => {
         () => uploadService.uploadFile(file, uploadOptions),
         retryStrategies.upload,
         (attempt, error) => {
-          console.log(`Upload retry attempt ${attempt}:`, error.message);
           setUploadState(prev => ({
             ...prev,
             status: 'uploading',
