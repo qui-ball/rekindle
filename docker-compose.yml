@@ -35,14 +35,12 @@ services:
       - backend-venv:/app/.venv
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://rekindle:rekindle@postgres:5432/rekindle
     env_file:
       - ./backend/.env
     networks:
       - rekindle-network
     depends_on:
       - redis
-      - postgres
 
   redis:
     image: redis:7-alpine
@@ -51,18 +49,6 @@ services:
     networks:
       - rekindle-network
 
-  postgres:
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=rekindle
-      - POSTGRES_USER=rekindle
-      - POSTGRES_PASSWORD=rekindle
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - rekindle-network
 
   celery:
     build:
@@ -80,7 +66,6 @@ services:
       - rekindle-network
     depends_on:
       - redis
-      - postgres
     command: uv run celery -A app.workers.celery_app worker --loglevel=info
 
   flower:
@@ -101,14 +86,12 @@ services:
       - rekindle-network
     depends_on:
       - redis
-      - postgres
     command: uv run celery -A app.workers.celery_app flower --port=5555
 
 volumes:
   backend-venv:
   celery-venv:
   flower-venv:
-  postgres-data:
 
 networks:
   rekindle-network:
