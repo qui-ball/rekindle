@@ -71,6 +71,8 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 │ Redis Queue             │ $15 - $50      │ Job processing queue         │
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤
 │ S3 Storage              │ $0.023/GB/mo   │ + transfer costs             │
+│ (User Photos)           │ $25 - $1,000   │ Scales with paid users       │
+│ (10GB-200GB per user)   │                 │ (generous storage limits)    │
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤
 │ CDN (CloudFront)        │ $0.085/GB      │ First 10TB                   │
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤
@@ -94,13 +96,17 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 │ Colorizations   │ $9 - $21        │ $90 - $210      │ $900 - $2.1K    │
 │ (300/3K/30K)    │                 │                 │                 │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ Infrastructure  │ $85 - $220      │ $310 - $640     │ $950 - $1.6K    │
+│ Storage Costs   │ $15 - $40       │ $150 - $400     │ $1.5K - $4K     │
+│ (Generous)      │                 │                 │                 │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ TOTAL MONTHLY   │ $104 - $266     │ $500 - $1,100   │ $3.85K - $6.2K  │
-│ (MVP Only)      │                 │                 │                 │
+│ Infrastructure  │ $100 - $260     │ $460 - $1,040   │ $2.45K - $5.6K  │
+│ (Other)         │                 │                 │                 │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ Cost per User   │ $1.04 - $2.66   │ $0.50 - $1.10   │ $0.39 - $0.62   │
-│ (MVP Only)      │                 │                 │                 │
+│ TOTAL MONTHLY   │ $134 - $346     │ $800 - $1,900   │ $6.35K - $14.2K │
+│ (MVP + Storage) │                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Cost per User   │ $1.34 - $3.46   │ $0.80 - $1.90   │ $0.64 - $1.42   │
+│ (MVP + Storage) │                 │                 │                 │
 └─────────────────┴─────────────────┴─────────────────┴─────────────────┘
 ```
 
@@ -167,7 +173,8 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
 │ Watermark       │ Small logo      │ None            │ None            │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ Storage         │ 7-day expiry    │ Permanent       │ Permanent       │
+│ Storage         │ 7-day expiry    │ 10GB permanent  │ 50GB permanent  │
+│                 │                 │ (≈2,000 photos)│ (≈10,000 photos)│
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
 │ Processing      │ Standard queue  │ Priority        │ Priority        │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
@@ -190,7 +197,8 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 ├─────────────────┼─────────────────┼─────────────────┤
 │ Watermark       │ None            │ Based on tier   │
 ├─────────────────┼─────────────────┼─────────────────┤
-│ Storage         │ Permanent       │ Based on tier   │
+│ Storage         │ 200GB permanent │ Based on tier   │
+│                 │ (≈40,000 photos)│                 │
 ├─────────────────┼─────────────────┼─────────────────┤
 │ Processing      │ Highest priority│ Based on tier   │
 ├─────────────────┼─────────────────┼─────────────────┤
@@ -205,6 +213,55 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 - **Top-up credits** carry over month-to-month and are used after subscription credits
 - **Annual billing** offers 20% discount on all paid tiers
 - **Credit top-ups** available from any tier for overflow demand
+
+### Storage Management & Abuse Prevention
+
+**Storage Limits by Tier:**
+- **Free Tier:** 7-day expiry (no permanent storage)
+- **Remember:** 10GB permanent storage (≈2,000 photos at 5MB each)
+- **Cherish:** 50GB permanent storage (≈10,000 photos at 5MB each)  
+- **Forever:** 200GB permanent storage (≈40,000 photos at 5MB each)
+
+**Storage Abuse Prevention:**
+- **Upload Requirements:** Users must process photos to store them permanently
+- **Unprocessed Photos:** Auto-deleted after 7 days if no processing credits used
+- **Storage Monitoring:** Alert users when approaching 80% of storage limit
+- **Upgrade Prompts:** Suggest tier upgrade when storage limit reached
+- **Fair Use Policy:** Prevent bulk uploads without processing intent
+
+**Storage Cost Protection:**
+- **S3 Storage Cost:** ~$0.023/GB/month (AWS S3 Standard)
+- **Cost per User:** $0.23-$4.60/month storage cost per paid user
+- **Revenue Protection:** Storage costs <5% of subscription revenue
+- **Abuse Detection:** Monitor for users uploading without processing
+
+**Detailed Storage Cost Analysis:**
+```
+┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐
+│ Tier            │ Remember        │ Cherish         │ Forever         │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Storage Limit   │ 10GB            │ 50GB            │ 200GB           │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Monthly Cost    │ $0.23           │ $1.15           │ $4.60           │
+│ (S3 Storage)    │                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Subscription    │ $9.99           │ $19.99          │ $39.99          │
+│ Revenue         │                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Storage % of    │ 2.3%            │ 5.8%            │ 11.5%           │
+│ Revenue         │                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Photos Stored   │ ~2,000          │ ~10,000         │ ~40,000         │
+│ (5MB each)      │                 │                 │                 │
+└─────────────────┴─────────────────┴─────────────────┴─────────────────┘
+```
+
+**Cost Justification:**
+- **Remember Tier:** $0.23/month storage cost vs $9.99 revenue (2.3% overhead)
+- **Cherish Tier:** $1.15/month storage cost vs $19.99 revenue (5.8% overhead)  
+- **Forever Tier:** $4.60/month storage cost vs $39.99 revenue (11.5% overhead)
+- **User Experience:** Generous storage eliminates user concerns about limits
+- **Competitive Advantage:** Much more storage than competitors at similar price points
 
 ---
 
@@ -225,10 +282,19 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
 │ Monthly Revenue │ $160            │ $1,800          │ $13,500         │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ Monthly Costs   │ $300            │ $1,200          │ $6,000          │
+│ AI Processing   │ $30             │ $300            │ $1,500          │
+│ Costs           │                 │                 │                 │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ Net Profit      │ -$140           │ $600            │ $7,500          │
-│                 │ (expected loss) │                 │                 │
+│ Storage Costs   │ $5              │ $50             │ $250            │
+│ (Generous)      │                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Infrastructure  │ $100            │ $400            │ $1,200          │
+│ (Other)         │                 │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Total Costs     │ $135            │ $750            │ $2,950          │
+├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Net Profit      │ $25             │ $1,050          │ $10,550         │
+│                 │ (break-even)    │                 │                 │
 └─────────────────┴─────────────────┴─────────────────┴─────────────────┘
 ```
 
@@ -246,9 +312,18 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 ├─────────────────┼─────────────────┼─────────────────┤
 │ Monthly Revenue │ $12,000         │ $79,800         │
 ├─────────────────┼─────────────────┼─────────────────┤
-│ Monthly Costs   │ $4,500          │ $18,000         │
+│ AI Processing   │ $1,500          │ $7,500          │
+│ Costs           │                 │                 │
 ├─────────────────┼─────────────────┼─────────────────┤
-│ Net Profit      │ $7,500          │ $61,800         │
+│ Storage Costs   │ $300            │ $1,500          │
+│ (Generous)      │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┤
+│ Infrastructure  │ $1,200          │ $6,000          │
+│ (Other)         │                 │                 │
+├─────────────────┼─────────────────┼─────────────────┤
+│ Total Costs     │ $3,000          │ $15,000         │
+├─────────────────┼─────────────────┼─────────────────┤
+│ Net Profit      │ $9,000          │ $64,800         │
 └─────────────────┴─────────────────┴─────────────────┘
 ```
 
