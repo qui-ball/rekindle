@@ -12,3 +12,6 @@ export type Result<T, E = Error> =
 
 // Upload system types
 export * from './upload';
+
+// Photo management types
+export * from './photo-management';
