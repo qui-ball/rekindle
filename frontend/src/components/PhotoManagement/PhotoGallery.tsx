@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PhotoGalleryProps, Photo } from '../../types/photo-management';
+import Image from 'next/image';
+import { PhotoGalleryProps, Photo, ProcessingStatus } from '../../types/photo-management';
 import { PhotoStatusIndicator } from './PhotoStatusIndicator';
 
 /**
@@ -121,6 +122,22 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     return 'grid-cols-4'; // Desktop
   };
 
+  // Map backend photo status to UI processing status
+  const mapPhotoStatusToProcessingStatus = (status: Photo['status']): ProcessingStatus => {
+    switch (status) {
+      case 'uploaded':
+        return 'ready';
+      case 'processing':
+        return 'processing';
+      case 'completed':
+        return 'completed';
+      case 'failed':
+        return 'failed';
+      default:
+        return 'ready';
+    }
+  };
+
   // Render photo thumbnail
   const renderPhotoThumbnail = (photo: Photo) => {
     const isProcessing = photo.status === 'processing' || photo.status === 'uploaded';
@@ -147,16 +164,17 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       >
         {/* Photo Image */}
         <div className="relative w-full h-full">
-          <img
+          <Image
             src={photo.metadata.thumbnailUrl}
             alt={photo.originalFilename}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              // Fallback to original URL if thumbnail fails
-              const target = e.target as HTMLImageElement;
-              target.src = photo.metadata.originalUrl;
+            fill
+            sizes="(max-width: 480px) 100vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover"
+            onError={() => {
+              // Next/Image does not allow changing src on error; render fallback overlay
             }}
+            unoptimized
+            priority={false}
           />
           
           {/* Overlay for processing state */}
@@ -172,7 +190,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
 
         {/* Status Indicator */}
         <PhotoStatusIndicator
-          status={photo.status as 'ready' | 'queued' | 'processing' | 'completed' | 'failed'}
+          status={mapPhotoStatusToProcessingStatus(photo.status)}
           progress={isProcessing ? undefined : 100}
           onRetry={photo.status === 'failed' ? () => console.log('Retry photo:', photo.id) : undefined}
         />

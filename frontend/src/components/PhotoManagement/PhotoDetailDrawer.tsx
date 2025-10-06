@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { PhotoDetailDrawerProps, PhotoAction, ProcessingOptions, Photo, PhotoResult } from '../../types/photo-management';
 import { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
 
@@ -127,11 +128,15 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
           <div className="p-4">
             <div className="mb-4">
               <h3 className="text-md font-medium text-gray-900 mb-2">Original Photo</h3>
-              <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                <img
+              <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: '24rem' }}>
+                <Image
                   src={photo.metadata.originalUrl}
                   alt={photo.originalFilename}
-                  className="w-full h-auto max-h-96 object-contain"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 60vw"
+                  className="object-contain"
+                  unoptimized
+                  priority={false}
                 />
                 <div className="absolute top-2 right-2 flex space-x-2">
                   <button

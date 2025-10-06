@@ -32,7 +32,23 @@ jest.mock('../../../services/photoManagementService', () => ({
 
 // Mock the child components
 jest.mock('../PhotoGallery', () => ({
-  PhotoGallery: ({ photos, onPhotoClick, onLoadMore, hasMore, isLoading, onRefresh, isRefreshing }: any) => (
+  PhotoGallery: ({
+    photos,
+    onPhotoClick,
+    onLoadMore,
+    hasMore,
+    isLoading,
+    onRefresh,
+    isRefreshing
+  }: {
+    photos: Array<{ id: string; originalFilename: string }>; 
+    onPhotoClick: (photo: { id: string; originalFilename: string }) => void;
+    onLoadMore: () => void;
+    hasMore: boolean;
+    isLoading: boolean;
+    onRefresh: () => void;
+    isRefreshing: boolean;
+  }) => (
     <div data-testid="photo-gallery">
       <div data-testid="photo-count">{photos.length}</div>
       <button data-testid="load-more" onClick={onLoadMore} disabled={!hasMore || isLoading}>
@@ -41,7 +57,7 @@ jest.mock('../PhotoGallery', () => ({
       <button data-testid="refresh" onClick={onRefresh} disabled={isRefreshing}>
         Refresh
       </button>
-      {photos.map((photo: any) => (
+      {photos.map((photo) => (
         <div key={photo.id} data-testid={`photo-${photo.id}`} onClick={() => onPhotoClick(photo)}>
           {photo.originalFilename}
         </div>
@@ -51,7 +67,19 @@ jest.mock('../PhotoGallery', () => ({
 }));
 
 jest.mock('../PhotoDetailDrawer', () => ({
-  PhotoDetailDrawer: ({ isOpen, photo, onClose, onPhotoAction, onProcessingStart }: any) => (
+  PhotoDetailDrawer: ({
+    isOpen,
+    photo,
+    onClose,
+    onPhotoAction,
+    onProcessingStart
+  }: {
+    isOpen: boolean;
+    photo: { id: string; originalFilename: string } | null;
+    onClose: () => void;
+    onPhotoAction: (action: string, photo: { id: string; originalFilename: string }) => void;
+    onProcessingStart: (options: any) => void;
+  }) => (
     isOpen ? (
       <div data-testid="photo-detail-drawer">
         <div data-testid="selected-photo">{photo?.originalFilename}</div>
@@ -65,7 +93,17 @@ jest.mock('../PhotoDetailDrawer', () => ({
 }));
 
 jest.mock('../CreditBalanceDisplay', () => ({
-  CreditBalanceDisplay: ({ balance, onPurchaseCredits, onViewSubscription, showWarning }: any) => (
+  CreditBalanceDisplay: ({
+    balance,
+    onPurchaseCredits,
+    onViewSubscription,
+    showWarning
+  }: {
+    balance: { subscriptionCredits: number; topupCredits: number };
+    onPurchaseCredits: () => void;
+    onViewSubscription: () => void;
+    showWarning: boolean;
+  }) => (
     <div data-testid="credit-balance-display">
       <div data-testid="subscription-credits">{balance.subscriptionCredits}</div>
       <div data-testid="topup-credits">{balance.topupCredits}</div>

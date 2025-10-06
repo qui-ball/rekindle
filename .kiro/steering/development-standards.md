@@ -160,6 +160,15 @@ class Photo(Base):
 - **Error Handling:** All failure scenarios
 - **No E2E Tests:** Focus on unit/integration for MVP speed
 
+### Test Execution Commands
+```bash
+# Frontend tests
+cd frontend && npm test -- --coverage=false
+
+# Backend tests (using uv method from README)
+cd backend && RUN_INTEGRATION_TESTS=1 uv run pytest -q
+```
+
 ### Test Structure
 ```typescript
 // Frontend tests
