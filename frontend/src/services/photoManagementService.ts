@@ -31,7 +31,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     try {
       // Use the existing backend API endpoint for jobs - don't filter by email to get ALL jobs
       const params = new URLSearchParams({
-        skip: pagination.skip?.toString() || '0',
+        skip: ((pagination.page - 1) * pagination.limit).toString(),
         limit: pagination.limit.toString()
         // Don't include email parameter to get ALL jobs
       });
@@ -244,7 +244,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     ];
 
     // Apply pagination
-    const start = pagination.skip || 0;
+    const start = (pagination.page - 1) * pagination.limit;
     const end = start + pagination.limit;
     return mockPhotos.slice(start, end);
   }
@@ -395,7 +395,7 @@ export class CreditManagementServiceImpl implements CreditManagementService {
     }
   }
 
-  private getMockCreditBalance(userId: string): CreditBalance {
+  private getMockCreditBalance(_userId: string): CreditBalance {
     return {
       totalCredits: 120,
       subscriptionCredits: 25,

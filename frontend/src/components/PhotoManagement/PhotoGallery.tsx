@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { PhotoGalleryProps, Photo, ProcessingStatus } from '../../types/photo-management';
-import { PhotoStatusIndicator } from './PhotoStatusIndicator';
+import { PhotoGalleryProps, Photo } from '../../types/photo-management';
+// import { PhotoStatusIndicator } from './PhotoStatusIndicator';
 
 /**
  * PhotoGallery Component
@@ -123,25 +123,25 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   };
 
   // Map backend photo status to UI processing status
-  const mapPhotoStatusToProcessingStatus = (status: Photo['status']): ProcessingStatus => {
-    switch (status) {
-      case 'uploaded':
-        return 'ready';
-      case 'processing':
-        return 'processing';
-      case 'completed':
-        return 'completed';
-      case 'failed':
-        return 'failed';
-      default:
-        return 'ready';
-    }
-  };
+  // const _mapPhotoStatusToProcessingStatus = (status: Photo['status']): ProcessingStatus => {
+  //   switch (status) {
+  //     case 'uploaded':
+  //       return 'ready';
+  //     case 'processing':
+  //       return 'processing';
+  //     case 'completed':
+  //       return 'completed';
+  //     case 'failed':
+  //       return 'failed';
+  //     default:
+  //       return 'ready';
+  //   }
+  // };
 
   // Render photo thumbnail
   const renderPhotoThumbnail = (photo: Photo) => {
-    const isProcessing = photo.status === 'processing' || photo.status === 'uploaded';
-    const hasResults = photo.results && photo.results.length > 0;
+    // const _isProcessing = photo.status === 'processing' || photo.status === 'uploaded';
+    // const _hasResults = photo.results && photo.results.length > 0;
     
     return (
       <div

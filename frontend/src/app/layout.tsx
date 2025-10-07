@@ -4,6 +4,7 @@ import './globals.css';
 import { DevMenu } from '@/components/DevMenu';
 import { AppInitializationProvider } from '@/components/AppInitializationProvider';
 import { Navigation } from '@/components/Navigation';
+import { GlobalCreditBalanceBar } from '@/components/GlobalCreditBalanceBar';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AppInitializationProvider>
           <Navigation />
+          <GlobalCreditBalanceBar />
           {children}
           <DevMenu />
         </AppInitializationProvider>

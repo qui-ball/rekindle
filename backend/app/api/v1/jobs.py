@@ -6,13 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, s
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
-import json
 
 from app.api.deps import get_db
 from app.core.config import settings
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.schemas.jobs import (
-    JobCreate,
     JobResponse,
     JobWithRelations,
     RestoreAttemptCreate,
@@ -110,7 +108,7 @@ async def create_restore_attempt(
 
     try:
         # Queue the restoration task
-        task_result = job_tasks.process_restoration.delay(
+        job_tasks.process_restoration.delay(
             str(job_id),
             restore_data.model,
             restore_data.params or {},
@@ -177,7 +175,7 @@ async def create_animation_attempt(
 
     try:
         # Queue the animation task
-        task_result = job_tasks.process_animation.delay(
+        job_tasks.process_animation.delay(
             str(job_id),
             str(animation_data.restore_id),
             animation_data.model,

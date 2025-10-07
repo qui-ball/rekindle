@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Photo,
   PhotoManagementContainerProps,
-  CreditBalance,
   ProcessingOptions,
   ManagementError,
   PaginationOptions
@@ -12,7 +11,6 @@ import {
 import { photoManagementService, creditManagementService, processingJobService } from '../../services/photoManagementService';
 import { PhotoGallery } from './PhotoGallery';
 import { PhotoDetailDrawer } from './PhotoDetailDrawer';
-import { CreditBalanceDisplay } from './CreditBalanceDisplay';
 import { ErrorBoundary } from './ErrorBoundary';
 
 /**
@@ -36,7 +34,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  // Credit balance is now handled globally
   
   // Loading and error states
   const [isLoading, setIsLoading] = useState(true);
@@ -94,18 +92,9 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     }
   }, [userId]);
 
-  // Load credit balance
-  const loadCreditBalance = useCallback(async (): Promise<CreditBalance> => {
-    try {
-      const balance = await creditManagementService.getCreditBalance(userId);
-      setCreditBalance(balance);
-      return balance;
-    } catch (err) {
-      throw new Error(`Failed to load credit balance: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  }, [userId]);
+  // Credit balance is now handled globally
 
-  // Load initial photos and credit balance
+  // Load initial photos
   const loadInitialData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -114,20 +103,15 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       // Create abort controller for cleanup
       abortControllerRef.current = new AbortController();
       
-      // Load photos and credit balance in parallel
-      const [photosData, creditData] = await Promise.all([
-        loadPhotos(1, true),
-        loadCreditBalance()
-      ]);
-      
+      // Load photos
+      const photosData = await loadPhotos(1, true);
       setPhotos(photosData);
-      setCreditBalance(creditData);
     } catch (err) {
       handleError(err as Error, 'Failed to load initial data');
     } finally {
       setIsLoading(false);
     }
-  }, [loadPhotos, loadCreditBalance, handleError]);
+  }, [loadPhotos, handleError]);
 
   // Load initial data
   useEffect(() => {
@@ -175,20 +159,15 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       setIsRefreshing(true);
       setError(null);
       
-      // Reload both photos and credit balance
-      const [photosData, creditData] = await Promise.all([
-        loadPhotos(1, true),
-        loadCreditBalance()
-      ]);
-      
+      // Reload photos
+      const photosData = await loadPhotos(1, true);
       setPhotos(photosData);
-      setCreditBalance(creditData);
     } catch (err) {
       handleError(err as Error, 'Failed to refresh data');
     } finally {
       setIsRefreshing(false);
     }
-  }, [isRefreshing, loadPhotos, loadCreditBalance, handleError]);
+  }, [isRefreshing, loadPhotos, handleError]);
 
   // Handle photo actions (download, delete, etc.)
   const handlePhotoAction = useCallback(async (action: string, photo: Photo) => {
@@ -233,8 +212,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       // Deduct credits
       await creditManagementService.deductCredits(userId, costBreakdown.totalCost);
       
-      // Update credit balance
-      await loadCreditBalance();
+      // Credit balance is now handled globally
       
       // Update photo status
       setPhotos(prev => prev.map(p => 
@@ -258,19 +236,9 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     } catch (err) {
       handleError(err as Error, 'Failed to start processing');
     }
-  }, [selectedPhoto, userId, onProcessingComplete, handleDrawerClose, loadCreditBalance, handleError]);
+  }, [selectedPhoto, userId, onProcessingComplete, handleDrawerClose, handleError]);
 
-  // Handle credit purchase
-  const handlePurchaseCredits = useCallback(() => {
-    // TODO: Navigate to credit purchase page
-    console.log('Navigate to credit purchase');
-  }, []);
-
-  // Handle subscription view
-  const handleViewSubscription = useCallback(() => {
-    // TODO: Navigate to subscription page
-    console.log('Navigate to subscription page');
-  }, []);
+  // Credit purchase and subscription are now handled globally
 
   // Render loading state
   if (isLoading) {
@@ -343,17 +311,6 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
         role="main"
         aria-label="Photo Management"
       >
-        {/* Credit Balance Display */}
-        {creditBalance && (
-          <ErrorBoundary>
-            <CreditBalanceDisplay
-              balance={creditBalance}
-              onPurchaseCredits={handlePurchaseCredits}
-              onViewSubscription={handleViewSubscription}
-              showWarning={creditBalance.lowCreditWarning}
-            />
-          </ErrorBoundary>
-        )}
 
         {/* Photo Gallery */}
         <ErrorBoundary>
