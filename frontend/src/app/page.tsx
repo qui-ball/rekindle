@@ -22,6 +22,15 @@ export default function HomePage() {
           />
         </div>
 
+        {/* Navigation to Gallery */}
+        <div className="text-center mt-8">
+          <a 
+            href="/gallery"
+            className="inline-flex items-center px-6 py-3 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            📸 View Photo Gallery
+          </a>
+        </div>
 
       </div>
     </main>

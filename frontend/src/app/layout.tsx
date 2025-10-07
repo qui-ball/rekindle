@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { DevMenu } from '@/components/DevMenu';
 import { AppInitializationProvider } from '@/components/AppInitializationProvider';
+import { Navigation } from '@/components/Navigation';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -53,6 +54,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AppInitializationProvider>
+          <Navigation />
           {children}
           <DevMenu />
         </AppInitializationProvider>

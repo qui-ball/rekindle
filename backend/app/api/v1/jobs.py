@@ -287,6 +287,37 @@ async def get_job(
     return JobWithRelations(**job_dict)
 
 
+@router.get("/jobs/{job_id}/image-url")
+async def get_job_image_url(
+    job_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Get presigned URL for a job's processed image
+    """
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+    
+    # Generate presigned URL for the processed image
+    key = f"processed/{job_id}.jpg"
+    try:
+        presigned_url = s3_service.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": s3_service.bucket, "Key": key},
+            ExpiresIn=3600  # 1 hour expiration
+        )
+        return {"url": presigned_url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating presigned URL: {str(e)}"
+        )
+
+
 @router.get("/jobs", response_model=List[JobResponse])
 async def list_jobs(
     email: Optional[str] = None,
