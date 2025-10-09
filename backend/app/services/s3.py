@@ -61,7 +61,7 @@ class S3Service:
         """
         Upload a processed/cropped image for a job
         """
-        key = f"processed/{job_id}.{extension}"
+        key = f"uploaded/{job_id}.{extension}"
         ct = self._get_content_type(extension, content_type)
         return self.upload_file(image_content, key, ct)
 

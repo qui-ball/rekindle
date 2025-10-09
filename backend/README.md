@@ -107,7 +107,7 @@ backend/
 ### S3Service (`app/services/s3.py`)
 - Handles all file uploads/downloads
 - Organized folder structure:
-  - `processed/{job_id}.{ext}` - Original uploads
+  - `uploaded/{job_id}.{ext}` - Original uploads
   - `restored/{job_id}/{timestamp_id}.jpg` - Restored images
   - `animated/{job_id}/{timestamp_id}_preview.mp4` - Animation previews
   - `animated/{job_id}/{timestamp_id}_result.mp4` - HD results

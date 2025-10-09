@@ -65,17 +65,17 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
   }
 
   private async transformJobToPhoto(job: any): Promise<Photo> {
-    // Get presigned URL for the processed image
-    let processedUrl = '';
+    // Get presigned URL for the uploaded image
+    let uploadedUrl = '';
     let thumbnailUrl = '';
     
     try {
       const response = await fetch(`${this.baseUrl}/v1/jobs/jobs/${job.id}/image-url`);
       if (response.ok) {
         const data = await response.json();
-        processedUrl = data.url;
+        uploadedUrl = data.url;
         thumbnailUrl = data.url; // Use same URL for thumbnail
-        console.log('Got presigned URL for job:', job.id, 'URL:', processedUrl);
+        console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
       } else {
         console.error('Failed to get presigned URL for job:', job.id, response.statusText);
       }
@@ -87,8 +87,8 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       id: job.id,
       userId: job.email, // Using email as userId for now
       originalFilename: `${job.id}.jpg`, // Use job ID as filename (no "photo-" prefix)
-      fileKey: `processed/${job.id}.jpg`,
-      thumbnailKey: `processed/${job.id}.jpg`, // Use same key for thumbnail
+      fileKey: `uploaded/${job.id}.jpg`,
+      thumbnailKey: `uploaded/${job.id}.jpg`, // Use same key for thumbnail
       status: this.mapJobStatus(job),
       createdAt: new Date(job.created_at),
       updatedAt: new Date(job.created_at),
@@ -97,7 +97,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         fileSize: 2048000,
         format: 'jpeg',
         uploadMethod: 'camera',
-        originalUrl: processedUrl,
+        originalUrl: uploadedUrl,
         thumbnailUrl: thumbnailUrl
       },
       results: this.transformRestoreAttempts(job.restore_attempts || []),
@@ -143,7 +143,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         id: '1',
         userId,
         originalFilename: 'family-photo-1920s.jpg',
-        fileKey: 'processed/123.jpg',
+        fileKey: 'uploaded/123.jpg',
         thumbnailKey: 'thumbs/123.jpg',
         status: 'completed',
         createdAt: new Date('2024-01-15'),
@@ -184,7 +184,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         id: '2',
         userId,
         originalFilename: 'wedding-photo-1950s.jpg',
-        fileKey: 'processed/456.jpg',
+        fileKey: 'uploaded/456.jpg',
         thumbnailKey: 'thumbs/456.jpg',
         status: 'processing',
         createdAt: new Date('2024-01-14'),
@@ -204,7 +204,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         id: '3',
         userId,
         originalFilename: 'baby-photo-1960s.jpg',
-        fileKey: 'processed/789.jpg',
+        fileKey: 'uploaded/789.jpg',
         thumbnailKey: 'thumbs/789.jpg',
         status: 'completed',
         createdAt: new Date('2024-01-13'),
