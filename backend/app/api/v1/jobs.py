@@ -291,7 +291,7 @@ async def get_job_image_url(
     db: Session = Depends(get_db),
 ):
     """
-    Get presigned URL for a job's processed image
+    Get presigned URL for a job's uploaded image
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
@@ -300,8 +300,8 @@ async def get_job_image_url(
             detail="Job not found",
         )
     
-    # Generate presigned URL for the processed image
-    key = f"processed/{job_id}.jpg"
+    # Generate presigned URL for the uploaded image
+    key = f"uploaded/{job_id}.jpg"
     try:
         presigned_url = s3_service.s3_client.generate_presigned_url(
             "get_object",

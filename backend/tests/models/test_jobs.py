@@ -24,14 +24,14 @@ class TestJobModels:
         job = job_factory()
         restore = restore_attempt_factory(
             job_id=job.id,
-            s3_key="processed/test.jpg",
+            s3_key="uploaded/test.jpg",
             model="test_model",
             params={"denoise": 0.8}
         )
         
         assert restore.id is not None
         assert restore.job_id == job.id
-        assert restore.s3_key == "processed/test.jpg"
+        assert restore.s3_key == "uploaded/test.jpg"
         assert restore.model == "test_model"
         assert restore.params == {"denoise": 0.8}
         assert restore.created_at is not None
@@ -58,8 +58,8 @@ class TestJobModels:
         job = job_factory()
         
         # Create multiple restore attempts
-        restore1 = restore_attempt_factory(job_id=job.id, s3_key="processed/img1.jpg")
-        restore2 = restore_attempt_factory(job_id=job.id, s3_key="processed/img2.jpg")
+        restore1 = restore_attempt_factory(job_id=job.id, s3_key="uploaded/img1.jpg")
+        restore2 = restore_attempt_factory(job_id=job.id, s3_key="uploaded/img2.jpg")
         
         # Create animation based on restore
         animation = animation_attempt_factory(

@@ -192,7 +192,7 @@ export class S3UploadService implements UploadService {
   private mapToUploadResult(response: UploadResponse, file: File): UploadResult {
     return {
       uploadId: response.job_id,
-      fileKey: `processed/${response.job_id}`, // Backend stores as processed/{job_id}
+      fileKey: `uploaded/${response.job_id}`, // Backend stores as uploaded/{job_id}
       thumbnailUrl: response.processed_url || '',
       originalFileName: file.name,
       fileSize: file.size,
