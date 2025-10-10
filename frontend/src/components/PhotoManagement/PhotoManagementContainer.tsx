@@ -124,7 +124,23 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   }, [loadInitialData]);
 
   // Handle photo selection
-  const handlePhotoClick = useCallback((photo: Photo) => {
+  const handlePhotoClick = useCallback(async (photo: Photo) => {
+    // Fetch full image URL if not already loaded
+    if (!photo.metadata.originalUrl) {
+      try {
+        const response = await fetch(`/api/v1/jobs/jobs/${photo.id}/image-url`);
+        if (response.ok) {
+          const data = await response.json();
+          // Update photo with full image URL
+          photo.metadata.originalUrl = data.url;
+        }
+      } catch (error) {
+        console.error('Error fetching full image URL:', error);
+        // Fallback to thumbnail if full image fails
+        photo.metadata.originalUrl = photo.metadata.thumbnailUrl;
+      }
+    }
+    
     setSelectedPhoto(photo);
     setIsDrawerOpen(true);
     onPhotoSelect?.(photo);

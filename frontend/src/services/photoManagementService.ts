@@ -65,22 +65,25 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
   }
 
   private async transformJobToPhoto(job: any): Promise<Photo> {
-    // Get presigned URL for the uploaded image
+    // Use thumbnail URL from backend if available, otherwise fetch presigned URL for full image
+    let thumbnailUrl = job.thumbnail_url || '';
     let uploadedUrl = '';
-    let thumbnailUrl = '';
     
-    try {
-      const response = await fetch(`${this.baseUrl}/v1/jobs/jobs/${job.id}/image-url`);
-      if (response.ok) {
-        const data = await response.json();
-        uploadedUrl = data.url;
-        thumbnailUrl = data.url; // Use same URL for thumbnail
-        console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
-      } else {
-        console.error('Failed to get presigned URL for job:', job.id, response.statusText);
+    // Only fetch full image URL if thumbnail is not available (fallback)
+    if (!thumbnailUrl) {
+      try {
+        const response = await fetch(`${this.baseUrl}/v1/jobs/jobs/${job.id}/image-url`);
+        if (response.ok) {
+          const data = await response.json();
+          uploadedUrl = data.url;
+          thumbnailUrl = data.url; // Use full image as thumbnail fallback
+          console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
+        } else {
+          console.error('Failed to get presigned URL for job:', job.id, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error getting presigned URL for job:', job.id, error);
       }
-    } catch (error) {
-      console.error('Error getting presigned URL for job:', job.id, error);
     }
     
     return {
@@ -88,7 +91,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       userId: job.email, // Using email as userId for now
       originalFilename: `${job.id}.jpg`, // Use job ID as filename (no "photo-" prefix)
       fileKey: `uploaded/${job.id}.jpg`,
-      thumbnailKey: `uploaded/${job.id}.jpg`, // Use same key for thumbnail
+      thumbnailKey: job.thumbnail_s3_key || `thumbnails/${job.id}.jpg`,
       status: this.mapJobStatus(job),
       createdAt: new Date(job.created_at),
       updatedAt: new Date(job.created_at),

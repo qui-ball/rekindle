@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, s
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
+from loguru import logger
 
 from app.api.deps import get_db
 from app.core.config import settings
@@ -72,6 +73,21 @@ async def upload_and_process(
             extension=extension,
             content_type=file.content_type,
         )
+
+        # Generate and upload thumbnail
+        try:
+            thumbnail_url = s3_service.upload_job_thumbnail(
+                image_content=file_content,
+                job_id=str(job.id),
+                extension=extension
+            )
+            # Extract S3 key from URL
+            thumbnail_key = s3_service.extract_key_from_url(thumbnail_url)
+            job.thumbnail_s3_key = thumbnail_key
+            logger.info(f"Thumbnail generated for job {job.id}: {thumbnail_key}")
+        except Exception as thumb_error:
+            logger.error(f"Failed to generate thumbnail for job {job.id}: {thumb_error}")
+            # Continue without thumbnail - non-critical error
 
         db.commit()
 
@@ -237,6 +253,8 @@ async def get_job(
         "created_at": job.created_at,
         "selected_restore_id": job.selected_restore_id,
         "latest_animation_id": job.latest_animation_id,
+        "thumbnail_s3_key": job.thumbnail_s3_key,
+        "thumbnail_url": s3_service.get_s3_url(job.thumbnail_s3_key) if job.thumbnail_s3_key else None,
         "restore_attempts": [],
         "animation_attempts": [],
     }
@@ -324,14 +342,34 @@ async def list_jobs(
     db: Session = Depends(get_db),
 ):
     """
-    List jobs with optional email filter
+    List jobs with optional email filter and thumbnail URLs
     """
     query = db.query(Job)
     if email:
         query = query.filter(Job.email == email)
     
     jobs = query.offset(skip).limit(limit).all()
-    return jobs
+    
+    # Convert to response format with thumbnail URLs
+    job_responses = []
+    for job in jobs:
+        job_dict = {
+            "id": job.id,
+            "email": job.email,
+            "created_at": job.created_at,
+            "selected_restore_id": job.selected_restore_id,
+            "latest_animation_id": job.latest_animation_id,
+            "thumbnail_s3_key": job.thumbnail_s3_key,
+            "thumbnail_url": None
+        }
+        
+        # Add thumbnail URL if key exists
+        if job.thumbnail_s3_key:
+            job_dict["thumbnail_url"] = s3_service.get_s3_url(job.thumbnail_s3_key)
+        
+        job_responses.append(JobResponse(**job_dict))
+    
+    return job_responses
 
 
 @router.delete("/jobs/{job_id}")
