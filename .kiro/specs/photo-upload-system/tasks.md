@@ -546,7 +546,7 @@ export const useOpenCVInitialization = () => {
     - _Requirements: 4.3, 4.4, 4.5_
 
 - [ ] 10. Implement upload processing pipeline (UPDATED: Split perspective correction)
-  - [ ] 10.1-A Frontend perspective correction and upload preview (PRE-UPLOAD)
+  - [x] 10.1-A Frontend perspective correction and upload preview (PRE-UPLOAD)
     - Create PerspectiveCorrectionService using OpenCV.js warpPerspective
     - Implement 4-point perspective transform from JScanify corner points
     - Build UploadPreview component showing corrected image before upload
@@ -556,6 +556,7 @@ export const useOpenCVInitialization = () => {
     - Write unit and integration tests for perspective correction flow
     - _Requirements: 6.5, 1.6, 8.7, 8.8, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9_
     - _See: design.md (PerspectiveCorrectionService, UploadPreview) and requirements.md (Requirement 11)_
+    - **✅ COMPLETED** - October 10, 2025 - All 9 acceptance criteria met, 23/23 core tests passing
 
   - [ ] 10.1-B Backend thumbnail generation (POST-UPLOAD)
     - Update backend to receive already perspective-corrected images

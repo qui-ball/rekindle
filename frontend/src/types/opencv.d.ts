@@ -6,6 +6,7 @@ export interface OpenCVMat {
   cols: number;
   type(): number;
   delete(): void;
+  data32F: Float32Array;
 }
 
 export interface OpenCVSize {
@@ -45,7 +46,7 @@ declare global {
 interface OpenCVType {
   Mat: new (...args: unknown[]) => OpenCVMat;
   imread: (element: HTMLImageElement | HTMLCanvasElement) => OpenCVMat;
-  imshow: (canvasId: string, mat: OpenCVMat) => void;
+  imshow: (canvasIdOrElement: string | HTMLCanvasElement, mat: OpenCVMat) => void;
   cvtColor: (src: OpenCVMat, dst: OpenCVMat, code: number) => void;
   threshold: (src: OpenCVMat, dst: OpenCVMat, thresh: number, maxval: number, type: number) => void;
   findContours: (image: OpenCVMat, contours: OpenCVMatVector, hierarchy: OpenCVMat, mode: number, method: number) => void;
@@ -53,10 +54,22 @@ interface OpenCVType {
   contourArea: (contour: OpenCVMat) => number;
   boundingRect: (contour: OpenCVMat) => OpenCVRect;
   getPerspectiveTransform: (src: OpenCVMat, dst: OpenCVMat) => OpenCVMat;
-  warpPerspective: (src: OpenCVMat, dst: OpenCVMat, M: OpenCVMat, dsize: OpenCVSize) => void;
+  warpPerspective: (
+    src: OpenCVMat,
+    dst: OpenCVMat,
+    M: OpenCVMat,
+    dsize: OpenCVSize,
+    flags?: number,
+    borderMode?: number,
+    borderValue?: OpenCVScalar
+  ) => void;
+  // Interpolation flags
+  INTER_LINEAR: number;
+  // Border types
+  BORDER_CONSTANT: number;
   Size: new (width: number, height: number) => OpenCVSize;
   Point: new (x: number, y: number) => OpenCVPoint;
-  Scalar: new (r: number, g: number, b: number, a?: number) => OpenCVScalar;
+  Scalar: new (r?: number, g?: number, b?: number, a?: number) => OpenCVScalar;
   MatVector: new () => OpenCVMatVector;
   // Color conversion codes
   COLOR_RGBA2GRAY: number;
@@ -72,6 +85,8 @@ interface OpenCVType {
   // Contour approximation methods
   CHAIN_APPROX_NONE: number;
   CHAIN_APPROX_SIMPLE: number;
+  // Mat types
+  CV_32FC2: number;
   // Memory management
   delete: (obj: OpenCVMat | OpenCVMatVector) => void;
 }
