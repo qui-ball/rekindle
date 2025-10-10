@@ -218,7 +218,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   );
 
   return (
-    <div className="photo-gallery">
+    <div className="photo-gallery h-full overflow-y-auto">
       {/* Pull-to-refresh indicator */}
       {isPulling && (
         <div 
@@ -232,7 +232,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       {/* Gallery Grid */}
       <div
         ref={galleryRef}
-        className={`grid ${getGridColumns()} gap-4 p-4 min-h-screen`}
+        className={`grid ${getGridColumns()} gap-4 p-4`}
         role="grid"
         aria-label="Photo gallery grid"
         onScroll={handleScroll}

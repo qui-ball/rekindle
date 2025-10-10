@@ -4,8 +4,8 @@ import { PhotoManagementContainer } from '@/components/PhotoManagement/PhotoMana
 
 export default function GalleryPage() {
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+    <main className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Your Photo Gallery
@@ -14,15 +14,15 @@ export default function GalleryPage() {
             View and manage all your processed photos
           </p>
         </div>
+      </div>
 
-        <div className="max-w-7xl mx-auto">
-          <PhotoManagementContainer 
-            userId="user@example.com" // Real user ID from database
-            onPhotoSelect={(photo) => console.log('Photo selected:', photo)}
-            onProcessingComplete={(result) => console.log('Processing complete:', result)}
-            onError={(error) => console.error('Gallery error:', error)}
-          />
-        </div>
+      <div className="flex-1 overflow-hidden container mx-auto px-4 pb-8 max-w-7xl">
+        <PhotoManagementContainer 
+          userId="user@example.com" // Real user ID from database
+          onPhotoSelect={(photo) => console.log('Photo selected:', photo)}
+          onProcessingComplete={(result) => console.log('Processing complete:', result)}
+          onError={(error) => console.error('Gallery error:', error)}
+        />
       </div>
     </main>
   );

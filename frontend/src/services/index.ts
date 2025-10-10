@@ -10,3 +10,6 @@ export { SmartPhotoDetector } from './SmartPhotoDetector';
 export { jscanifyService, JScanifyService } from './jscanifyService';
 export { opencvLoader, OpenCVLoader } from './opencvLoader';
 export { appInitialization, AppInitializationService } from './appInitialization';
+
+// Perspective correction service
+export { perspectiveCorrectionService, PerspectiveCorrectionService } from './perspectiveCorrectionService';

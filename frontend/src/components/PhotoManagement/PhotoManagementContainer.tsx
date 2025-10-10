@@ -306,8 +306,8 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
         });
       }}
     >
-      <div 
-        className="photo-management-container"
+      <div
+        className="photo-management-container h-full"
         role="main"
         aria-label="Photo Management"
       >
