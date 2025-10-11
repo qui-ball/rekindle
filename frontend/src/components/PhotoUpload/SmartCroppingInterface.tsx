@@ -42,6 +42,7 @@ interface SmartCroppingInterfaceProps {
   isLandscape: boolean;
   aspectRatio: number;
   isMobile: boolean;
+  cropButtonRef?: React.MutableRefObject<(() => void) | null>; // Expose crop function to parent
 }
 
 export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
@@ -51,7 +52,8 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
   onCancel: _onCancel,
   isLandscape: _isLandscape,
   aspectRatio,
-  isMobile: _isMobile
+  isMobile: _isMobile,
+  cropButtonRef
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -326,14 +328,15 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     return (
       <div
         key={corner}
-        className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-lg z-20 touch-none select-none"
+        className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-lg touch-none select-none"
         style={{
           left: Math.round(point.x || 0),
           top: Math.round(point.y || 0),
           touchAction: 'none',
           userSelect: 'none',
           WebkitUserSelect: 'none',
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          zIndex: 100 // Highest z-index to ensure always on top and interactive
         }}
         onMouseDown={(e) => handleMouseDown(e, corner)}
         onTouchStart={(e) => handleTouchStart(e, corner)}
@@ -401,7 +404,14 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     // For now, just pass the original image and corner points
     // The perspective correction will be handled in the upload preview step
     onCropComplete(image, jscanifyCornerPoints);
-  }, [cropArea, imageDimensions, displayDimensions, image, onCropComplete]);
+  }, [cropArea, imageDimensions, displayDimensions, image, onCropComplete, imageLoaded]);
+
+  // Expose applyCrop function to parent via ref
+  useEffect(() => {
+    if (cropButtonRef) {
+      cropButtonRef.current = applyCrop;
+    }
+  }, [applyCrop, cropButtonRef]);
 
   // Render crop area overlay
   const renderCropOverlay = () => {
@@ -442,23 +452,6 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
           strokeWidth="2"
           strokeDasharray="5,5"
         />
-
-        {/* Accept button overlay - enable pointer events for the button */}
-        <foreignObject 
-          x={containerWidth / 2 - 40} 
-          y={containerHeight - 80} 
-          width="80" 
-          height="60"
-          style={{ pointerEvents: 'auto' }}
-        >
-          <button
-            onClick={applyCrop}
-            className="w-full h-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg transition-colors flex items-center justify-center"
-            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-          >
-            ✓ Crop
-          </button>
-        </foreignObject>
       </svg>
     );
   };
