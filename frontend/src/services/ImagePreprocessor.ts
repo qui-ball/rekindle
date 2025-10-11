@@ -161,7 +161,8 @@ export class ImagePreprocessor {
       // Preserves edges while smoothing noise
       this.cv.bilateralFilter(src, dst, 9, 75, 75, this.cv.BORDER_DEFAULT);
     } catch (error) {
-      console.warn('⚠️ Bilateral filter failed:', error);
+      // Bilateral filter may fail on some images/browsers - gracefully fallback
+      console.log('ℹ️ Bilateral filter unavailable, skipping noise reduction step');
       src.copyTo(dst);
     }
   }
