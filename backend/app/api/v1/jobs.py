@@ -246,7 +246,18 @@ async def get_job(
             detail="Job not found",
         )
 
-    # Convert to response model with URLs
+    # Convert to response model with presigned URLs
+    thumbnail_url = None
+    if job.thumbnail_s3_key:
+        try:
+            thumbnail_url = s3_service.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                ExpiresIn=3600  # 1 hour expiration
+            )
+        except Exception as e:
+            logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
+    
     job_dict = {
         "id": job.id,
         "email": job.email,
@@ -254,7 +265,7 @@ async def get_job(
         "selected_restore_id": job.selected_restore_id,
         "latest_animation_id": job.latest_animation_id,
         "thumbnail_s3_key": job.thumbnail_s3_key,
-        "thumbnail_url": s3_service.get_s3_url(job.thumbnail_s3_key) if job.thumbnail_s3_key else None,
+        "thumbnail_url": thumbnail_url,
         "restore_attempts": [],
         "animation_attempts": [],
     }
@@ -350,7 +361,7 @@ async def list_jobs(
     
     jobs = query.offset(skip).limit(limit).all()
     
-    # Convert to response format with thumbnail URLs
+    # Convert to response format with thumbnail presigned URLs
     job_responses = []
     for job in jobs:
         job_dict = {
@@ -363,9 +374,16 @@ async def list_jobs(
             "thumbnail_url": None
         }
         
-        # Add thumbnail URL if key exists
+        # Generate presigned URL for thumbnail if key exists
         if job.thumbnail_s3_key:
-            job_dict["thumbnail_url"] = s3_service.get_s3_url(job.thumbnail_s3_key)
+            try:
+                job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                    ExpiresIn=3600  # 1 hour expiration
+                )
+            except Exception as e:
+                logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
         
         job_responses.append(JobResponse(**job_dict))
     
