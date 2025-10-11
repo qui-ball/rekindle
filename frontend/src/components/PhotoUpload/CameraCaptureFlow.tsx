@@ -19,7 +19,7 @@
  * - Proper cancel handling
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { CameraCapture } from './CameraCapture';
 import { CameraCaptureProps } from './types';
@@ -74,6 +74,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [isLandscape, setIsLandscape] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cameraQuality, setCameraQuality] = useState({ lighting: 'analyzing', focus: 'analyzing' });
+  const cropButtonRef = useRef<(() => void) | null>(null);
 
   // Initialize SmartPhotoDetector only on client-side
   useEffect(() => {
@@ -500,8 +501,23 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             isLandscape={isLandscape}
             aspectRatio={getAspectRatio()}
             isMobile={isMobile}
+            cropButtonRef={cropButtonRef}
           />
         </div>
+
+        {/* Control Area with Crop Button */}
+        <ControlGrid>
+          {/* Row 3, Column 3 (center of 5x5 grid) */}
+          <div className="col-start-3 row-start-3 flex items-center justify-center">
+            <button
+              onClick={() => cropButtonRef.current?.()}
+              className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-2xl transition-colors shadow-lg flex items-center justify-center"
+              aria-label="Apply crop"
+            >
+              ✓
+            </button>
+          </div>
+        </ControlGrid>
 
         {/* Overlaid Header - centered title and right-aligned close button */}
         <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
