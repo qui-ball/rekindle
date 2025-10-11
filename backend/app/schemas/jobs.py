@@ -23,6 +23,8 @@ class JobResponse(BaseModel):
     created_at: datetime
     selected_restore_id: Optional[UUID] = None
     latest_animation_id: Optional[UUID] = None
+    thumbnail_s3_key: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
 
 # Restore Attempt Schemas

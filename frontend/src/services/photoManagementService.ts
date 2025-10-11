@@ -57,30 +57,32 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       return photos;
       
     } catch (error) {
-      console.error('Error fetching photos from API, using mock data:', error);
-      
-      // Fallback to mock data for testing
-      return this.getMockPhotos(userId, pagination);
+      console.error('Error fetching photos from API:', error);
+      // Return empty array instead of mock data - let UI handle empty state
+      return [];
     }
   }
 
   private async transformJobToPhoto(job: any): Promise<Photo> {
-    // Get presigned URL for the uploaded image
+    // Use thumbnail URL from backend if available, otherwise fetch presigned URL for full image
+    let thumbnailUrl = job.thumbnail_url || '';
     let uploadedUrl = '';
-    let thumbnailUrl = '';
     
-    try {
-      const response = await fetch(`${this.baseUrl}/v1/jobs/jobs/${job.id}/image-url`);
-      if (response.ok) {
-        const data = await response.json();
-        uploadedUrl = data.url;
-        thumbnailUrl = data.url; // Use same URL for thumbnail
-        console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
-      } else {
-        console.error('Failed to get presigned URL for job:', job.id, response.statusText);
+    // Only fetch full image URL if thumbnail is not available (fallback)
+    if (!thumbnailUrl) {
+      try {
+        const response = await fetch(`${this.baseUrl}/v1/jobs/jobs/${job.id}/image-url`);
+        if (response.ok) {
+          const data = await response.json();
+          uploadedUrl = data.url;
+          thumbnailUrl = data.url; // Use full image as thumbnail fallback
+          console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
+        } else {
+          console.error('Failed to get presigned URL for job:', job.id, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error getting presigned URL for job:', job.id, error);
       }
-    } catch (error) {
-      console.error('Error getting presigned URL for job:', job.id, error);
     }
     
     return {
@@ -88,7 +90,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       userId: job.email, // Using email as userId for now
       originalFilename: `${job.id}.jpg`, // Use job ID as filename (no "photo-" prefix)
       fileKey: `uploaded/${job.id}.jpg`,
-      thumbnailKey: `uploaded/${job.id}.jpg`, // Use same key for thumbnail
+      thumbnailKey: job.thumbnail_s3_key || `thumbnails/${job.id}.jpg`,
       status: this.mapJobStatus(job),
       createdAt: new Date(job.created_at),
       updatedAt: new Date(job.created_at),
@@ -136,118 +138,6 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     }));
   }
 
-  private getMockPhotos(userId: string, pagination: PaginationOptions): Photo[] {
-    // Enhanced mock data for testing
-    const mockPhotos: Photo[] = [
-      {
-        id: '1',
-        userId,
-        originalFilename: 'family-photo-1920s.jpg',
-        fileKey: 'uploaded/123.jpg',
-        thumbnailKey: 'thumbs/123.jpg',
-        status: 'completed',
-        createdAt: new Date('2024-01-15'),
-        updatedAt: new Date('2024-01-15'),
-        metadata: {
-          dimensions: { width: 1920, height: 1080 },
-          fileSize: 2048000,
-          format: 'jpeg',
-          uploadMethod: 'camera',
-          originalUrl: 'https://example.com/original.jpg',
-          thumbnailUrl: 'https://example.com/thumb.jpg'
-        },
-        results: [
-          {
-            id: '1-1',
-            photoId: '1',
-            resultType: 'restored',
-            fileKey: 'restored/123/restore1.jpg',
-            thumbnailKey: 'thumbs/123/restore1.jpg',
-            status: 'completed',
-            createdAt: new Date('2024-01-15'),
-            completedAt: new Date('2024-01-15'),
-            processingJobId: 'job-1',
-            metadata: {
-              dimensions: { width: 1920, height: 1080 },
-              fileSize: 1800000,
-              format: 'jpeg',
-              quality: 'hd',
-              processingTime: 45,
-              model: 'qwen-3-image-edit',
-              parameters: { denoise: 0.7, megapixels: 1.0 }
-            }
-          }
-        ],
-        processingJobs: []
-      },
-      {
-        id: '2',
-        userId,
-        originalFilename: 'wedding-photo-1950s.jpg',
-        fileKey: 'uploaded/456.jpg',
-        thumbnailKey: 'thumbs/456.jpg',
-        status: 'processing',
-        createdAt: new Date('2024-01-14'),
-        updatedAt: new Date('2024-01-14'),
-        metadata: {
-          dimensions: { width: 1600, height: 1200 },
-          fileSize: 1800000,
-          format: 'jpeg',
-          uploadMethod: 'gallery',
-          originalUrl: 'https://example.com/original2.jpg',
-          thumbnailUrl: 'https://example.com/thumb2.jpg'
-        },
-        results: [],
-        processingJobs: []
-      },
-      {
-        id: '3',
-        userId,
-        originalFilename: 'baby-photo-1960s.jpg',
-        fileKey: 'uploaded/789.jpg',
-        thumbnailKey: 'thumbs/789.jpg',
-        status: 'completed',
-        createdAt: new Date('2024-01-13'),
-        updatedAt: new Date('2024-01-13'),
-        metadata: {
-          dimensions: { width: 1200, height: 1600 },
-          fileSize: 1500000,
-          format: 'jpeg',
-          uploadMethod: 'camera',
-          originalUrl: 'https://example.com/original3.jpg',
-          thumbnailUrl: 'https://example.com/thumb3.jpg'
-        },
-        results: [
-          {
-            id: '3-1',
-            photoId: '3',
-            resultType: 'restored',
-            fileKey: 'restored/789/restore1.jpg',
-            thumbnailKey: 'thumbs/789/restore1.jpg',
-            status: 'completed',
-            createdAt: new Date('2024-01-13'),
-            completedAt: new Date('2024-01-13'),
-            processingJobId: 'job-3',
-            metadata: {
-              dimensions: { width: 1200, height: 1600 },
-              fileSize: 1400000,
-              format: 'jpeg',
-              quality: 'hd',
-              processingTime: 38,
-              model: 'qwen-3-image-edit',
-              parameters: { denoise: 0.8, megapixels: 0.8 }
-            }
-          }
-        ],
-        processingJobs: []
-      }
-    ];
-
-    // Apply pagination
-    const start = (pagination.page - 1) * pagination.limit;
-    const end = start + pagination.limit;
-    return mockPhotos.slice(start, end);
-  }
 
   async getPhotoDetails(photoId: string): Promise<PhotoDetails> {
     try {
@@ -388,53 +278,10 @@ export class CreditManagementServiceImpl implements CreditManagementService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error fetching credit balance from API, using mock data:', error);
-      
-      // Fallback to mock data for testing
-      return this.getMockCreditBalance(userId);
+      console.error('Error fetching credit balance from API:', error);
+      // Throw error instead of returning mock data - let UI handle the error state
+      throw error;
     }
-  }
-
-  private getMockCreditBalance(_userId: string): CreditBalance {
-    return {
-      totalCredits: 120,
-      subscriptionCredits: 25,
-      topupCredits: 95,
-      subscriptionTier: 'remember',
-      monthlyResetDate: new Date('2024-02-01'),
-      lowCreditWarning: false,
-      creditHistory: [
-        {
-          id: '1',
-          type: 'earned',
-          amount: 25,
-          description: 'Monthly subscription credits',
-          createdAt: new Date('2024-01-01'),
-          processingJobId: undefined
-        },
-        {
-          id: '2',
-          type: 'purchased',
-          amount: 100,
-          description: 'Credit top-up pack',
-          createdAt: new Date('2024-01-15'),
-          processingJobId: undefined
-        },
-        {
-          id: '3',
-          type: 'spent',
-          amount: -5,
-          description: 'Photo restoration',
-          createdAt: new Date('2024-01-20'),
-          processingJobId: 'job-1'
-        }
-      ],
-      usageRules: {
-        subscriptionFirst: true,
-        subscriptionExpires: true,
-        topupCarryOver: true
-      }
-    };
   }
 
   async calculateProcessingCost(options: ProcessingOptions): Promise<CostBreakdown> {
