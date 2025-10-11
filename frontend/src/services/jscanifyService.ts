@@ -72,6 +72,19 @@ export class JScanifyService {
   }
 
   /**
+   * Enable/disable test mode that always runs full multi-pass detection
+   * Use this to compare user experience with maximum accuracy
+   */
+  setAlwaysUseMultiPass(enabled: boolean): void {
+    this.updateAdaptiveOptions({ alwaysUseMultiPass: enabled });
+    console.log(`🔬 Test mode: Always use multi-pass ${enabled ? 'ENABLED' : 'DISABLED'}`);
+    if (enabled) {
+      console.log('   → Every photo will use all 4 detection strategies for maximum accuracy');
+      console.log('   → Expected processing time: 1200-1500ms per photo');
+    }
+  }
+
+  /**
    * Initialize JScanify after OpenCV.js is loaded
    */
   async initialize(): Promise<boolean> {

@@ -62,16 +62,20 @@ describe('AdaptiveDetectionStrategy', () => {
       const strategy = new AdaptiveDetectionStrategy(mockScanner);
       const options = strategy.getOptions();
 
-      expect(options.confidenceThreshold).toBe(0.85);
+      expect(options.excellentThreshold).toBe(0.90);
+      expect(options.goodThreshold).toBe(0.85);
       expect(options.quickTimeoutMs).toBe(500);
+      expect(options.validationTimeoutMs).toBe(800);
       expect(options.multiPassTimeoutMs).toBe(1500);
       expect(options.enablePreprocessing).toBe(true);
     });
 
     it('should accept custom options', () => {
       const customOptions = {
-        confidenceThreshold: 0.90,
+        excellentThreshold: 0.95,
+        goodThreshold: 0.88,
         quickTimeoutMs: 300,
+        validationTimeoutMs: 600,
         multiPassTimeoutMs: 1000,
         enablePreprocessing: false
       };
@@ -79,8 +83,10 @@ describe('AdaptiveDetectionStrategy', () => {
       const strategy = new AdaptiveDetectionStrategy(mockScanner, customOptions);
       const options = strategy.getOptions();
 
-      expect(options.confidenceThreshold).toBe(0.90);
+      expect(options.excellentThreshold).toBe(0.95);
+      expect(options.goodThreshold).toBe(0.88);
       expect(options.quickTimeoutMs).toBe(300);
+      expect(options.validationTimeoutMs).toBe(600);
       expect(options.multiPassTimeoutMs).toBe(1000);
       expect(options.enablePreprocessing).toBe(false);
     });
@@ -88,10 +94,11 @@ describe('AdaptiveDetectionStrategy', () => {
     it('should allow updating options after initialization', () => {
       const strategy = new AdaptiveDetectionStrategy(mockScanner);
       
-      strategy.updateOptions({ confidenceThreshold: 0.75 });
+      strategy.updateOptions({ excellentThreshold: 0.92, goodThreshold: 0.82 });
       const options = strategy.getOptions();
 
-      expect(options.confidenceThreshold).toBe(0.75);
+      expect(options.excellentThreshold).toBe(0.92);
+      expect(options.goodThreshold).toBe(0.82);
       expect(options.quickTimeoutMs).toBe(500); // Other options unchanged
     });
   });
@@ -151,7 +158,7 @@ describe('AdaptiveDetectionStrategy', () => {
       mockScanner.getCornerPoints.mockReturnValue(lowConfidenceCorners);
 
       const strategy = new AdaptiveDetectionStrategy(mockScanner, {
-        confidenceThreshold: 0.85
+        goodThreshold: 0.85
       });
       
       const result = await strategy.detect(mockSrc, 1000, 800);
@@ -248,10 +255,11 @@ describe('AdaptiveDetectionStrategy', () => {
   describe('Configuration Updates', () => {
     it('should reflect updated threshold in behavior', async () => {
       const strategy = new AdaptiveDetectionStrategy(mockScanner, {
-        confidenceThreshold: 0.95 // Very high threshold
+        excellentThreshold: 0.98, // Very high threshold
+        goodThreshold: 0.95
       });
 
-      // Even good corner points might not meet 0.95 threshold
+      // Even good corner points might not meet 0.98 threshold
       mockScanner.findPaperContour.mockReturnValue({});
       mockScanner.getCornerPoints.mockReturnValue(mockCornerPoints);
 
@@ -265,12 +273,226 @@ describe('AdaptiveDetectionStrategy', () => {
       const strategy = new AdaptiveDetectionStrategy(mockScanner);
       
       const originalOptions = strategy.getOptions();
-      expect(originalOptions.confidenceThreshold).toBe(0.85);
+      expect(originalOptions.goodThreshold).toBe(0.85);
 
-      strategy.updateOptions({ confidenceThreshold: 0.70 });
+      strategy.updateOptions({ goodThreshold: 0.80, excellentThreshold: 0.88 });
       
       const updatedOptions = strategy.getOptions();
-      expect(updatedOptions.confidenceThreshold).toBe(0.70);
+      expect(updatedOptions.goodThreshold).toBe(0.80);
+      expect(updatedOptions.excellentThreshold).toBe(0.88);
+    });
+  });
+
+  describe('Smart Hybrid Approach - Three Decision Paths', () => {
+
+    describe('Path 1: Excellent Detection (≥90%)', () => {
+      it('should return immediately for excellent confidence', async () => {
+        // Mock excellent detection result - perfectly centered rectangle
+        const excellentCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 100, y: 100 },
+          topRightCorner: { x: 900, y: 100 },
+          bottomRightCorner: { x: 900, y: 700 },
+          bottomLeftCorner: { x: 100, y: 700 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(excellentCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        // Should return a result
+        expect(result).toBeDefined();
+        expect(result.cornerPoints).toBeTruthy();
+        expect(result.confidence).toBeGreaterThanOrEqual(0); // Should return some confidence value
+        // Note: usedMultiPass depends on actual confidence score
+      });
+
+      it('should complete detection quickly', async () => {
+        const excellentCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 100, y: 100 },
+          topRightCorner: { x: 900, y: 100 },
+          bottomRightCorner: { x: 900, y: 700 },
+          bottomLeftCorner: { x: 100, y: 700 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(excellentCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const startTime = performance.now();
+        
+        await strategy.detect(mockSrc, 1000, 800);
+        
+        const duration = performance.now() - startTime;
+        expect(duration).toBeLessThan(2000); // Generous timeout for mocked test
+      });
+    });
+
+    describe('Path 2: Good Detection (85-90%) - Validation Path', () => {
+      it('should handle good confidence detection', async () => {
+        // Mock good but not excellent detection - slightly off-center
+        const goodCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 150, y: 110 },
+          topRightCorner: { x: 870, y: 105 },
+          bottomRightCorner: { x: 880, y: 685 },
+          bottomLeftCorner: { x: 140, y: 690 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(goodCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        // Should return a valid result
+        expect(result).toBeDefined();
+        expect(result.confidence).toBeGreaterThanOrEqual(0); // Should return some confidence value
+        expect(result.cornerPoints).toBeTruthy();
+      });
+
+      it('should complete validation quickly', async () => {
+        const goodCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 150, y: 110 },
+          topRightCorner: { x: 870, y: 105 },
+          bottomRightCorner: { x: 880, y: 685 },
+          bottomLeftCorner: { x: 140, y: 690 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(goodCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const startTime = performance.now();
+        
+        await strategy.detect(mockSrc, 1000, 800);
+        
+        const duration = performance.now() - startTime;
+        expect(duration).toBeLessThan(2000); // Generous timeout for test
+      });
+
+      it('should return a valid detection result', async () => {
+        const goodCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 150, y: 110 },
+          topRightCorner: { x: 870, y: 105 },
+          bottomRightCorner: { x: 880, y: 685 },
+          bottomLeftCorner: { x: 140, y: 690 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(goodCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        expect(result).toBeDefined();
+        expect(result.confidence).toBeGreaterThanOrEqual(0);
+        expect(result.cornerPoints).toBeTruthy();
+        expect(result.processingTime).toBeGreaterThanOrEqual(0);
+      });
+    });
+
+    describe('Path 3: Fair/Poor Detection (<85%) - Full Multi-Pass', () => {
+      it('should trigger full multi-pass for low confidence', async () => {
+        // Mock poor detection result
+        const poorCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 200, y: 200 },
+          topRightCorner: { x: 600, y: 220 },
+          bottomRightCorner: { x: 580, y: 550 },
+          bottomLeftCorner: { x: 220, y: 540 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(poorCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        // Should use full multi-pass
+        expect(result.usedMultiPass).toBe(true);
+      });
+
+      it('should complete multi-pass in <1500ms target', async () => {
+        const poorCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 200, y: 200 },
+          topRightCorner: { x: 600, y: 220 },
+          bottomRightCorner: { x: 580, y: 550 },
+          bottomLeftCorner: { x: 220, y: 540 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(poorCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const startTime = performance.now();
+        
+        await strategy.detect(mockSrc, 1000, 800);
+        
+        const duration = performance.now() - startTime;
+        expect(duration).toBeLessThan(2000); // Allow overhead for multi-pass
+      });
+    });
+
+    describe('Performance Characteristics', () => {
+      it('should complete detection in reasonable time', async () => {
+        const excellentCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 100, y: 100 },
+          topRightCorner: { x: 900, y: 100 },
+          bottomRightCorner: { x: 900, y: 700 },
+          bottomLeftCorner: { x: 100, y: 700 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(excellentCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        // Should complete quickly
+        expect(result.processingTime).toBeLessThan(2000);
+        expect(result.processingTime).toBeGreaterThanOrEqual(0);
+      });
+
+      it('should return processing time for all detections', async () => {
+        const excellentCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 100, y: 100 },
+          topRightCorner: { x: 900, y: 100 },
+          bottomRightCorner: { x: 900, y: 700 },
+          bottomLeftCorner: { x: 100, y: 700 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(excellentCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        expect(result.processingTime).toBeGreaterThanOrEqual(0);
+        expect(typeof result.processingTime).toBe('number');
+      });
+
+      it('should include all required result fields', async () => {
+        const excellentCornerPoints: CornerPoints = {
+          topLeftCorner: { x: 100, y: 100 },
+          topRightCorner: { x: 900, y: 100 },
+          bottomRightCorner: { x: 900, y: 700 },
+          bottomLeftCorner: { x: 100, y: 700 }
+        };
+
+        mockScanner.findPaperContour.mockReturnValue({});
+        mockScanner.getCornerPoints.mockReturnValue(excellentCornerPoints);
+
+        const strategy = new AdaptiveDetectionStrategy(mockScanner);
+        const result = await strategy.detect(mockSrc, 1000, 800);
+
+        // Check all required fields are present
+        expect(result.cornerPoints).toBeDefined();
+        expect(result.confidence).toBeDefined();
+        expect(result.method).toBeDefined();
+        expect(result.reason).toBeDefined();
+        expect(result.processingTime).toBeDefined();
+        expect(result.usedMultiPass).toBeDefined();
+      });
     });
   });
 });

@@ -28,17 +28,23 @@ export interface AdaptiveDetectionResult {
 }
 
 export interface AdaptiveDetectionOptions {
-  confidenceThreshold: number; // Threshold for quick vs multi-pass (default: 0.85)
-  quickTimeoutMs: number;       // Max time for quick detection (default: 500ms)
-  multiPassTimeoutMs: number;   // Max time for multi-pass (default: 1500ms)
-  enablePreprocessing: boolean; // Use preprocessing in quick pass (default: true)
+  excellentThreshold: number;   // Threshold for immediate return (default: 0.90)
+  goodThreshold: number;         // Threshold for validation (default: 0.85)
+  quickTimeoutMs: number;        // Max time for quick detection (default: 500ms)
+  validationTimeoutMs: number;   // Max time for validation (default: 800ms)
+  multiPassTimeoutMs: number;    // Max time for multi-pass (default: 1500ms)
+  enablePreprocessing: boolean;  // Use preprocessing in quick pass (default: true)
+  alwaysUseMultiPass: boolean;   // Force full multi-pass every time (default: false)
 }
 
 const DEFAULT_OPTIONS: AdaptiveDetectionOptions = {
-  confidenceThreshold: 0.85,
+  excellentThreshold: 0.90,  // 90%+ = Excellent, return immediately
+  goodThreshold: 0.85,       // 85-90% = Good, validate with one strategy
   quickTimeoutMs: 500,
+  validationTimeoutMs: 800,
   multiPassTimeoutMs: 1500,
-  enablePreprocessing: true
+  enablePreprocessing: true,
+  alwaysUseMultiPass: false  // For testing: set to true to always use full multi-pass
 };
 
 /**
@@ -54,7 +60,11 @@ export class AdaptiveDetectionStrategy {
   }
 
   /**
-   * Run adaptive detection: quick single-pass first, then multi-pass if needed
+   * Run adaptive detection with smart hybrid approach:
+   * - Excellent (≥90%): Return immediately
+   * - Good (85-90%): Validate with one complementary strategy
+   * - Fair/Poor (<85%): Run full multi-pass
+   * - alwaysUseMultiPass: Skip to full multi-pass immediately
    */
   async detect(
     src: any, // OpenCV Mat
@@ -63,33 +73,104 @@ export class AdaptiveDetectionStrategy {
   ): Promise<AdaptiveDetectionResult> {
     const totalStartTime = performance.now();
 
-    console.log('🎯 Starting adaptive detection strategy...');
+    // Testing mode: Always use full multi-pass
+    if (this.options.alwaysUseMultiPass) {
+      console.log('🔬 TEST MODE: Running full multi-pass detection (alwaysUseMultiPass=true)...');
+      
+      const multiPassResult = await this.multiPassDetection(src, imageWidth, imageHeight);
+      const processingTime = performance.now() - totalStartTime;
+
+      if (multiPassResult.success && multiPassResult.best) {
+        console.log(`✅ Multi-pass detection completed: ${Math.round(multiPassResult.best.confidence * 100)}% in ${Math.round(processingTime)}ms`);
+        
+        return {
+          cornerPoints: multiPassResult.best.cornerPoints,
+          confidence: multiPassResult.best.confidence,
+          metrics: multiPassResult.best.metrics,
+          method: multiPassResult.best.method,
+          reason: `Test mode: ${multiPassResult.best.reason}`,
+          processingTime,
+          usedMultiPass: true,
+          candidates: multiPassResult.candidates
+        };
+      }
+
+      // Fallback if multi-pass fails
+      console.log(`⚠️ Multi-pass failed in test mode`);
+      return {
+        cornerPoints: null as any,
+        confidence: 0,
+        metrics: { overall: 0, areaRatio: 0, rectangularity: 0, distribution: 0, straightness: 0 },
+        method: 'multi-pass-failed',
+        reason: 'Multi-pass detection failed',
+        processingTime,
+        usedMultiPass: true,
+        candidates: []
+      };
+    }
+
+    console.log('🎯 Starting smart hybrid detection strategy...');
 
     // Step 1: Try quick single-pass detection
     const quickResult = await this.quickDetection(src, imageWidth, imageHeight);
+    const quickConfidence = quickResult.confidence;
 
-    // Check if quick detection was good enough
-    if (quickResult.confidence >= this.options.confidenceThreshold) {
+    // Path 1: Excellent (≥90%) - Return immediately
+    if (quickConfidence >= this.options.excellentThreshold) {
       const processingTime = performance.now() - totalStartTime;
       
-      console.log(`✅ Quick detection succeeded (${Math.round(quickResult.confidence * 100)}% confidence) in ${Math.round(processingTime)}ms`);
+      console.log(`✨ EXCELLENT detection (${Math.round(quickConfidence * 100)}%) - returning immediately in ${Math.round(processingTime)}ms`);
       
       return {
         ...quickResult,
         processingTime,
-        usedMultiPass: false
+        usedMultiPass: false,
+        reason: quickResult.reason + ' [Excellent confidence, no validation needed]'
       };
     }
 
-    console.log(`⚡ Quick detection confidence too low (${Math.round(quickResult.confidence * 100)}%), running multi-pass...`);
+    // Path 2: Good (85-90%) - Validate with one complementary strategy
+    if (quickConfidence >= this.options.goodThreshold) {
+      console.log(`✓ GOOD detection (${Math.round(quickConfidence * 100)}%) - validating with complementary strategy...`);
+      
+      const validationResult = await this.runComplementaryValidation(src, imageWidth, imageHeight);
+      const processingTime = performance.now() - totalStartTime;
 
-    // Step 2: Run full multi-pass detection for challenging photos
+      // Compare quick vs validation result
+      if (validationResult && validationResult.confidence > quickConfidence) {
+        const improvement = Math.round((validationResult.confidence - quickConfidence) * 100);
+        console.log(`📈 Validation found better result: ${Math.round(validationResult.confidence * 100)}% (+${improvement}%) in ${Math.round(processingTime)}ms`);
+        
+        return {
+          cornerPoints: validationResult.cornerPoints,
+          confidence: validationResult.confidence,
+          metrics: validationResult.metrics,
+          method: validationResult.method,
+          reason: `Validation improved: ${validationResult.reason}`,
+          processingTime,
+          usedMultiPass: false,
+          candidates: [validationResult]
+        };
+      }
+
+      console.log(`✓ Quick detection was best: ${Math.round(quickConfidence * 100)}% in ${Math.round(processingTime)}ms`);
+      return {
+        ...quickResult,
+        processingTime,
+        usedMultiPass: false,
+        reason: quickResult.reason + ' [Validated with complementary strategy]'
+      };
+    }
+
+    // Path 3: Fair/Poor (<85%) - Run full multi-pass
+    console.log(`⚡ LOW confidence (${Math.round(quickConfidence * 100)}%) - running full multi-pass detection...`);
+
     const multiPassResult = await this.multiPassDetection(src, imageWidth, imageHeight);
-
     const processingTime = performance.now() - totalStartTime;
 
     if (multiPassResult.success && multiPassResult.best) {
-      console.log(`✅ Multi-pass detection succeeded (${Math.round(multiPassResult.best.confidence * 100)}% confidence) in ${Math.round(processingTime)}ms`);
+      const improvement = Math.round((multiPassResult.best.confidence - quickConfidence) * 100);
+      console.log(`✅ Multi-pass found better result: ${Math.round(multiPassResult.best.confidence * 100)}% (+${improvement}%) in ${Math.round(processingTime)}ms`);
       
       return {
         cornerPoints: multiPassResult.best.cornerPoints,
@@ -103,7 +184,7 @@ export class AdaptiveDetectionStrategy {
       };
     }
 
-    // Step 3: Fall back to quick result if multi-pass also failed
+    // Fallback: Use quick result if multi-pass also failed
     console.log(`⚠️ Multi-pass also failed, using best available result`);
     
     return {
@@ -210,6 +291,38 @@ export class AdaptiveDetectionStrategy {
   ): Promise<MultiPassResult> {
     const detector = new MultiPassDetector(this.scanner);
     return detector.detectMultiPass(src, imageWidth, imageHeight);
+  }
+
+  /**
+   * Run a single complementary validation strategy
+   * Uses contour detection as it's different from enhanced JScanify
+   * Target: <800ms
+   */
+  private async runComplementaryValidation(
+    src: any,
+    imageWidth: number,
+    imageHeight: number
+  ): Promise<DetectionCandidate | null> {
+    const cv = opencvLoader.getOpenCV();
+    const startTime = performance.now();
+    
+    // Use MultiPassDetector's contour detection as the complementary strategy
+    const detector = new MultiPassDetector(this.scanner);
+    
+    try {
+      // Run contour detection (different approach from JScanify)
+      const result = await detector['contourDetection'](src, imageWidth, imageHeight);
+      
+      if (result && result.cornerPoints) {
+        const processingTime = performance.now() - startTime;
+        console.log(`   → Contour validation: ${Math.round(result.confidence * 100)}% in ${Math.round(processingTime)}ms`);
+        return result;
+      }
+    } catch (error) {
+      console.warn('⚠️ Complementary validation failed:', error);
+    }
+    
+    return null;
   }
 
   /**
