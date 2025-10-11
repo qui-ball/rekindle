@@ -27,6 +27,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# Safety check: Warn about local .venv that could conflict with Docker volumes
+if [ -d "backend/.venv" ]; then
+    echo "⚠️  WARNING: Local backend/.venv directory detected!"
+    echo "   This can conflict with Docker volume mounts and cause container failures."
+    echo ""
+    echo "   Recommended actions:"
+    echo "   1. Remove it: rm -rf backend/.venv"
+    echo "   2. Or stop and clean: docker-compose down -v && rm -rf backend/.venv"
+    echo ""
+    read -p "   Continue anyway? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "❌ Startup cancelled. Please remove backend/.venv and try again."
+        exit 1
+    fi
+    echo "⚠️  Continuing with existing .venv directory..."
+    echo ""
+fi
+
 # Function to get local IP
 get_local_ip() {
     if command -v ifconfig &> /dev/null; then
