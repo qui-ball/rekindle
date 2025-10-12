@@ -53,16 +53,13 @@ export interface ResultMetadata {
 // Credit Management Types
 export interface CreditBalance {
   totalCredits: number;
-  subscriptionCredits: number;
-  topupCredits: number;
   subscriptionTier: 'free' | 'remember' | 'cherish' | 'forever';
-  monthlyResetDate?: Date;
+  nextBillingDate?: Date;
   lowCreditWarning: boolean;
   creditHistory: CreditTransaction[];
   usageRules: {
-    subscriptionFirst: true;
-    subscriptionExpires: true;
-    topupCarryOver: true;
+    creditsCarryOver: true;
+    lostOnCancellation: true;
   };
 }
 
@@ -97,12 +94,6 @@ export interface CostBreakdown {
   totalCost: number;
   availableCredits: number;
   remainingCredits: number;
-  creditUsage: {
-    subscriptionCreditsUsed: number;
-    topupCreditsUsed: number;
-    subscriptionCreditsRemaining: number;
-    topupCreditsRemaining: number;
-  };
 }
 
 export interface PhotoProcessingJob {
@@ -251,18 +242,15 @@ export interface PhotoDetails {
 }
 
 export interface CreditDeductionResult {
-  subscriptionCreditsUsed: number;
-  topupCreditsUsed: number;
-  remainingSubscriptionCredits: number;
-  remainingTopupCredits: number;
+  creditsUsed: number;
+  remainingCredits: number;
+  transactionId: string;
 }
 
 export interface CreditUsageBreakdown {
   totalCost: number;
-  subscriptionCreditsAvailable: number;
-  topupCreditsAvailable: number;
-  subscriptionCreditsNeeded: number;
-  topupCreditsNeeded: number;
+  availableCredits: number;
+  remainingAfterProcessing: number;
   canAfford: boolean;
 }
 

@@ -49,10 +49,10 @@ The system directly supports our core mission of "bringing memories to life" by 
 3. WHEN a user has insufficient credits for an option THEN the system SHALL disable that checkbox and show credit cost
 4. WHEN a user selects multiple options THEN the system SHALL show combined processing pricing with applicable discounts
 5. WHEN a user selects processing options THEN the system SHALL display individual credit costs for each action
-6. WHEN a user selects processing options THEN the system SHALL show total credits required and which credit type will be used (subscription vs top-up)
+6. WHEN a user selects processing options THEN the system SHALL show total credits required and remaining balance after processing
 7. WHEN a user confirms processing THEN the system SHALL queue the job and update the photo status
 8. WHEN a user selects both "Restore" and "Colourize" THEN the system SHALL apply the combined processing discount
-9. WHEN processing costs exceed subscription credits THEN the system SHALL show how many top-up credits will be used
+9. WHEN processing costs are calculated THEN the system SHALL deduct from the user's unified credit balance
 10. IF a user has insufficient credits THEN the system SHALL prevent processing and show credit purchase options
 
 ### Requirement 4
@@ -61,11 +61,11 @@ The system directly supports our core mission of "bringing memories to life" by 
 
 #### Acceptance Criteria
 
-1. WHEN a user views the photo management page THEN the system SHALL display current credit balance prominently with separate displays for subscription and top-up credits
-2. WHEN credit balance is shown THEN the system SHALL clearly distinguish between subscription credits (used first, monthly reset) and top-up credits (used second, carry over)
+1. WHEN a user views the photo management page THEN the system SHALL display current credit balance prominently
+2. WHEN credit balance is shown THEN the system SHALL show total credits available with clear indication that all credits carry over month-to-month
 3. WHEN a user has low credits THEN the system SHALL display a warning with link to subscription/top-up pages
 4. WHEN a user has no credits THEN the system SHALL disable processing options and show purchase prompts
-5. WHEN processing photos THEN the system SHALL use subscription credits first, then top-up credits only when subscription credits are insufficient
+5. WHEN a user cancels their subscription THEN the system SHALL warn that all remaining credits will be lost
 6. IF a user exceeds available credits THEN the system SHALL prevent processing and suggest credit purchase
 
 ### Requirement 5

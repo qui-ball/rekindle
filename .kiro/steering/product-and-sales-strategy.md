@@ -209,10 +209,10 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 ```
 
 ### Credit System Rules
-- **Monthly subscription credits** reset each month and are used first
-- **Top-up credits** carry over month-to-month and are used after subscription credits
+- **All credits** carry over month-to-month (no expiration)
+- **Subscription cancellation** results in loss of all remaining credits (Audible model)
 - **Annual billing** offers 20% discount on all paid tiers
-- **Credit top-ups** available from any tier for overflow demand
+- **Credit top-ups** available from any tier for additional credits
 
 ### Storage Management & Abuse Prevention
 
@@ -336,6 +336,7 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 - **User Tier Distribution:** 
   - Free tier users (active in last 30 days)
   - Paid tier users by subscription level (Remember/Cherish/Forever)
+- **Credit Usage:** Total credits earned, spent, and carried over
 
 ### Financial Metrics
 - **Average Revenue Per User (ARPU):** Monthly revenue divided by active paid users

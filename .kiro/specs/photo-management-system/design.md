@@ -184,7 +184,7 @@ interface ProcessingOptionsPanelProps {
 - Processing confirmation with cost breakdown
 
 #### CreditBalanceDisplay
-**Purpose:** Prominent credit balance display with separate subscription and top-up credit tracking
+**Purpose:** Prominent credit balance display with unified credit tracking
 **Props:**
 ```typescript
 interface CreditBalanceDisplayProps {
@@ -196,12 +196,12 @@ interface CreditBalanceDisplayProps {
 ```
 
 **Key Features:**
-- Separate display for subscription credits (used first, monthly reset)
-- Separate display for top-up credits (used second, carry over)
-- Visual indicators showing which credits will be used for current processing
+- Display total credits available (all credits carry over)
+- Clear indication that credits accumulate month-to-month
+- Warning that credits are lost if subscription is cancelled
 - Low credit warning with purchase prompts
 - Quick access to subscription and top-up pages
-- Real-time balance updates with usage breakdown
+- Real-time balance updates
 
 #### PhotoStatusIndicator
 **Purpose:** Visual status indicators for different processing states
@@ -237,7 +237,7 @@ interface PhotoManagementService {
 ```
 
 #### CreditManagementService
-**Purpose:** Credit balance tracking and cost calculation with separate subscription/top-up handling
+**Purpose:** Credit balance tracking and cost calculation with unified credit system
 ```typescript
 interface CreditManagementService {
   getCreditBalance(userId: string): Promise<CreditBalance>;
@@ -248,18 +248,15 @@ interface CreditManagementService {
 }
 
 interface CreditDeductionResult {
-  subscriptionCreditsUsed: number;
-  topupCreditsUsed: number;
-  remainingSubscriptionCredits: number;
-  remainingTopupCredits: number;
+  creditsUsed: number;
+  remainingCredits: number;
+  transactionId: string;
 }
 
 interface CreditUsageBreakdown {
   totalCost: number;
-  subscriptionCreditsAvailable: number;
-  topupCreditsAvailable: number;
-  subscriptionCreditsNeeded: number;
-  topupCreditsNeeded: number;
+  availableCredits: number;
+  remainingAfterProcessing: number;
   canAfford: boolean;
 }
 ```
@@ -336,16 +333,13 @@ interface ResultMetadata {
 ```typescript
 interface CreditBalance {
   totalCredits: number;
-  subscriptionCredits: number;
-  topupCredits: number;
   subscriptionTier: 'free' | 'remember' | 'cherish' | 'forever';
-  monthlyResetDate?: Date;
+  nextBillingDate?: Date;
   lowCreditWarning: boolean;
   creditHistory: CreditTransaction[];
   usageRules: {
-    subscriptionFirst: true;
-    subscriptionExpires: true;
-    topupCarryOver: true;
+    creditsCarryOver: true;
+    lostOnCancellation: true;
   };
 }
 
@@ -382,12 +376,6 @@ interface CostBreakdown {
   totalCost: number;
   availableCredits: number;
   remainingCredits: number;
-  creditUsage: {
-    subscriptionCreditsUsed: number;
-    topupCreditsUsed: number;
-    subscriptionCreditsRemaining: number;
-    topupCreditsRemaining: number;
-  };
 }
 ```
 
@@ -446,7 +434,7 @@ interface PhotoDetailResponse {
 │                              MOBILE GALLERY LAYOUT                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │ Header: Sub (25) | Top-up (95) | Upload Button | Settings              │   │
+│  │ Header: Credits (120) | Upload Button | Settings                       │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐                              │
@@ -502,7 +490,7 @@ interface PhotoDetailResponse {
 │  │ ☐ Restore (2 credits)    ☐ Colourize (3 credits)                     │   │
 │  │ ☐ Animate (8 credits)    ☐ Bring Together (6 credits)                │   │
 │  │                                                                         │   │
-│  │ Total: 5 credits (Sub: 5, Top-up: 0) | Process Photo                   │   │
+│  │ Total: 5 credits | Balance after: 120 credits | Process Photo          │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -515,7 +503,7 @@ interface PhotoDetailResponse {
 │                              DESKTOP GALLERY LAYOUT                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │ Header: Sub (25) | Top-up (95) | Upload Photos | My Account | Settings │   │
+│  │ Header: Credits (120) | Upload Photos | My Account | Settings          │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
@@ -561,7 +549,7 @@ interface PhotoDetailResponse {
 │  │ ☐ Restore (2 credits)    ☐ Colourize (3 credits)                     │   │
 │  │ ☐ Animate (8 credits)    ☐ Bring Together (6 credits)                │   │
 │  │                                                                         │   │
-│  │ Total: 5 credits (Sub: 5, Top-up: 0) | Process Photo                   │   │
+│  │ Total: 5 credits | Balance after: 120 credits | Process Photo          │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -572,7 +560,7 @@ interface PhotoDetailResponse {
 │                              DESKTOP LAYOUT WITH DRAWER                       │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
-│  │ Header: Sub (25) | Top-up (95) | Upload Photos | My Account | Settings │   │
+│  │ Header: Credits (120) | Upload Photos | My Account | Settings          │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
@@ -715,28 +703,25 @@ interface PhotoManagementError {
 ### Credit Usage Logic
 ```typescript
 interface CreditUsageLogic {
-  // Credit deduction algorithm
+  // Simplified credit deduction algorithm
   deductCredits(cost: number, balance: CreditBalance): CreditDeductionResult {
     const result: CreditDeductionResult = {
-      subscriptionCreditsUsed: 0,
-      topupCreditsUsed: 0,
-      remainingSubscriptionCredits: balance.subscriptionCredits,
-      remainingTopupCredits: balance.topupCredits
+      creditsUsed: cost,
+      remainingCredits: balance.totalCredits - cost,
+      transactionId: generateTransactionId()
     };
 
-    // Always use subscription credits first
-    if (cost <= balance.subscriptionCredits) {
-      result.subscriptionCreditsUsed = cost;
-      result.remainingSubscriptionCredits = balance.subscriptionCredits - cost;
-    } else {
-      // Use all subscription credits, then top-up credits
-      result.subscriptionCreditsUsed = balance.subscriptionCredits;
-      result.remainingSubscriptionCredits = 0;
-      result.topupCreditsUsed = cost - balance.subscriptionCredits;
-      result.remainingTopupCredits = balance.topupCredits - result.topupCreditsUsed;
-    }
-
     return result;
+  }
+
+  // Check if user can afford processing
+  canAfford(cost: number, balance: CreditBalance): boolean {
+    return balance.totalCredits >= cost;
+  }
+
+  // Calculate remaining balance after processing
+  calculateRemaining(cost: number, balance: CreditBalance): number {
+    return balance.totalCredits - cost;
   }
 }
 ```
@@ -744,50 +729,47 @@ interface CreditUsageLogic {
 ### Credit Display Components
 ```typescript
 interface CreditDisplayProps {
-  subscriptionCredits: number;
-  topupCredits: number;
+  totalCredits: number;
   subscriptionTier: string;
-  monthlyResetDate?: Date;
+  nextBillingDate?: Date;
   showUsageBreakdown?: boolean;
   processingCost?: number;
+  isSubscribed: boolean;
 }
 
 // Example credit display logic
 const CreditDisplay: React.FC<CreditDisplayProps> = ({
-  subscriptionCredits,
-  topupCredits,
+  totalCredits,
   subscriptionTier,
-  monthlyResetDate,
+  nextBillingDate,
   showUsageBreakdown,
-  processingCost
+  processingCost,
+  isSubscribed
 }) => {
-  const totalCredits = subscriptionCredits + topupCredits;
-  const willUseSubscription = processingCost ? processingCost <= subscriptionCredits : false;
-  const willUseTopup = processingCost ? processingCost > subscriptionCredits : false;
+  const remainingAfterProcessing = processingCost ? totalCredits - processingCost : totalCredits;
   
   return (
     <div className="credit-display">
-      <div className="subscription-credits">
-        <span className="label">Subscription:</span>
-        <span className="count">{subscriptionCredits}</span>
-        {monthlyResetDate && (
-          <span className="reset-info">Resets {formatDate(monthlyResetDate)}</span>
-        )}
+      <div className="credit-balance">
+        <span className="label">Credits:</span>
+        <span className="count">{totalCredits}</span>
+        <span className="carry-over-info">All credits carry over</span>
       </div>
-      <div className="topup-credits">
-        <span className="label">Top-up:</span>
-        <span className="count">{topupCredits}</span>
-        <span className="carry-over">Carries over</span>
-      </div>
+      {isSubscribed && nextBillingDate && (
+        <div className="billing-info">
+          <span className="next-billing">Next billing: {formatDate(nextBillingDate)}</span>
+          <span className="tier-info">You'll receive {getTierCredits(subscriptionTier)} more credits</span>
+        </div>
+      )}
       {showUsageBreakdown && processingCost && (
         <div className="usage-breakdown">
-          <span>Processing will use:</span>
-          {willUseSubscription && (
-            <span>Subscription: {Math.min(processingCost, subscriptionCredits)}</span>
-          )}
-          {willUseTopup && (
-            <span>Top-up: {Math.max(0, processingCost - subscriptionCredits)}</span>
-          )}
+          <span>Cost: {processingCost} credits</span>
+          <span>Balance after: {remainingAfterProcessing} credits</span>
+        </div>
+      )}
+      {isSubscribed && (
+        <div className="cancellation-warning">
+          <small>⚠️ Cancelling subscription will result in loss of all credits</small>
         </div>
       )}
     </div>

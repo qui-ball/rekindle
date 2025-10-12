@@ -22,12 +22,13 @@ This implementation plan covers the complete photo management system including g
     - _Requirements: Service layer, API endpoints_
 
   - [ ] 1.3 Build CreditManagementService **[BACKEND]**
-    - Implement getCreditBalance with subscription/top-up separation
+    - Implement getCreditBalance with unified credit tracking
     - Create calculateProcessingCost with discount logic
     - Add checkCreditAvailability and deductCredits methods
     - Implement getCreditUsageBreakdown for UI display
     - Add credit transaction history tracking
-    - _Requirements: Credit system, Two-tier credit logic_
+    - Add subscription cancellation logic (credits lost on cancellation)
+    - _Requirements: Credit system, Unified credit logic_
 
 - [ ] 2. Create core React components foundation
   - [x] 2.1 Build PhotoManagementContainer **[FRONTEND]**
@@ -100,8 +101,8 @@ This implementation plan covers the complete photo management system including g
 
   - [ ] 5.2 Implement credit usage breakdown display **[FRONTEND]**
     - Show individual credit costs for each action
-    - Display total credits required with breakdown
-    - Add subscription vs top-up credit usage indication
+    - Display total credits required
+    - Show remaining credits after processing
     - Show warnings for insufficient credits
     - _Requirements: Credit display, User guidance_
 
@@ -113,17 +114,19 @@ This implementation plan covers the complete photo management system including g
     - _Requirements: Job processing, Status updates_
 
 - [ ] 6. Build CreditBalanceDisplay component
-  - [ ] 6.1 Create separate credit type display **[FRONTEND]**
-    - Display subscription credits (used first, monthly reset)
-    - Show top-up credits (used second, carry over)
-    - Add visual indicators for credit usage
+  - [ ] 6.1 Create unified credit display **[FRONTEND]**
+    - Display total credits available
+    - Show clear indication that all credits carry over
+    - Add visual indicators showing next billing date and credits to be received
     - Implement low credit warnings
+    - Add cancellation warning (credits lost on subscription cancellation)
     - _Requirements: Credit display, User awareness_
 
   - [ ] 6.2 Add credit purchase integration **[FRONTEND]**
     - Create links to subscription and top-up pages
     - Add quick access to credit management
     - Implement real-time balance updates (API calls)
+    - Add subscription cancellation confirmation with credit loss warning
     - _Requirements: Credit management, User flow_
 
 ## Phase 4: Mobile Optimization and Responsive Design (Medium Priority)

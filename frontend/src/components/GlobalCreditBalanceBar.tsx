@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 /**
  * GlobalCreditBalanceBar Component
  * 
- * A thin, horizontal bar that displays credit balances with icons.
+ * A thin, horizontal bar that displays credit balance with icons.
  * Appears on all pages between navigation and page content.
  * Features:
- * - Compact display of subscription and top-up credits
+ * - Compact display of unified credit balance
  * - Plus icon for purchasing additional credits
  * - Clean, minimal design that doesn't distract from content
  */
@@ -29,16 +29,13 @@ export const GlobalCreditBalanceBar: React.FC = () => {
         // Use mock data directly instead of API call
         const mockBalance: CreditBalance = {
           totalCredits: 120,
-          subscriptionCredits: 25,
-          topupCredits: 95,
           subscriptionTier: 'remember',
-          monthlyResetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
           lowCreditWarning: false,
           creditHistory: [],
           usageRules: {
-            subscriptionFirst: true,
-            subscriptionExpires: true,
-            topupCarryOver: true
+            creditsCarryOver: true,
+            lostOnCancellation: true
           }
         };
         setCreditBalance(mockBalance);
@@ -81,25 +78,12 @@ export const GlobalCreditBalanceBar: React.FC = () => {
     <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
       <div className="container mx-auto">
         <div className="flex items-center justify-end space-x-4">
-          {/* Credit Balances - moved to right side */}
-          <div className="flex items-center space-x-4">
-            {/* Subscription Credits */}
-            <div className="flex items-center space-x-2">
-              <CreditCardIcon />
-              <span className="text-sm font-medium text-gray-700">
-                Sub: {creditBalance.subscriptionCredits}
-              </span>
-            </div>
-            
-            {/* Top-up Credits */}
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">T</span>
-              </div>
-              <span className="text-sm font-medium text-gray-700">
-                Top-up: {creditBalance.topupCredits}
-              </span>
-            </div>
+          {/* Unified Credit Balance */}
+          <div className="flex items-center space-x-2">
+            <CreditCardIcon />
+            <span className="text-sm font-medium text-gray-700">
+              Credits: {creditBalance.totalCredits}
+            </span>
           </div>
 
           {/* Purchase Credits Button */}

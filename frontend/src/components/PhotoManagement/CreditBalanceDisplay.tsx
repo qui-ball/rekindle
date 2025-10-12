@@ -6,14 +6,14 @@ import { CreditBalanceDisplayProps } from '../../types/photo-management';
 /**
  * CreditBalanceDisplay Component
  * 
- * Prominent credit balance display with separate subscription and top-up credit tracking.
+ * Prominent credit balance display with unified credit tracking.
  * Features:
- * - Separate display for subscription credits (used first, monthly reset)
- * - Separate display for top-up credits (used second, carry over)
- * - Visual indicators showing which credits will be used for current processing
+ * - Display total credits available (all credits carry over)
+ * - Clear indication that credits accumulate month-to-month
+ * - Warning that credits are lost if subscription is cancelled
  * - Low credit warning with purchase prompts
- * - Quick access to subscription and top-up pages
- * - Real-time balance updates with usage breakdown
+ * - Quick access to subscription and credit purchase pages
+ * - Real-time balance updates
  */
 export const CreditBalanceDisplay: React.FC<CreditBalanceDisplayProps> = ({
   balance,
@@ -26,12 +26,13 @@ export const CreditBalanceDisplay: React.FC<CreditBalanceDisplayProps> = ({
     return `${count} credit${count !== 1 ? 's' : ''}`;
   };
 
-  // Format date for monthly reset
-  const formatResetDate = (date?: Date) => {
+  // Format date for next billing
+  const formatBillingDate = (date?: Date) => {
     if (!date) return '';
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
-      day: 'numeric' 
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
@@ -62,48 +63,42 @@ export const CreditBalanceDisplay: React.FC<CreditBalanceDisplayProps> = ({
         </div>
       </div>
 
-      {/* Credit Balances */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-        {/* Subscription Credits */}
-        <div className="bg-blue-50 rounded-lg p-3" role="group" aria-label="Subscription credits">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-900">Subscription Credits</span>
-            <span className="text-lg font-bold text-blue-900" aria-live="polite">
-              {formatCredits(balance.subscriptionCredits)}
-            </span>
-          </div>
-          <div className="text-xs text-blue-700">
-            {balance.monthlyResetDate ? (
-              <>Resets {formatResetDate(balance.monthlyResetDate)}</>
-            ) : (
-              <>Used first, monthly reset</>
-            )}
-          </div>
-        </div>
-
-        {/* Top-up Credits */}
-        <div className="bg-green-50 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-green-900">Top-up Credits</span>
-            <span className="text-lg font-bold text-green-900">
-              {formatCredits(balance.topupCredits)}
-            </span>
-          </div>
-          <div className="text-xs text-green-700">
-            Carries over month to month
-          </div>
-        </div>
-      </div>
-
-      {/* Total Credits */}
-      <div className="bg-gray-50 rounded-lg p-3 mb-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-900">Total Available</span>
-          <span className="text-xl font-bold text-gray-900">
+      {/* Unified Credit Balance */}
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-blue-900">Total Credits</span>
+          <span className="text-3xl font-bold text-blue-900" aria-live="polite">
             {formatCredits(balance.totalCredits)}
           </span>
         </div>
+        <div className="flex items-center space-x-2 text-xs text-blue-700">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>All credits carry over month-to-month</span>
+        </div>
+        {balance.nextBillingDate && balance.subscriptionTier !== 'free' && (
+          <div className="mt-2 pt-2 border-t border-blue-200">
+            <div className="text-xs text-blue-700">
+              Next billing: {formatBillingDate(balance.nextBillingDate)}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Cancellation Warning for Subscribed Users */}
+      {balance.subscriptionTier !== 'free' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+          <div className="flex items-start space-x-2">
+            <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="text-xs text-amber-800">
+              <strong>Note:</strong> Cancelling your subscription will result in the loss of all remaining credits.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Low Credit Warning */}
       {showWarning && (
