@@ -48,6 +48,8 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Prevent duplicate initial load (e.g., React StrictMode in dev)
+  const didInitRef = useRef<boolean>(false);
 
   // Error handling
   const handleError = useCallback((error: Error, context: string) => {
@@ -104,8 +106,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       abortControllerRef.current = new AbortController();
       
       // Load photos
-      const photosData = await loadPhotos(1, true);
-      setPhotos(photosData);
+      await loadPhotos(1, true);
     } catch (err) {
       handleError(err as Error, 'Failed to load initial data');
     } finally {
@@ -115,18 +116,17 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Load initial data
   useEffect(() => {
-    // Prevent duplicate loading in development mode (React StrictMode)
-    if (isLoading && photos.length > 0) {
-      return;
-    }
-    
+    // Prevent duplicate loading in development mode (React StrictMode) and re-mounts
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+
     loadInitialData();
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [loadInitialData, isLoading, photos.length]);
+  }, [loadInitialData]);
 
   // Handle photo selection
   const handlePhotoClick = useCallback(async (photo: Photo) => {

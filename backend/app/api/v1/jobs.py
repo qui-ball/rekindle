@@ -331,6 +331,9 @@ async def get_job_image_url(
     # Generate presigned URL for the uploaded image
     key = f"uploaded/{job_id}.jpg"
     try:
+        # Check if the file exists in S3 first
+        s3_service.s3_client.head_object(Bucket=s3_service.bucket, Key=key)
+        
         presigned_url = s3_service.s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": s3_service.bucket, "Key": key},
@@ -338,10 +341,16 @@ async def get_job_image_url(
         )
         return {"url": presigned_url}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating presigned URL: {str(e)}",
-        )
+        if "404" in str(e) or "Not Found" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Uploaded image not found",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error generating presigned URL: {str(e)}",
+            )
 
 
 @router.get("/", response_model=List[JobResponse])

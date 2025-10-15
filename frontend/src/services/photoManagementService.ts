@@ -77,6 +77,10 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
           uploadedUrl = data.url;
           thumbnailUrl = data.url; // Use full image as thumbnail fallback
           console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
+        } else if (response.status === 404) {
+          console.log('No uploaded image found for job:', job.id, '- using placeholder');
+          // Set a placeholder if both thumbnail and full image fail
+          thumbnailUrl = '/placeholder-image.jpg';
         } else {
           console.error('Failed to get presigned URL for job:', job.id, response.statusText);
           // Set a placeholder if both thumbnail and full image fail
