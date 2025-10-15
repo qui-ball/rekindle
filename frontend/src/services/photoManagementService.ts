@@ -36,7 +36,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         // Don't include email parameter to get ALL jobs
       });
 
-      const response = await fetch(`${this.baseUrl}/v1/jobs/jobs?${params}`, {
+      const response = await fetch(`${this.baseUrl}/v1/jobs?${params}`, {
         headers: {
           'Content-Type': 'application/json'
           // TODO: Add auth token when auth is implemented
@@ -71,7 +71,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     // Only fetch full image URL if thumbnail is not available (fallback)
     if (!thumbnailUrl) {
       try {
-        const response = await fetch(`${this.baseUrl}/v1/jobs/jobs/${job.id}/image-url`);
+        const response = await fetch(`${this.baseUrl}/v1/jobs/${job.id}/image-url`);
         if (response.ok) {
           const data = await response.json();
           uploadedUrl = data.url;

@@ -112,9 +112,10 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Setup database tables
-echo "🗄️  Setting up database tables..."
-docker-compose exec -T postgres psql -U rekindle -d rekindle -c "
+# Setup database tables (only if a local postgres service exists)
+if docker-compose ps postgres >/dev/null 2>&1; then
+    echo "🗄️  Setting up database tables..."
+    docker-compose exec -T postgres psql -U rekindle -d rekindle -c "
 CREATE TABLE IF NOT EXISTS jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL,
@@ -144,6 +145,9 @@ CREATE TABLE IF NOT EXISTS animation_attempts (
     created_at TIMESTAMP DEFAULT NOW()
 );
 " 2>/dev/null && echo "✅ Database tables ready" || echo "⚠️  Database tables may already exist"
+else
+    echo "ℹ️  Skipping DB bootstrap (no local postgres service; using external DB)"
+fi
 
 echo ""
 echo "✅ Docker Development Environment Ready!"

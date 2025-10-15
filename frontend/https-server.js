@@ -62,6 +62,7 @@ app.prepare().then(() => {
   createServer(httpsOptions, async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
+      // API requests are handled by Next.js API routes in src/app/api/[...path]/route.ts
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);

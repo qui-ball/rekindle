@@ -79,15 +79,7 @@ const nextConfig = {
 
     return config;
   },
-  // Proxy API requests to backend
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://backend:8000/api/:path*'
-      }
-    ];
-  },
+  // API requests are handled by Next.js API routes in src/app/api/[...path]/route.ts
 
   // Enable camera access for PWA and configure headers for OpenCV.js
   async headers() {

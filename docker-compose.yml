@@ -35,14 +35,17 @@ services:
       - backend-venv:/app/.venv
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://rekindle:rekindle@postgres:5432/rekindle
-      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     networks:
       - rekindle-network
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -61,8 +64,6 @@ services:
       - celery-venv:/app/.venv
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://rekindle:rekindle@postgres:5432/rekindle
-      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     networks:
