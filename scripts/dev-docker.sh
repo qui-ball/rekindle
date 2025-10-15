@@ -27,22 +27,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# Safety check: Warn about local .venv that could conflict with Docker volumes
+# Auto-handle .venv conflicts with fallback logic
 if [ -d "backend/.venv" ]; then
-    echo "⚠️  WARNING: Local backend/.venv directory detected!"
-    echo "   This can conflict with Docker volume mounts and cause container failures."
-    echo ""
-    echo "   Recommended actions:"
-    echo "   1. Remove it: rm -rf backend/.venv"
-    echo "   2. Or stop and clean: docker-compose down -v && rm -rf backend/.venv"
-    echo ""
-    read -p "   Continue anyway? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "❌ Startup cancelled. Please remove backend/.venv and try again."
-        exit 1
-    fi
-    echo "⚠️  Continuing with existing .venv directory..."
+    echo "⚠️  Local backend/.venv directory detected - attempting to use it..."
+    echo "   If container startup fails, will automatically remove .venv and retry."
     echo ""
 fi
 
@@ -91,9 +79,34 @@ fi
 echo "🛑 Stopping existing containers..."
 docker-compose down 2>/dev/null || true
 
-# Build and start containers
+# Build and start containers with fallback logic
 echo "🔨 Building and starting containers..."
-docker-compose up --build -d
+if docker-compose up --build -d; then
+    echo "✅ Containers started successfully"
+else
+    echo "❌ Container startup failed"
+    
+    # Check if .venv exists and remove it, then retry
+    if [ -d "backend/.venv" ]; then
+        echo "🔄 Removing conflicting .venv directory and retrying..."
+        rm -rf backend/.venv
+        echo "🔄 Retrying container startup..."
+        
+        if docker-compose up --build -d; then
+            echo "✅ Containers started successfully after removing .venv"
+        else
+            echo "❌ Container startup failed even after removing .venv"
+            echo "   Please check docker-compose logs for details:"
+            echo "   docker-compose logs"
+            exit 1
+        fi
+    else
+        echo "❌ Container startup failed (no .venv to remove)"
+        echo "   Please check docker-compose logs for details:"
+        echo "   docker-compose logs"
+        exit 1
+    fi
+fi
 
 # Wait for containers to be ready
 echo "⏳ Waiting for services to start..."
