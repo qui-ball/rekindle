@@ -115,20 +115,25 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Load initial data
   useEffect(() => {
+    // Prevent duplicate loading in development mode (React StrictMode)
+    if (isLoading && photos.length > 0) {
+      return;
+    }
+    
     loadInitialData();
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [loadInitialData]);
+  }, [loadInitialData, isLoading, photos.length]);
 
   // Handle photo selection
   const handlePhotoClick = useCallback(async (photo: Photo) => {
     // Fetch full image URL if not already loaded
     if (!photo.metadata.originalUrl) {
       try {
-        const response = await fetch(`/api/v1/jobs/jobs/${photo.id}/image-url`);
+        const response = await fetch(`/api/v1/jobs/${photo.id}/image-url`);
         if (response.ok) {
           const data = await response.json();
           // Update photo with full image URL

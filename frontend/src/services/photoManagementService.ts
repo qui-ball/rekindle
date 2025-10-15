@@ -64,7 +64,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
   }
 
   private async transformJobToPhoto(job: any): Promise<Photo> {
-    // Use thumbnail URL from backend if available, otherwise fetch presigned URL for full image
+    // Use thumbnail URL from backend if available
     let thumbnailUrl = job.thumbnail_url || '';
     let uploadedUrl = '';
     
@@ -79,9 +79,13 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
           console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
         } else {
           console.error('Failed to get presigned URL for job:', job.id, response.statusText);
+          // Set a placeholder if both thumbnail and full image fail
+          thumbnailUrl = '/placeholder-image.jpg';
         }
       } catch (error) {
         console.error('Error getting presigned URL for job:', job.id, error);
+        // Set a placeholder if both thumbnail and full image fail
+        thumbnailUrl = '/placeholder-image.jpg';
       }
     }
     
