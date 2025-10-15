@@ -149,3 +149,35 @@ The upload system directly supports our core mission of "bringing memories to li
 7. WHEN switching between orientations THEN the camera view SHALL dynamically adjust aspect ratio (3:4 portrait, 4:3 landscape) and reposition appropriately (top/left) without distortion
 8. WHEN the photo is captured THEN the system SHALL preserve the original image quality and resolution for processing
 9. IF the device supports multiple camera resolutions THEN the system SHALL automatically select the highest quality option available
+
+### Requirement 11
+
+**User Story:** As a user who has cropped a photo, I want to see a corrected preview of my photo before uploading so that I can confirm the final image looks good and avoid uploading skewed or distorted photos.
+
+#### Acceptance Criteria
+
+1. WHEN a user completes cropping THEN the system SHALL apply perspective correction using the detected corner points
+2. WHEN perspective correction is applied THEN the system SHALL display the corrected image preview within 1 second on modern devices
+3. WHEN the preview is displayed THEN the user SHALL see the exact image that will be uploaded (corrected and cropped)
+4. WHEN the preview is ready THEN the system SHALL provide clear "Retake" and "Confirm" buttons
+5. WHEN the user confirms the preview THEN the system SHALL upload the perspective-corrected image
+6. IF perspective correction fails THEN the system SHALL gracefully fallback to uploading the original cropped image with a warning message
+7. WHEN the correction succeeds THEN the system SHALL use OpenCV.js for client-side processing without server round trip
+8. IF the device is slow or OpenCV.js unavailable THEN the system SHALL timeout after 5 seconds and use the original image
+9. WHEN processing THEN the system SHALL display appropriate loading indicators and status messages
+
+### Requirement 12
+
+**User Story:** As a user uploading photos of varying quality, I want the smart cropping to accurately detect photo boundaries even in challenging conditions so that I don't have to manually adjust the crop area.
+
+#### Acceptance Criteria
+
+1. WHEN smart detection runs THEN the system SHALL achieve 95%+ accuracy for well-lit photos with clear edges
+2. WHEN a photo has poor lighting THEN the system SHALL apply CLAHE preprocessing to improve edge visibility
+3. WHEN a photo has noise or grain THEN the system SHALL apply bilateral filtering while preserving edges
+4. WHEN initial detection confidence is below 85% THEN the system SHALL run multi-pass detection with 4 different strategies
+5. WHEN multiple detections succeed THEN the system SHALL use intelligent candidate selection to pick the best result
+6. WHEN all detections have low confidence THEN the system SHALL fallback to 80% centered crop area
+7. WHEN smart detection processes THEN the system SHALL complete within 1.5 seconds even for challenging photos
+8. IF detection takes longer than 1.5 seconds THEN the system SHALL use the best available result at that time
+9. WHEN detection completes THEN the system SHALL display confidence indicators to help users understand result quality

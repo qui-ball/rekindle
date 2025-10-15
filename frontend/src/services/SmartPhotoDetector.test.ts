@@ -94,10 +94,26 @@ describe('SmartPhotoDetector', () => {
 
     it('should use fallback when JScanify is not initialized', async () => {
       mockJScanifyService.isInitialized.mockReturnValue(false);
+      // JScanifyService will return fallback when not initialized
+      mockJScanifyService.detectPhotoBoundaries.mockResolvedValue({
+        detected: false,
+        cropArea: {
+          x: Math.round(imageWidth * 0.1),
+          y: Math.round(imageHeight * 0.1),
+          width: Math.round(imageWidth * 0.8),
+          height: Math.round(imageHeight * 0.8)
+        },
+        confidence: 0.5
+      });
 
       const result = await detector.detectPhotoBoundaries(imageData, imageWidth, imageHeight);
 
-      expect(mockJScanifyService.detectPhotoBoundaries).not.toHaveBeenCalled();
+      // SmartPhotoDetector always calls JScanifyService, which handles fallback internally
+      expect(mockJScanifyService.detectPhotoBoundaries).toHaveBeenCalledWith(
+        imageData,
+        imageWidth,
+        imageHeight
+      );
       expect(result).toEqual({
         detected: false,
         cropArea: {
@@ -224,6 +240,18 @@ describe('SmartPhotoDetector', () => {
       ];
 
       for (const { width, height } of testCases) {
+        // Mock JScanifyService to return fallback for each test case
+        mockJScanifyService.detectPhotoBoundaries.mockResolvedValue({
+          detected: false,
+          cropArea: {
+            x: Math.round(width * 0.1),
+            y: Math.round(height * 0.1),
+            width: Math.round(width * 0.8),
+            height: Math.round(height * 0.8)
+          },
+          confidence: 0.5
+        });
+
         const result = await detector.detectPhotoBoundaries('test', width, height);
         
         expect(result.detected).toBe(false);

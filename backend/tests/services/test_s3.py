@@ -59,9 +59,9 @@ class TestS3ServiceMocked:
             s3_service.upload_file(b"content", "key", "image/jpeg")
 
     def test_upload_processed_image(self, s3_service, mock_s3_client):
-        """Test processed image upload with new structure"""
+        """Test uploaded image upload with new structure"""
         # Arrange
-        image_content = b"test processed image"
+        image_content = b"test uploaded image"
         job_id = "job-123-456"
         extension = "jpg"
 
@@ -71,7 +71,7 @@ class TestS3ServiceMocked:
         )
 
         # Assert
-        expected_key = f"processed/{job_id}.jpg"
+        expected_key = f"uploaded/{job_id}.jpg"
         mock_s3_client.put_object.assert_called_once_with(
             Bucket="rekindle-media",
             Key=expected_key,
@@ -355,17 +355,17 @@ class TestS3ServiceIntegration:
 
     def test_full_job_workflow(self, s3_service, test_job_id, cleanup_s3_objects):
         """Test complete job workflow with actual S3"""
-        # 1. Upload processed image
-        processed_content = b"Test processed image content"
-        processed_url = s3_service.upload_processed_image(
-            processed_content,
+        # 1. Upload uploaded image
+        uploaded_content = b"Test uploaded image content"
+        uploaded_url = s3_service.upload_processed_image(
+            uploaded_content,
             test_job_id,
             extension="jpg"
         )
-        cleanup_s3_objects.append(f"processed/{test_job_id}.jpg")
+        cleanup_s3_objects.append(f"uploaded/{test_job_id}.jpg")
         
-        assert processed_url
-        assert s3_service.bucket in processed_url
+        assert uploaded_url
+        assert s3_service.bucket in uploaded_url
         
         # 2. Upload restored image with timestamp ID
         restore_id = s3_service.generate_timestamp_id()
@@ -417,7 +417,7 @@ class TestS3ServiceIntegration:
 
     def test_presigned_url_generation(self, s3_service, test_job_id, cleanup_s3_objects):
         """Test generating presigned URL for direct upload"""
-        key = f"processed/{test_job_id}.jpg"
+        key = f"uploaded/{test_job_id}.jpg"
         cleanup_s3_objects.append(key)
         
         # Generate presigned URL

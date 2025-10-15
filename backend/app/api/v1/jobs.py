@@ -6,13 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, s
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
-import json
+from loguru import logger
 
 from app.api.deps import get_db
 from app.core.config import settings
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.schemas.jobs import (
-    JobCreate,
     JobResponse,
     JobWithRelations,
     RestoreAttemptCreate,
@@ -75,6 +74,21 @@ async def upload_and_process(
             content_type=file.content_type,
         )
 
+        # Generate and upload thumbnail
+        try:
+            thumbnail_url = s3_service.upload_job_thumbnail(
+                image_content=file_content,
+                job_id=str(job.id),
+                extension=extension
+            )
+            # Extract S3 key from URL
+            thumbnail_key = s3_service.extract_key_from_url(thumbnail_url)
+            job.thumbnail_s3_key = thumbnail_key
+            logger.info(f"Thumbnail generated for job {job.id}: {thumbnail_key}")
+        except Exception as thumb_error:
+            logger.error(f"Failed to generate thumbnail for job {job.id}: {thumb_error}")
+            # Continue without thumbnail - non-critical error
+
         db.commit()
 
         return UploadResponse(
@@ -110,7 +124,7 @@ async def create_restore_attempt(
 
     try:
         # Queue the restoration task
-        task_result = job_tasks.process_restoration.delay(
+        job_tasks.process_restoration.delay(
             str(job_id),
             restore_data.model,
             restore_data.params or {},
@@ -177,7 +191,7 @@ async def create_animation_attempt(
 
     try:
         # Queue the animation task
-        task_result = job_tasks.process_animation.delay(
+        job_tasks.process_animation.delay(
             str(job_id),
             str(animation_data.restore_id),
             animation_data.model,
@@ -232,13 +246,26 @@ async def get_job(
             detail="Job not found",
         )
 
-    # Convert to response model with URLs
+    # Convert to response model with presigned URLs
+    thumbnail_url = None
+    if job.thumbnail_s3_key:
+        try:
+            thumbnail_url = s3_service.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                ExpiresIn=3600  # 1 hour expiration
+            )
+        except Exception as e:
+            logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
+    
     job_dict = {
         "id": job.id,
         "email": job.email,
         "created_at": job.created_at,
         "selected_restore_id": job.selected_restore_id,
         "latest_animation_id": job.latest_animation_id,
+        "thumbnail_s3_key": job.thumbnail_s3_key,
+        "thumbnail_url": thumbnail_url,
         "restore_attempts": [],
         "animation_attempts": [],
     }
@@ -286,6 +313,36 @@ async def get_job(
 
     return JobWithRelations(**job_dict)
 
+@router.get("/{job_id}/image-url")
+async def get_job_image_url(
+    job_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Get presigned URL for a job's uploaded image
+    """
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+
+    # Generate presigned URL for the uploaded image
+    key = f"uploaded/{job_id}.jpg"
+    try:
+        presigned_url = s3_service.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": s3_service.bucket, "Key": key},
+            ExpiresIn=3600,  # 1 hour expiration
+        )
+        return {"url": presigned_url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating presigned URL: {str(e)}",
+        )
+
 
 @router.get("/", response_model=List[JobResponse])
 async def list_jobs(
@@ -295,14 +352,41 @@ async def list_jobs(
     db: Session = Depends(get_db),
 ):
     """
-    List jobs with optional email filter
+    List jobs with optional email filter and thumbnail URLs
     """
     query = db.query(Job)
     if email:
         query = query.filter(Job.email == email)
     
     jobs = query.offset(skip).limit(limit).all()
-    return jobs
+    
+    # Convert to response format with thumbnail presigned URLs
+    job_responses = []
+    for job in jobs:
+        job_dict = {
+            "id": job.id,
+            "email": job.email,
+            "created_at": job.created_at,
+            "selected_restore_id": job.selected_restore_id,
+            "latest_animation_id": job.latest_animation_id,
+            "thumbnail_s3_key": job.thumbnail_s3_key,
+            "thumbnail_url": None
+        }
+        
+        # Generate presigned URL for thumbnail if key exists
+        if job.thumbnail_s3_key:
+            try:
+                job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                    ExpiresIn=3600  # 1 hour expiration
+                )
+            except Exception as e:
+                logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
+        
+        job_responses.append(JobResponse(**job_dict))
+    
+    return job_responses
 
 
 @router.delete("/{job_id}")

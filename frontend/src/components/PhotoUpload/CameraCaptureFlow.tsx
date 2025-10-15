@@ -19,15 +19,16 @@
  * - Proper cancel handling
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import NextImage from 'next/image';
 import { CameraCapture } from './CameraCapture';
 import { CameraCaptureProps } from './types';
 import { SmartPhotoDetector } from '../../services/SmartPhotoDetector';
 import { SmartCroppingInterface } from './SmartCroppingInterface';
+import { UploadPreview } from './UploadPreview';
+import type { CornerPoints } from '../../types/jscanify';
 
-type CaptureState = 'capturing' | 'preview';
+type CaptureState = 'capturing' | 'preview' | 'uploadPreview';
 
 interface CameraCaptureFlowProps extends Omit<CameraCaptureProps, 'onCapture'> {
   isOpen: boolean;
@@ -47,6 +48,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
 }) => {
   const [captureState, setCaptureState] = useState<CaptureState>('capturing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [croppedCornerPoints, setCroppedCornerPoints] = useState<CornerPoints | null>(null);
   const [smartDetector, setSmartDetector] = useState<SmartPhotoDetector | null>(null);
   const [detectionResult, setDetectionResult] = useState<{
     detected: boolean;
@@ -71,6 +74,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [isLandscape, setIsLandscape] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cameraQuality, setCameraQuality] = useState({ lighting: 'analyzing', focus: 'analyzing' });
+  const cropButtonRef = useRef<(() => void) | null>(null);
 
   // Initialize SmartPhotoDetector only on client-side
   useEffect(() => {
@@ -203,27 +207,41 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     }
   }, [onError, handleClose]);
 
-  // Handle preview actions
-  const handlePreviewAccept = useCallback(() => {
-    if (capturedImage) {
-      console.log('✅ Preview accepted - submitting full image');
-      onCapture(capturedImage);
+
+  const handleCropComplete = useCallback((croppedImageData: string, cornerPoints?: CornerPoints) => {
+    console.log('✅ Crop completed - proceeding to upload preview');
+    
+    // Store cropped image and corner points for perspective correction
+    setCroppedImage(croppedImageData);
+    
+    // Use provided corner points or fall back to detection result
+    const points = cornerPoints || detectionResult?.cornerPoints;
+    
+    if (points) {
+      setCroppedCornerPoints(points);
+      setCaptureState('uploadPreview');
+    } else {
+      // No corner points available - skip perspective correction and upload directly
+      console.log('⚠️ No corner points available - uploading cropped image directly');
+      onCapture(croppedImageData);
       handleClose();
     }
-  }, [capturedImage, onCapture, handleClose]);
+  }, [detectionResult, onCapture, handleClose]);
 
-  const handlePreviewRetake = useCallback(() => {
-    console.log('🔄 Retaking photo - returning to camera');
+  const handleUploadPreviewConfirm = useCallback((correctedImage: string) => {
+    console.log('✅ Upload preview confirmed - submitting corrected image');
+    onCapture(correctedImage);
+    handleClose();
+  }, [onCapture, handleClose]);
+
+  const handleUploadPreviewCancel = useCallback(() => {
+    console.log('🔄 Retaking from upload preview - returning to camera');
     setCapturedImage(null);
+    setCroppedImage(null);
+    setCroppedCornerPoints(null);
     setDetectionResult(null);
     setCaptureState('capturing');
   }, []);
-
-  const handleCropComplete = useCallback((croppedImageData: string) => {
-    console.log('✅ Crop completed - submitting cropped image');
-    onCapture(croppedImageData);
-    handleClose();
-  }, [onCapture, handleClose]);
 
 
 
@@ -447,6 +465,18 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const renderPreviewView = () => {
     if (!capturedImage) return null;
 
+    // Always show SmartCroppingInterface to allow manual cropping
+    // Create a fallback detection result if none exists
+    // Note: Not providing cropArea will trigger SmartCroppingInterface's final fallback
+    // which creates an 80% centered crop area (Requirement 12.6)
+    const cropDetectionResult = detectionResult || {
+      detected: false,
+      confidence: 0,
+      // Don't provide cropArea to trigger final fallback (80% centered crop - Req 12.6)
+      cropArea: undefined as unknown as { x: number; y: number; width: number; height: number },
+      source: 'fallback' as const
+    };
+
     return (
       <div className="h-screen w-screen bg-black relative overflow-hidden">
         {/* Preview Image with Smart Cropping - matches camera view aspect ratio for visual continuity */}
@@ -455,40 +485,45 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             ? 'left-0 top-0 h-full' // Landscape: starts from left edge, full height (same as camera)
             : 'top-0 left-0 w-full'  // Portrait: starts from top edge, full width (same as camera)
         } ${getAspectRatioClass()}`}>
-          {detectionResult && (detectionResult.detected || detectionResult.cornerPoints) ? (
-            <SmartCroppingInterface
-              image={capturedImage}
-              detectionResult={{
-                ...detectionResult,
-                cornerPoints: detectionResult.cornerPoints ? {
-                  topLeft: detectionResult.cornerPoints.topLeftCorner,
-                  topRight: detectionResult.cornerPoints.topRightCorner,
-                  bottomLeft: detectionResult.cornerPoints.bottomLeftCorner,
-                  bottomRight: detectionResult.cornerPoints.bottomRightCorner
-                } : undefined
-              }}
-              onCropComplete={handleCropComplete}
-              onCancel={handleClose}
-              isLandscape={isLandscape}
-              aspectRatio={getAspectRatio()}
-              isMobile={isMobile}
-            />
-          ) : (
-            <NextImage
-              src={capturedImage}
-              alt="Captured photo preview"
-              fill
-              className="object-contain"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          )}
+          <SmartCroppingInterface
+            image={capturedImage}
+            detectionResult={{
+              ...cropDetectionResult,
+              cornerPoints: cropDetectionResult.cornerPoints ? {
+                topLeft: cropDetectionResult.cornerPoints.topLeftCorner,
+                topRight: cropDetectionResult.cornerPoints.topRightCorner,
+                bottomLeft: cropDetectionResult.cornerPoints.bottomLeftCorner,
+                bottomRight: cropDetectionResult.cornerPoints.bottomRightCorner
+              } : undefined
+            }}
+            onCropComplete={handleCropComplete}
+            onCancel={handleClose}
+            isLandscape={isLandscape}
+            aspectRatio={getAspectRatio()}
+            isMobile={isMobile}
+            cropButtonRef={cropButtonRef}
+          />
         </div>
+
+        {/* Control Area with Crop Button */}
+        <ControlGrid>
+          {/* Row 3, Column 3 (center of 5x5 grid) */}
+          <div className="col-start-3 row-start-3 flex items-center justify-center">
+            <button
+              onClick={() => cropButtonRef.current?.()}
+              className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-2xl transition-colors shadow-lg flex items-center justify-center"
+              aria-label="Apply crop"
+            >
+              ✓
+            </button>
+          </div>
+        </ControlGrid>
 
         {/* Overlaid Header - centered title and right-aligned close button */}
         <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
           <div className="flex-1 flex justify-center">
             <h1 className="text-sm font-semibold text-white bg-black bg-opacity-70 px-3 py-1 rounded shadow-lg">
-              {detectionResult && (detectionResult.detected || detectionResult.cornerPoints) ? 'Smart Crop' : 'Photo Preview'}
+              {detectionResult && (detectionResult.detected || detectionResult.cornerPoints) ? 'Smart Crop' : 'Crop Photo'}
             </h1>
           </div>
           <button
@@ -509,72 +544,24 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             </div>
           </div>
         )}
-
-        {/* 5x5 Grid-based Control Area - always show */}
-        <ControlGrid>
-            {/* Empty cells for grid structure */}
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            
-            {/* Row 3 - Center row with retake and accept buttons */}
-            {/* Retake Button - positioned in Row 3, Col 2 (portrait) or Row 4, Col 3 (landscape) */}
-            <div className="flex items-center justify-center relative" style={{ 
-              width: '100%', 
-              height: '100%',
-              gridRow: isLandscape ? '4' : '3',
-              gridColumn: isLandscape ? '3' : '2'
-            }}>
-              <button
-                onClick={handlePreviewRetake}
-                className="w-12 h-12 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white shadow-lg transition-all duration-300"
-                aria-label="Retake photo"
-              >
-                <span className="text-lg">↶</span>
-              </button>
-            </div>
-            
-            {/* Accept Button - positioned in Row 3, Col 3 (portrait and landscape) */}
-            <div className="flex items-center justify-center relative" style={{ 
-              width: '100%', 
-              height: '100%',
-              gridRow: '3',
-              gridColumn: '3'
-            }}>
-              <button
-                onClick={handlePreviewAccept}
-                className="w-16 h-16 rounded-full border-4 border-white bg-green-500 hover:bg-green-600 active:scale-95 
-                  flex items-center justify-center text-2xl relative shadow-2xl transition-all duration-300"
-                aria-label="Accept photo"
-              >
-                <span className="text-white">✓</span>
-              </button>
-            </div>
-            
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-            <div style={{ width: '100%', height: '100%' }}></div>
-          </ControlGrid>
       </div>
+    );
+  };
+
+  const renderUploadPreviewView = () => {
+    if (!croppedImage || !croppedCornerPoints) {
+      console.error('❌ Upload preview state without required data');
+      return null;
+    }
+
+    return (
+      <UploadPreview
+        originalImage={croppedImage}
+        cornerPoints={croppedCornerPoints}
+        onConfirm={handleUploadPreviewConfirm}
+        onCancel={handleUploadPreviewCancel}
+        closeOnEscape={closeOnEscape}
+      />
     );
   };
 
@@ -584,6 +571,8 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
         return renderCaptureView();
       case 'preview':
         return renderPreviewView();
+      case 'uploadPreview':
+        return renderUploadPreviewView();
       default:
         return renderCaptureView();
     }

@@ -168,7 +168,7 @@ def restore_attempt_factory(test_db_session):
     
     def _create_restore(**kwargs):
         defaults = {
-            "s3_key": "processed/test-job.jpg",
+            "s3_key": "uploaded/test-job.jpg",
             "model": "test_model",
             "params": {"denoise": 0.7},
         }
@@ -210,7 +210,7 @@ def mock_s3_service():
     """Mock S3 service"""
     with patch("app.services.s3.s3_service") as mock:
         mock.upload_image.return_value = (
-            "https://test-bucket.s3.us-east-1.amazonaws.com/processed/test.jpg"
+            "https://test-bucket.s3.us-east-1.amazonaws.com/uploaded/test.jpg"
         )
         mock.download_file.return_value = b"fake_image_data"
         yield mock

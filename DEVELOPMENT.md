@@ -95,6 +95,28 @@ docker-compose restart frontend
 
 ## 🐛 Troubleshooting
 
+### Backend/Celery/Flower Containers Fail with `.venv` Error
+**Symptoms:**
+- Containers exit immediately with error: `failed to remove directory /app/.venv: Resource busy`
+- Backend, celery, or flower services won't start
+
+**Solution:**
+```bash
+# Stop containers and remove volumes
+docker-compose down -v
+
+# Remove local .venv directory (if it exists)
+rm -rf backend/.venv
+
+# Restart development environment
+./dev https
+```
+
+**Prevention:**
+- Never create `backend/.venv` when using Docker development
+- The dev script will warn you if `.venv` exists
+- See `backend/DOCKER_DEV.md` for more details
+
 ### Container Won't Start
 ```bash
 # Check if port 3000 is in use

@@ -27,7 +27,7 @@ describe('S3UploadService', () => {
         json: async () => ({
           job_id: 'test-123',
           message: 'Success',
-          processed_url: 'https://example.com/processed.jpg'
+          processed_url: 'https://example.com/uploaded.jpg'
         })
       });
 

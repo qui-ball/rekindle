@@ -12,8 +12,8 @@ INSERT INTO jobs (email, created_at) VALUES
 ON CONFLICT DO NOTHING;
 
 INSERT INTO restore_attempts (job_id, s3_key, model, params) VALUES 
-((SELECT id FROM jobs WHERE email = 'test1@example.com' LIMIT 1), 'uploads/test1.jpg', 'restore_model_v1', '{\"strength\": 0.8}'),
-((SELECT id FROM jobs WHERE email = 'test2@example.com' LIMIT 1), 'uploads/test2.jpg', 'restore_model_v1', '{\"strength\": 0.9}')
+((SELECT id FROM jobs WHERE email = 'test1@example.com' LIMIT 1), 'uploaded/test1.jpg', 'restore_model_v1', '{\"strength\": 0.8}'),
+((SELECT id FROM jobs WHERE email = 'test2@example.com' LIMIT 1), 'uploaded/test2.jpg', 'restore_model_v1', '{\"strength\": 0.9}')
 ON CONFLICT DO NOTHING;
 "
 

@@ -45,21 +45,21 @@ def process_restoration(
         
         logger.info(f"Starting restoration for job {job_id}")
         
-        # Download processed image from S3
-        processed_key = f"processed/{job_id}.jpg"  # Default extension
+        # Download uploaded image from S3
+        uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
         # Try common extensions if default fails
         image_data = None
         for ext in ["jpg", "png", "webp", "heic"]:
             try:
-                key = f"processed/{job_id}.{ext}"
+                key = f"uploaded/{job_id}.{ext}"
                 image_data = s3_service.download_file(key)
-                processed_key = key
+                uploaded_key = key
                 break
             except Exception:
                 continue
         
         if not image_data:
-            raise ValueError(f"No processed image found for job {job_id}")
+            raise ValueError(f"No uploaded image found for job {job_id}")
         
         # Extract restoration parameters
         denoise = params.get("denoise", 0.7)
@@ -331,7 +331,7 @@ def cleanup_job_s3_files(self, job_id: str):
         
         # List of S3 prefixes to clean up
         prefixes = [
-            f"processed/{job_id}",
+            f"uploaded/{job_id}",
             f"restored/{job_id}/",
             f"animated/{job_id}/",
             f"thumbnails/{job_id}/",

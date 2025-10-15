@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import type { CornerPoints as JScanifyCornerPoints } from '../../types/jscanify';
 
 interface CropArea {
   x: number;
@@ -34,23 +35,25 @@ interface SmartCroppingInterfaceProps {
     detected: boolean;
     confidence: number;
     cropArea: CropArea;
-    cornerPoints?: CornerPoints;
+    cornerPoints?: unknown; // Can be from various detectors
   };
-  onCropComplete: (croppedImageData: string) => void;
+  onCropComplete: (croppedImageData: string, cornerPoints?: JScanifyCornerPoints) => void;
   onCancel: () => void;
   isLandscape: boolean;
   aspectRatio: number;
   isMobile: boolean;
+  cropButtonRef?: React.MutableRefObject<(() => void) | null>; // Expose crop function to parent
 }
 
 export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
   image,
   detectionResult,
-  onCropComplete: _onCropComplete,
+  onCropComplete,
   onCancel: _onCancel,
   isLandscape: _isLandscape,
   aspectRatio,
-  isMobile: _isMobile
+  isMobile: _isMobile,
+  cropButtonRef
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -141,6 +144,20 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
         const displayY = clamp(y * scaleY, 0, displayDimensions.height);
         const displayWidth = clamp(width * scaleX, 0, displayDimensions.width - displayX);
         const displayHeight = clamp(height * scaleY, 0, displayDimensions.height - displayY);
+        setCropArea({
+          topLeft: { x: displayX, y: displayY },
+          topRight: { x: displayX + displayWidth, y: displayY },
+          bottomLeft: { x: displayX, y: displayY + displayHeight },
+          bottomRight: { x: displayX + displayWidth, y: displayY + displayHeight }
+        });
+      } else {
+        // Final fallback: create a centered 80% crop area
+        const margin = 0.1;
+        const displayX = displayDimensions.width * margin;
+        const displayY = displayDimensions.height * margin;
+        const displayWidth = displayDimensions.width * (1 - 2 * margin);
+        const displayHeight = displayDimensions.height * (1 - 2 * margin);
+        
         setCropArea({
           topLeft: { x: displayX, y: displayY },
           topRight: { x: displayX + displayWidth, y: displayY },
@@ -311,20 +328,90 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     return (
       <div
         key={corner}
-        className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-lg z-20 touch-none select-none"
+        className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-lg touch-none select-none"
         style={{
           left: Math.round(point.x || 0),
           top: Math.round(point.y || 0),
           touchAction: 'none',
           userSelect: 'none',
           WebkitUserSelect: 'none',
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          zIndex: 100 // Highest z-index to ensure always on top and interactive
         }}
         onMouseDown={(e) => handleMouseDown(e, corner)}
         onTouchStart={(e) => handleTouchStart(e, corner)}
       />
     );
   }, [handleMouseDown, handleTouchStart]);
+
+  // Apply crop and extract the cropped region
+  const applyCrop = useCallback(() => {
+    if (!cropArea) {
+      console.error('Cannot apply crop: missing crop area');
+      alert('Error: Crop area not initialized. Please try again.');
+      return;
+    }
+    
+    if (!imageDimensions.width || !imageDimensions.height) {
+      console.error('Cannot apply crop: image dimensions not loaded', {
+        imageDimensions,
+        displayDimensions,
+        imageLoaded
+      });
+      alert('Error: Image not fully loaded. Please wait a moment and try again.');
+      return;
+    }
+
+    // Convert display coordinates back to image coordinates
+    const scaleX = imageDimensions.width / displayDimensions.width;
+    const scaleY = imageDimensions.height / displayDimensions.height;
+    
+    console.log('Applying crop with dimensions:', {
+      imageDimensions,
+      displayDimensions,
+      cropArea,
+      scaleX,
+      scaleY
+    });
+
+    const imageCornerPoints: CornerPoints = {
+      topLeft: {
+        x: cropArea.topLeft.x * scaleX,
+        y: cropArea.topLeft.y * scaleY
+      },
+      topRight: {
+        x: cropArea.topRight.x * scaleX,
+        y: cropArea.topRight.y * scaleY
+      },
+      bottomLeft: {
+        x: cropArea.bottomLeft.x * scaleX,
+        y: cropArea.bottomLeft.y * scaleY
+      },
+      bottomRight: {
+        x: cropArea.bottomRight.x * scaleX,
+        y: cropArea.bottomRight.y * scaleY
+      }
+    };
+
+    // Convert corner points to JScanify format for perspective correction
+    const jscanifyCornerPoints: JScanifyCornerPoints = {
+      topLeftCorner: imageCornerPoints.topLeft,
+      topRightCorner: imageCornerPoints.topRight,
+      bottomLeftCorner: imageCornerPoints.bottomLeft,
+      bottomRightCorner: imageCornerPoints.bottomRight
+    };
+
+    // For now, just pass the original image and corner points
+    // The perspective correction will be handled in the upload preview step
+    onCropComplete(image, jscanifyCornerPoints);
+  }, [cropArea, imageDimensions, displayDimensions, image, onCropComplete, imageLoaded]);
+
+  // Expose applyCrop function to parent via ref
+  useEffect(() => {
+    if (cropButtonRef) {
+      cropButtonRef.current = applyCrop;
+    }
+  }, [applyCrop, cropButtonRef]);
 
   // Render crop area overlay
   const renderCropOverlay = () => {

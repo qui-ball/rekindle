@@ -235,10 +235,10 @@ to Upload & Processing Flow (MVP)
 User Account                     Credit Management                 Processing
 ┌─────────────────┐             ┌─────────────────┐             ┌─────────────────┐
 │                 │             │                 │             │                 │
-│ Subscription    │────────────▶│ Monthly Credits │────────────▶│ Job Processing  │
-│ • Free: 3       │   Monthly   │ • Reset Monthly │   Deduct    │ • Restoration:2 │
-│ • Remember: 25  │   Reset     │ • Used First    │   Credits   │ • Coloring: 3   │
-│ • Cherish: 60   │             │                 │             │ • Combined: 4   │
+│ Subscription    │────────────▶│ Unified Credits │────────────▶│ Job Processing  │
+│ • Free: 3       │   Monthly   │ • All Carry Over│   Deduct    │ • Restoration:2 │
+│ • Remember: 25  │   Addition  │ • Stack Monthly │   Credits   │ • Coloring: 3   │
+│ • Cherish: 60   │             │ • Accumulate    │             │ • Combined: 4   │
 │ • Forever: 150  │             │                 │             │                 │
 │                 │             │                 │             │                 │
 └─────────────────┘             └─────────────────┘             └─────────────────┘
@@ -247,10 +247,13 @@ User Account                     Credit Management                 Processing
          ▼                               │                               ▼
 ┌─────────────────┐             ┌─────────────────┐             ┌─────────────────┐
 │                 │             │                 │             │                 │
-│ Top-up Credits  │────────────▶│ Persistent      │◀────────────│ Credit Check    │
-│ • $4.99: 10     │   Add to    │ Credits         │   Use After │ • Sufficient?   │
-│ • $12.99: 30    │   Balance   │ • Carry Over    │   Monthly   │ • Queue Job     │
-│ • $39.99: 100   │             │ • Used Second   │             │ • Or Show Error │
+│ Credit Top-ups  │────────────▶│ Credit Balance  │◀────────────│ Credit Check    │
+│ • $4.99: 10     │   Add to    │ • Unified Pool  │   Deduct    │ • Sufficient?   │
+│ • $12.99: 30    │   Balance   │ • All Carry Over│   From Pool │ • Queue Job     │
+│ • $39.99: 100   │             │                 │             │ • Or Show Error │
+│                 │             │                 │             │                 │
+│                 │             │ ⚠️ Lost on Sub  │             │                 │
+│ Cancel Sub ────▶│             │   Cancellation  │             │                 │
 │                 │             │                 │             │                 │
 └─────────────────┘             └─────────────────┘             └─────────────────┘
 ```
