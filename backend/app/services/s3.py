@@ -60,7 +60,7 @@ class S3Service:
         content_type: Optional[str] = None,
     ) -> str:
         """
-        Upload a processed/cropped image for a job
+        Upload an uploaded image for a job
         """
         key = f"uploaded/{job_id}.{extension}"
         ct = self._get_content_type(extension, content_type)

@@ -6,14 +6,19 @@ Run from backend directory: uv run python scripts/cleanup_db.py
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from app.core.config import settings
 from pathlib import Path
+import os
 
 print("🧹 Database Cleanup Script")
 print("=" * 60)
 
-# Create engine using app settings
-engine = create_engine(settings.DATABASE_URL)
+# Create engine using environment variable
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    print("❌ DATABASE_URL environment variable not found")
+    exit(1)
+
+engine = create_engine(database_url)
 Session = sessionmaker(bind=engine)
 
 def get_table_counts():
@@ -40,34 +45,40 @@ def truncate_tables():
         print("✅ All tables cleared")
 
 def apply_migration():
-    """Apply thumbnail migration"""
-    migration_path = Path(__file__).parent.parent / "migrations" / "001_add_thumbnail_s3_key.sql"
+    """Apply thumbnail migrations"""
+    migration_paths = [
+        Path(__file__).parent.parent / "migrations" / "001_add_thumbnail_s3_key.sql",
+        Path(__file__).parent.parent / "migrations" / "002_ensure_thumbnail_consistency.sql"
+    ]
     
-    if not migration_path.exists():
-        print("⚠️  Migration file not found, skipping...")
-        return
-    
-    print("\n📋 Applying thumbnail migration...")
-    with open(migration_path, 'r') as f:
-        migration_sql = f.read()
+    print("\n📋 Applying thumbnail migrations...")
     
     with Session() as session:
-        try:
-            # Split by semicolon and execute each statement
-            statements = [s.strip() for s in migration_sql.split(';') if s.strip()]
-            for statement in statements:
-                if statement and not statement.startswith('--') and not statement.startswith('COMMENT'):
-                    try:
-                        session.execute(text(statement))
-                    except Exception as e:
-                        if "already exists" in str(e).lower():
-                            print(f"  ⚠️  Skipping: {statement[:50]}... (already exists)")
-                        else:
-                            raise
-            session.commit()
-            print("✅ Migration applied successfully")
-        except Exception as e:
-            print(f"⚠️  Migration note: {e}")
+        for migration_path in migration_paths:
+            if not migration_path.exists():
+                print(f"⚠️  Migration file not found: {migration_path.name}, skipping...")
+                continue
+                
+            print(f"  📄 Applying {migration_path.name}...")
+            with open(migration_path, 'r') as f:
+                migration_sql = f.read()
+            
+            try:
+                # Split by semicolon and execute each statement
+                statements = [s.strip() for s in migration_sql.split(';') if s.strip()]
+                for statement in statements:
+                    if statement and not statement.startswith('--') and not statement.startswith('COMMENT'):
+                        try:
+                            session.execute(text(statement))
+                        except Exception as e:
+                            if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                                print(f"    ⚠️  Skipping: {statement[:50]}... (already exists)")
+                            else:
+                                raise
+                session.commit()
+                print(f"    ✅ {migration_path.name} applied successfully")
+            except Exception as e:
+                print(f"    ⚠️  Migration note for {migration_path.name}: {e}")
 
 def main():
     try:

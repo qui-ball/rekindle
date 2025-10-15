@@ -97,6 +97,20 @@ def process_restoration(
         # Update restore attempt with S3 key using timestamp
         restore.s3_key = f"restored/{job_id}/{restore_timestamp_id}.jpg"
         
+        # Generate and upload thumbnail for restored image
+        try:
+            thumbnail_url = s3_service.upload_job_thumbnail(
+                image_content=restored_image_data,
+                job_id=job_id,
+                extension="jpg"
+            )
+            # Update job's thumbnail to the restored image thumbnail
+            job.thumbnail_s3_key = f"thumbnails/{job_id}.jpg"
+            logger.info(f"Generated thumbnail for restored image {job_id}: {job.thumbnail_s3_key}")
+        except Exception as thumb_error:
+            logger.error(f"Failed to generate thumbnail for restored image {job_id}: {thumb_error}")
+            # Continue without thumbnail - non-critical error
+        
         # Update job's selected restore
         job.selected_restore_id = restore.id
         

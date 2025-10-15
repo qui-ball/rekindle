@@ -373,17 +373,16 @@ async def list_jobs(
             "thumbnail_url": None
         }
         
-        # Generate presigned URL for thumbnail - try both stored key and default path
-        thumbnail_key = job.thumbnail_s3_key or f"thumbnails/{job.id}.jpg"
-        try:
-            job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": s3_service.bucket, "Key": thumbnail_key},
-                ExpiresIn=3600  # 1 hour expiration
-            )
-        except Exception as e:
-            logger.error(f"Error generating presigned URL for thumbnail {thumbnail_key}: {e}")
-            # If thumbnail fails, don't set thumbnail_url (will fall back to full image)
+        # Generate presigned URL for thumbnail if key exists
+        if job.thumbnail_s3_key:
+            try:
+                job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                    ExpiresIn=3600  # 1 hour expiration
+                )
+            except Exception as e:
+                logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
         
         job_responses.append(JobResponse(**job_dict))
     

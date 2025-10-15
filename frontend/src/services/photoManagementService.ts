@@ -68,22 +68,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     let thumbnailUrl = job.thumbnail_url || '';
     let uploadedUrl = '';
     
-    // Only fetch full image URL if thumbnail is not available (fallback)
-    if (!thumbnailUrl) {
-      try {
-        const response = await fetch(`${this.baseUrl}/v1/jobs/${job.id}/image-url`);
-        if (response.ok) {
-          const data = await response.json();
-          uploadedUrl = data.url;
-          thumbnailUrl = data.url; // Use full image as thumbnail fallback
-          console.log('Got presigned URL for job:', job.id, 'URL:', uploadedUrl);
-        } else {
-          console.error('Failed to get presigned URL for job:', job.id, response.statusText);
-        }
-      } catch (error) {
-        console.error('Error getting presigned URL for job:', job.id, error);
-      }
-    }
+    // Do NOT fetch full image URL here; thumbnail should come from backend
     
     return {
       id: job.id,
