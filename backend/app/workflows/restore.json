@@ -56,7 +56,7 @@
   },
   "60": {
     "inputs": {
-      "filename_prefix": "ComfyUI",
+      "filename_prefix": "ComfyUI-Restored",
       "images": [
         "8",
         0
@@ -137,7 +137,7 @@
   },
   "78": {
     "inputs": {
-      "image": "SCR-20250921-irvv.png"
+      "image": "old_photo_example.webp"
     },
     "class_type": "LoadImage",
     "_meta": {

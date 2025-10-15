@@ -1,0 +1,22 @@
+{
+  "id": "runpod-launcher",
+  "started": "2025-10-14T20:19:00Z",
+  "lastUpdated": "2025-10-14T20:19:00Z",
+  "status": "active",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 5, "total": 5 }
+  },
+  "contextFiles": [
+    "backend/app/services/comfyui.py",
+    "backend/app/core/config.py",
+    "backend/.env.example",
+    "remote:~/Git/ComfyUI-Rekindle/Dockerfile",
+    "remote:~/Git/ComfyUI-Rekindle/rp_handler.py"
+  ],
+  "relatedFeatures": [
+    "ComfyUI service integration pattern",
+    "Existing RunPod serverless handler"
+  ]
+}

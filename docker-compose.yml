@@ -36,6 +36,7 @@ services:
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://rekindle:rekindle@postgres:5432/rekindle
+      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     networks:
@@ -73,6 +74,7 @@ services:
       - celery-venv:/app/.venv
     environment:
       - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://rekindle:rekindle@postgres:5432/rekindle
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env

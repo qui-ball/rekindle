@@ -91,7 +91,7 @@ async def upload_and_process(
         )
 
 
-@router.post("/jobs/{job_id}/restore", response_model=RestoreAttemptResponse)
+@router.post("/{job_id}/restore", response_model=RestoreAttemptResponse)
 async def create_restore_attempt(
     job_id: UUID,
     restore_data: RestoreAttemptCreate,
@@ -147,7 +147,7 @@ async def create_restore_attempt(
         )
 
 
-@router.post("/jobs/{job_id}/animate", response_model=AnimationAttemptResponse)
+@router.post("/{job_id}/animate", response_model=AnimationAttemptResponse)
 async def create_animation_attempt(
     job_id: UUID,
     animation_data: AnimationAttemptCreate,
@@ -217,7 +217,7 @@ async def create_animation_attempt(
         )
 
 
-@router.get("/jobs/{job_id}", response_model=JobWithRelations)
+@router.get("/{job_id}", response_model=JobWithRelations)
 async def get_job(
     job_id: UUID,
     db: Session = Depends(get_db),
@@ -287,7 +287,7 @@ async def get_job(
     return JobWithRelations(**job_dict)
 
 
-@router.get("/jobs", response_model=List[JobResponse])
+@router.get("/", response_model=List[JobResponse])
 async def list_jobs(
     email: Optional[str] = None,
     skip: int = 0,
@@ -305,7 +305,7 @@ async def list_jobs(
     return jobs
 
 
-@router.delete("/jobs/{job_id}")
+@router.delete("/{job_id}")
 async def delete_job(
     job_id: UUID,
     db: Session = Depends(get_db),

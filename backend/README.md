@@ -42,6 +42,10 @@ backend/
 │   │   └── tasks/
 │   │       └── jobs.py    # Background task definitions
 │   └── main.py            # FastAPI app initialization
+├── scripts/               # Utility scripts
+│   ├── launch_runpod_pod.py        # RunPod pod launcher
+│   ├── check_gpu_availability.py  # Check GPU availability
+│   └── list_volumes.py             # List network volumes
 ├── tests/                 # Test suite
 ├── Dockerfile             # Production container
 ├── Dockerfile.dev         # Development container
@@ -117,6 +121,102 @@ backend/
 - Communicates with ComfyUI server on port 8188
 - Manages workflow execution and polling
 - Handles image upload/download with ComfyUI
+
+## RunPod Utilities
+
+### Pod Launcher (`scripts/launch_runpod_pod.py`)
+Python script to launch and manage RunPod pods with network volumes using GraphQL API.
+
+**Features:**
+- Launch pods with specific GPU types
+- Attach network volumes
+- Wait for pod readiness
+- Terminate pods
+- Query pod information
+
+**Configuration:**
+- Network Volume: `366etpkt4g` (Rekindle-ComfyUI, 100GB, EU-CZ-1)
+- Docker Image: `bilunsun/comfyuiprod:pod-test-1`
+- Available GPUs: RTX 3090 ($0.22/hr), RTX 4090 ($0.34/hr)
+- Storage: 1GB pod volume, 10GB container disk (optimized for network volume usage)
+
+**Usage:**
+```bash
+# Launch a pod
+uv run python scripts/launch_runpod_pod.py launch \
+  --name my-comfyui-pod \
+  --gpu "NVIDIA GeForce RTX 3090" \
+  --timeout 300
+
+# Launch without waiting for ready
+uv run python scripts/launch_runpod_pod.py launch \
+  --name my-pod \
+  --gpu "NVIDIA GeForce RTX 4090" \
+  --no-wait
+
+# Get pod information
+uv run python scripts/launch_runpod_pod.py info <pod_id>
+
+# Terminate pod
+uv run python scripts/launch_runpod_pod.py terminate <pod_id>
+```
+
+### GPU Availability Checker (`scripts/check_gpu_availability.py`)
+Check GPU availability in the network volume's datacenter (EU-CZ-1).
+
+**Usage:**
+```bash
+uv run python scripts/check_gpu_availability.py
+```
+
+Shows available GPUs with 24-48GB VRAM, including:
+- GPU type and VRAM
+- On-demand pricing
+- Stock status
+- Available count
+
+### Volume Lister (`scripts/list_volumes.py`)
+List all network volumes associated with your RunPod account.
+
+**Usage:**
+```bash
+uv run python scripts/list_volumes.py
+```
+
+Shows volume ID, name, size, and datacenter location.
+
+### ComfyUI Workflow Tester (`scripts/test_comfyui_workflow.py`)
+Test ComfyUI workflow submission and execution on RunPod pods.
+
+**Features:**
+- Submit workflows to ComfyUI instances
+- Check queue status
+- Retrieve execution history and results
+
+**Usage:**
+```bash
+# Submit a workflow
+uv run python scripts/test_comfyui_workflow.py \
+  --url https://POD_ID-8188.proxy.runpod.net \
+  --workflow app/workflows/example_payload.json
+
+# Check queue status
+uv run python scripts/test_comfyui_workflow.py \
+  --url https://POD_ID-8188.proxy.runpod.net \
+  --check-queue
+
+# Get execution history for a specific prompt
+uv run python scripts/test_comfyui_workflow.py \
+  --url https://POD_ID-8188.proxy.runpod.net \
+  --history <prompt_id>
+```
+
+**Download Results:**
+```bash
+# Download generated images from ComfyUI output
+curl -L "https://POD_ID-8188.proxy.runpod.net/view?filename=ComfyUI_00001_.png&type=output" \
+  -o restored_output.png
+```
 
 ## Configuration
 
@@ -253,6 +353,7 @@ docker run -p 8000:8000 -v $(pwd):/app rekindle-backend-dev
 - Add S3 batch deletion for cleanup tasks
 - Implement Auth0 JWT validation middleware
 - Add Stripe webhook handling
-- Implement RunPod integration for scaling
+- ~~Implement RunPod integration for scaling~~ ✓ Pod launcher implemented
+- Integrate RunPod launcher with Celery tasks for auto-scaling
 - Add comprehensive logging and monitoring
 - Implement rate limiting and request validation

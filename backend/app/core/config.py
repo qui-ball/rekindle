@@ -34,6 +34,8 @@ class Settings(BaseSettings):
 
     # RunPod
     RUNPOD_API_KEY: str = Field(..., description="RunPod API key")
+    RUNPOD_S3_ACCESS_KEY: str = Field(default="", description="RunPod network volume S3 access key")
+    RUNPOD_S3_SECRET_KEY: str = Field(default="", description="RunPod network volume S3 secret key")
 
     # AWS
     AWS_ACCESS_KEY_ID: str = Field(..., description="AWS access key")
