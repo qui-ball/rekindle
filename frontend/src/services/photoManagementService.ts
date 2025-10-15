@@ -2,6 +2,7 @@ import {
   Photo,
   PhotoDetails,
   PhotoMetadata,
+  PhotoResult,
   PhotoManagementService,
   PaginationOptions,
   CreditBalance,
@@ -15,6 +16,30 @@ import {
   JobStatus
 } from '../types/photo-management';
 import { authService } from './authService';
+
+// Backend API response types
+interface BackendJob {
+  id: string;
+  email: string;
+  created_at: string;
+  selected_restore_id?: string;
+  latest_animation_id?: string;
+  thumbnail_s3_key?: string;
+  thumbnail_url?: string;
+  restore_attempts?: BackendRestoreAttempt[];
+}
+
+interface BackendRestoreAttempt {
+  id: string;
+  job_id: string;
+  s3_key: string;
+  model?: string;
+  params?: Record<string, unknown>;
+  created_at: string;
+  url?: string;
+  result_s3_key?: string;
+  thumb_s3_key?: string;
+}
 
 /**
  * Photo Management Service
@@ -52,7 +77,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       
       // Transform backend Job data to frontend Photo format with presigned URLs
       const photos = await Promise.all(
-        jobs.map((job: any) => this.transformJobToPhoto(job))
+        jobs.map((job: BackendJob) => this.transformJobToPhoto(job))
       );
       return photos;
       
@@ -63,13 +88,12 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     }
   }
 
-  private async transformJobToPhoto(job: any): Promise<Photo> {
+  private async transformJobToPhoto(job: BackendJob): Promise<Photo> {
     // Use thumbnail URL from backend if available
-    let thumbnailUrl = job.thumbnail_url || '';
-    let uploadedUrl = '';
+    const thumbnailUrl = job.thumbnail_url || '';
+    const uploadedUrl = '';
     
     // Do NOT fetch full image URL here; thumbnail should come from backend
-    
     return {
       id: job.id,
       userId: job.email, // Using email as userId for now
@@ -92,7 +116,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     };
   }
 
-  private mapJobStatus(job: any): 'uploaded' | 'processing' | 'completed' | 'failed' {
+  private mapJobStatus(job: BackendJob): 'uploaded' | 'processing' | 'completed' | 'failed' {
     // Simple status mapping - can be enhanced based on actual job states
     if (job.restore_attempts && job.restore_attempts.length > 0) {
       return 'completed';
@@ -100,7 +124,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     return 'uploaded';
   }
 
-  private transformRestoreAttempts(attempts: any[]): any[] {
+  private transformRestoreAttempts(attempts: BackendRestoreAttempt[]): PhotoResult[] {
     return attempts.map(attempt => ({
       id: attempt.id,
       photoId: attempt.job_id,

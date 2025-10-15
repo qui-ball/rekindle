@@ -35,17 +35,33 @@ export async function POST(
   const url = `http://backend:8000/api/${path}`;
 
   try {
-    const body = await request.json();
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    // Check if this is a file upload (multipart/form-data)
+    const contentType = request.headers.get('content-type') || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // For file uploads, forward the FormData directly
+      const formData = await request.formData();
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    } else {
+      // For JSON requests, parse and forward as JSON
+      const body = await request.json();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+      return NextResponse.json(data, { status: response.status });
+    }
   } catch (error) {
     console.error('Proxy error:', error);
     return NextResponse.json(
