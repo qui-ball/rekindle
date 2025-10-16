@@ -22,10 +22,8 @@ export default function SubscriptionPage() {
       // Use mock data directly instead of API call
       const mockBalance: CreditBalance = {
         totalCredits: 120,
-        subscriptionCredits: 25,
-        topupCredits: 95,
         subscriptionTier: 'remember',
-        monthlyResetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         lowCreditWarning: false,
         creditHistory: [
           {
@@ -51,9 +49,8 @@ export default function SubscriptionPage() {
           }
         ],
         usageRules: {
-          subscriptionFirst: true,
-          subscriptionExpires: true,
-          topupCarryOver: true
+          creditsCarryOver: true,
+          lostOnCancellation: true
         }
       };
       setCreditBalance(mockBalance);

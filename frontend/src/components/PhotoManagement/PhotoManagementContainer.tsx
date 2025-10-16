@@ -130,25 +130,48 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Handle photo selection
   const handlePhotoClick = useCallback(async (photo: Photo) => {
-    // Fetch full image URL if not already loaded
+    let photoToSelect = photo;
+    
+    // Fetch full image URL if not already loaded (for drawer display)
     if (!photo.metadata.originalUrl) {
       try {
         const response = await fetch(`/api/v1/jobs/${photo.id}/image-url`);
         if (response.ok) {
           const data = await response.json();
-          // Update photo with full image URL
-          photo.metadata.originalUrl = data.url;
+          // Create a new photo object with updated URL
+          photoToSelect = {
+            ...photo,
+            metadata: {
+              ...photo.metadata,
+              originalUrl: data.url
+            }
+          };
+        } else {
+          // Fallback to thumbnail if full image fails
+          photoToSelect = {
+            ...photo,
+            metadata: {
+              ...photo.metadata,
+              originalUrl: photo.metadata.thumbnailUrl
+            }
+          };
         }
       } catch (error) {
         console.error('Error fetching full image URL:', error);
         // Fallback to thumbnail if full image fails
-        photo.metadata.originalUrl = photo.metadata.thumbnailUrl;
+        photoToSelect = {
+          ...photo,
+          metadata: {
+            ...photo.metadata,
+            originalUrl: photo.metadata.thumbnailUrl
+          }
+        };
       }
     }
     
-    setSelectedPhoto(photo);
+    setSelectedPhoto(photoToSelect);
     setIsDrawerOpen(true);
-    onPhotoSelect?.(photo);
+    onPhotoSelect?.(photoToSelect);
   }, [onPhotoSelect]);
 
   // Handle drawer close

@@ -10,11 +10,11 @@
  * - Challenging photos: <1500ms (multi-pass path)
  */
 
+// import * as cv from 'opencv.js'; // Not available in this build
 import type { CornerPoints } from '../types/jscanify';
 import { MultiPassDetector, type DetectionCandidate, type MultiPassResult } from './MultiPassDetector';
-import { calculateConfidenceScore, isHighConfidence, type ConfidenceMetrics } from './ConfidenceScoring';
+import { calculateConfidenceScore, type ConfidenceMetrics } from './ConfidenceScoring';
 import { imagePreprocessor } from './ImagePreprocessor';
-import { opencvLoader } from './opencvLoader';
 
 export interface AdaptiveDetectionResult {
   cornerPoints: CornerPoints | null;
@@ -204,7 +204,6 @@ export class AdaptiveDetectionStrategy {
     imageWidth: number,
     imageHeight: number
   ): Promise<Omit<AdaptiveDetectionResult, 'processingTime' | 'usedMultiPass'>> {
-    const startTime = performance.now();
     let preprocessResult = null;
 
     try {
@@ -249,8 +248,6 @@ export class AdaptiveDetectionStrategy {
       if (preprocessResult) {
         imagePreprocessor.cleanup(preprocessResult);
       }
-
-      const processingTime = performance.now() - startTime;
 
       return {
         cornerPoints,
@@ -303,9 +300,6 @@ export class AdaptiveDetectionStrategy {
     imageWidth: number,
     imageHeight: number
   ): Promise<DetectionCandidate | null> {
-    const cv = opencvLoader.getOpenCV();
-    const startTime = performance.now();
-    
     // Use MultiPassDetector's contour detection as the complementary strategy
     const detector = new MultiPassDetector(this.scanner);
     
@@ -314,8 +308,7 @@ export class AdaptiveDetectionStrategy {
       const result = await detector['contourDetection'](src, imageWidth, imageHeight);
       
       if (result && result.cornerPoints) {
-        const processingTime = performance.now() - startTime;
-        console.log(`   → Contour validation: ${Math.round(result.confidence * 100)}% in ${Math.round(processingTime)}ms`);
+        console.log(`   → Contour validation: ${Math.round(result.confidence * 100)}%`);
         return result;
       }
     } catch (error) {
@@ -329,55 +322,10 @@ export class AdaptiveDetectionStrategy {
    * Refine corner points using Shi-Tomasi
    */
   private refineCornerPoints(src: any, cornerPoints: CornerPoints): CornerPoints {
-    const cv = opencvLoader.getOpenCV();
-    // Check if cornerSubPix is available in this OpenCV.js build
-    if (!cv.cornerSubPix) {
-      console.log('ℹ️ cornerSubPix not available in OpenCV.js build, skipping refinement');
-      return cornerPoints;
-    }
-
-    const gray = new cv.Mat();
-    let corners: any = null;
-    
-    try {
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-      
-      // Convert corner points to OpenCV format
-      corners = new cv.Mat(4, 1, cv.CV_32FC2);
-      corners.data32F[0] = cornerPoints.topLeftCorner.x;
-      corners.data32F[1] = cornerPoints.topLeftCorner.y;
-      corners.data32F[2] = cornerPoints.topRightCorner.x;
-      corners.data32F[3] = cornerPoints.topRightCorner.y;
-      corners.data32F[4] = cornerPoints.bottomRightCorner.x;
-      corners.data32F[5] = cornerPoints.bottomRightCorner.y;
-      corners.data32F[6] = cornerPoints.bottomLeftCorner.x;
-      corners.data32F[7] = cornerPoints.bottomLeftCorner.y;
-      
-      // Use cornerSubPix for sub-pixel accuracy
-      const winSize = new cv.Size(5, 5);
-      const zeroZone = new cv.Size(-1, -1);
-      const criteria = new cv.TermCriteria(cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1);
-      cv.cornerSubPix(gray, corners, winSize, zeroZone, criteria);
-      
-      // Extract refined points
-      const refined: CornerPoints = {
-        topLeftCorner: { x: corners.data32F[0], y: corners.data32F[1] },
-        topRightCorner: { x: corners.data32F[2], y: corners.data32F[3] },
-        bottomRightCorner: { x: corners.data32F[4], y: corners.data32F[5] },
-        bottomLeftCorner: { x: corners.data32F[6], y: corners.data32F[7] }
-      };
-      
-      // Clean up
-      gray.delete();
-      corners.delete();
-      
-      return refined;
-    } catch (error) {
-      console.warn('⚠️ Shi-Tomasi refinement failed:', error);
-      if (gray && !gray.isDeleted?.()) gray.delete();
-      if (corners && !corners.isDeleted?.()) corners.delete();
-      return cornerPoints;
-    }
+    // Corner refinement not available in this build
+    // Return original points without modification
+    console.log('ℹ️ Corner refinement not available, using original points');
+    return cornerPoints;
   }
 
   /**

@@ -55,9 +55,8 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
     const combinedDiscount = (opts.restore && opts.colourize) ? 1 : 0;
     const totalCost = Math.max(0, subtotal - combinedDiscount);
 
-    // Calculate credit usage (subscription first, then top-up)
-    const subscriptionCreditsUsed = Math.min(totalCost, availableCredits.subscriptionCredits);
-    const topupCreditsUsed = Math.max(0, totalCost - subscriptionCreditsUsed);
+    // Calculate credit usage (simplified - just use total credits)
+    // const creditsUsed = Math.min(totalCost, availableCredits.totalCredits);
 
     return {
       individualCosts,
@@ -65,13 +64,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
       combinedDiscount,
       totalCost,
       availableCredits: availableCredits.totalCredits,
-      remainingCredits: availableCredits.totalCredits - totalCost,
-      creditUsage: {
-        subscriptionCreditsUsed,
-        topupCreditsUsed,
-        subscriptionCreditsRemaining: availableCredits.subscriptionCredits - subscriptionCreditsUsed,
-        topupCreditsRemaining: availableCredits.topupCredits - topupCreditsUsed
-      }
+      remainingCredits: availableCredits.totalCredits - totalCost
     };
   }, [availableCredits, creditCosts]);
 
@@ -250,14 +243,10 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
               <span className="text-gray-900">{costBreakdown.totalCost} credits</span>
             </div>
             
-            {/* Credit Usage */}
+            {/* Credit Usage - Simplified */}
             <div className="mt-2 text-xs text-gray-500">
-              {costBreakdown.creditUsage.subscriptionCreditsUsed > 0 && (
-                <div>Subscription: {costBreakdown.creditUsage.subscriptionCreditsUsed} credits</div>
-              )}
-              {costBreakdown.creditUsage.topupCreditsUsed > 0 && (
-                <div>Top-up: {costBreakdown.creditUsage.topupCreditsUsed} credits</div>
-              )}
+              <div>Total cost: {costBreakdown.totalCost} credits</div>
+              <div>Remaining: {costBreakdown.remainingCredits} credits</div>
             </div>
           </div>
         </div>
