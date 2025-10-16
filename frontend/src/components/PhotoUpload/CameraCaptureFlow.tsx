@@ -28,6 +28,7 @@ import { SmartCroppingInterface } from './SmartCroppingInterface';
 import { UploadPreview } from './UploadPreview';
 import { CornerGuideOverlay, type CornerPoints as GuideCornerPoints } from './CornerGuideOverlay';
 import type { CornerPoints } from '../../types/jscanify';
+import type { GuideDetectionResult } from '../../services/GuideContentDetector';
 
 type CaptureState = 'capturing' | 'preview' | 'uploadPreview';
 
@@ -75,15 +76,26 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [isLandscape, setIsLandscape] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cameraQuality, setCameraQuality] = useState({ lighting: 'analyzing', focus: 'analyzing' });
-  const [guideCorners, setGuideCorners] = useState<GuideCornerPoints | null>(null);
-  const [guideOrientation, setGuideOrientation] = useState<'portrait' | 'landscape' | null>(null);
+  // Corner guides state is currently not used outside overlay callbacks; keep minimal
+  const setGuideCorners = useState<GuideCornerPoints | null>(null)[1];
   const [showGuides, setShowGuides] = useState(true);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const cropButtonRef = useRef<(() => void) | null>(null);
 
   // Handle corner guide position changes
-  const handleGuidePositionChange = useCallback((corners: GuideCornerPoints, orientation: 'portrait' | 'landscape') => {
+  const handleGuidePositionChange = useCallback((corners: GuideCornerPoints) => {
     setGuideCorners(corners);
-    setGuideOrientation(orientation);
+  }, [setGuideCorners]);
+
+  // Handle video element ready
+  const handleVideoElementReady = useCallback((video: HTMLVideoElement) => {
+    setVideoElement(video);
+  }, []);
+
+  // Handle detection results from corner guides
+  const handleDetectionResult = useCallback((result: GuideDetectionResult) => {
+    console.log('Guide detection result:', result);
+    // This can be used to enhance smart cropping or provide additional feedback
   }, []);
 
   // Initialize SmartPhotoDetector only on client-side
@@ -158,11 +170,14 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
     }
   }, [closeOnEscape, handleClose]);
 
-  // Handle camera capture - go to preview state with smart detection
+  // Handle camera capture - go directly to preview state
   const handleCameraCapture = useCallback(async (imageData: string) => {
     setCapturedImage(imageData);
     
-    // Always try smart detection if detector exists (let it handle its own fallbacks)
+    // Go directly to preview state - detection will happen in the background
+    setCaptureState('preview');
+    
+    // Start smart detection in the background
     if (smartDetector) {
       try {
         setIsDetecting(true);
@@ -183,7 +198,6 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             setDetectionResult(null);
           } finally {
             setIsDetecting(false);
-            setCaptureState('preview');
           }
         };
         
@@ -191,7 +205,6 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           console.error('❌ Failed to load image for detection');
           setDetectionResult(null);
           setIsDetecting(false);
-          setCaptureState('preview');
         };
         
         img.src = imageData;
@@ -199,12 +212,10 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
         console.error('❌ Smart detection error:', error);
         setDetectionResult(null);
         setIsDetecting(false);
-        setCaptureState('preview');
       }
     } else {
       console.log('📋 SmartPhotoDetector not available - skipping detection');
       setDetectionResult(null);
-      setCaptureState('preview');
     }
   }, [smartDetector]);
 
@@ -347,6 +358,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             aspectRatio={getAspectRatio()}
             isLandscape={isLandscape}
             isMobile={isMobile}
+            onVideoElementReady={handleVideoElementReady}
           />
         </div>
 
@@ -355,7 +367,10 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           isVisible={showGuides}
           isMobile={isMobile}
           onGuidePositionChange={handleGuidePositionChange}
+          onDetectionResult={handleDetectionResult}
+          videoElement={videoElement || undefined}
         />
+
 
         {/* Overlaid Header - centered title and right-aligned close button */}
         <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
@@ -515,6 +530,17 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
 
     return (
       <div className="h-screen w-screen bg-black relative overflow-hidden">
+        {/* Loading Overlay - shown when detecting corners */}
+        {isDetecting && (
+          <div className="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center z-30">
+            <div className="text-center text-white">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+              <p className="text-lg font-medium">Processing...</p>
+              <p className="text-sm opacity-75 mt-2">Analyzing photo corners</p>
+            </div>
+          </div>
+        )}
+
         {/* Preview Image with Smart Cropping - matches camera view aspect ratio for visual continuity */}
         <div className={`absolute ${
           isLandscape 

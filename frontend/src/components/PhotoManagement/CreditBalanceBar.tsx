@@ -42,21 +42,11 @@ export const CreditBalanceBar: React.FC<CreditBalanceBarProps> = ({
         <div className="flex items-center justify-between">
           {/* Credit Balances */}
           <div className="flex items-center space-x-6">
-            {/* Subscription Credits */}
+            {/* Credit Details */}
             <div className="flex items-center space-x-2">
               <CreditCardIcon />
               <span className="text-sm font-medium text-gray-700">
-                Sub: {balance.subscriptionCredits}
-              </span>
-            </div>
-            
-            {/* Top-up Credits */}
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center">
-                <span className="text-xs text-white font-bold">T</span>
-              </div>
-              <span className="text-sm font-medium text-gray-700">
-                Top-up: {balance.topupCredits}
+                Total: {balance.totalCredits}
               </span>
             </div>
           </div>

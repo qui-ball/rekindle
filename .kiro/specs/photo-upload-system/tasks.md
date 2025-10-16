@@ -351,108 +351,527 @@ export const useOpenCVInitialization = () => {
 
 ### Task 4.6 Technical Approach:
 ```typescript
-// Corner guide overlay component for camera capture
-interface CornerGuideProps {
-  aspectRatio: '4:3' | '3:4' | '1:1';
-  orientation: 'portrait' | 'landscape';
-  isVisible: boolean;
-  onGuidePositionChange?: (corners: CornerPoints) => void;
+// Enhanced corner guide overlay with real-time computer vision detection
+interface GuideDetectionState {
+  portrait: {
+    hasContent: boolean;
+    confidence: number;
+    detectedCorners?: CornerPoints;
+  };
+  landscape: {
+    hasContent: boolean;
+    confidence: number;
+    detectedCorners?: CornerPoints;
+  };
 }
 
-export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
-  aspectRatio,
-  orientation,
-  isVisible,
-  onGuidePositionChange
-}) => {
-  const [guideCorners, setGuideCorners] = useState<CornerPoints | null>(null);
-  const [isAligned, setIsAligned] = useState(false);
+interface CornerGuideProps {
+  isVisible: boolean;
+  isMobile?: boolean;
+  onGuidePositionChange?: (corners: CornerPoints, orientation: 'portrait' | 'landscape') => void;
+  onDetectionChange?: (detection: GuideDetectionState) => void;
+  className?: string;
+}
 
-  // Calculate guide positions based on aspect ratio and orientation
-  const calculateGuidePositions = useCallback(() => {
+// Guide content detector using OpenCV.js for real-time analysis
+export class GuideContentDetector {
+  private isInitialized = false;
+  private detectionInterval: number | null = null;
+  private onDetectionChange?: (detection: GuideDetectionState) => void;
+
+  async initialize(): Promise<boolean> {
+    try {
+      // Ensure OpenCV.js is loaded
+      if (typeof cv === 'undefined') {
+        await this.loadOpenCV();
+      }
+      this.isInitialized = true;
+      return true;
+    } catch (error) {
+      console.warn('GuideContentDetector initialization failed:', error);
+      return false;
+    }
+  }
+
+  startDetection(
+    cameraStream: MediaStream,
+    portraitCorners: CornerPoints,
+    landscapeCorners: CornerPoints,
+    onDetectionChange: (detection: GuideDetectionState) => void
+  ): void {
+    this.onDetectionChange = onDetectionChange;
+    
+    // Start real-time detection every 100ms
+    this.detectionInterval = window.setInterval(() => {
+      this.analyzeFrame(cameraStream, portraitCorners, landscapeCorners);
+    }, 100);
+  }
+
+  stopDetection(): void {
+    if (this.detectionInterval) {
+      clearInterval(this.detectionInterval);
+      this.detectionInterval = null;
+    }
+  }
+
+  private async analyzeFrame(
+    stream: MediaStream,
+    portraitCorners: CornerPoints,
+    landscapeCorners: CornerPoints
+  ): Promise<void> {
+    if (!this.isInitialized || !this.onDetectionChange) return;
+
+    try {
+      // Capture current frame from camera stream
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      ctx?.drawImage(video, 0, 0);
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+      
+      if (!imageData) return;
+
+      // Convert to OpenCV Mat
+      const src = cv.matFromImageData(imageData);
+      
+      // Analyze portrait guide area
+      const portraitDetection = await this.detectRectangularContent(
+        src, 
+        portraitCorners, 
+        canvas.width, 
+        canvas.height
+      );
+      
+      // Analyze landscape guide area
+      const landscapeDetection = await this.detectRectangularContent(
+        src, 
+        landscapeCorners, 
+        canvas.width, 
+        canvas.height
+      );
+      
+      // Update detection state
+      const detectionState: GuideDetectionState = {
+        portrait: portraitDetection,
+        landscape: landscapeDetection
+      };
+      
+      this.onDetectionChange(detectionState);
+      
+      src.delete(); // Clean up OpenCV Mat
+    } catch (error) {
+      console.warn('Frame analysis failed:', error);
+    }
+  }
+
+  private async detectRectangularContent(
+    src: cv.Mat,
+    corners: CornerPoints,
+    imageWidth: number,
+    imageHeight: number
+  ): Promise<{ hasContent: boolean; confidence: number; detectedCorners?: CornerPoints }> {
+    try {
+      // Crop to guide area
+      const roi = this.createROIFromCorners(src, corners, imageWidth, imageHeight);
+      
+      // Apply preprocessing for better edge detection
+      const processed = this.preprocessForDetection(roi);
+      
+      // Detect edges using Canny
+      const edges = new cv.Mat();
+      cv.Canny(processed, edges, 50, 150);
+      
+      // Find contours
+      const contours = new cv.MatVector();
+      const hierarchy = new cv.Mat();
+      cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      
+      // Analyze contours for rectangular shapes
+      const rectangularContours = this.findRectangularContours(contours);
+      
+      // Calculate confidence based on contour quality
+      const confidence = this.calculateDetectionConfidence(rectangularContours, roi);
+      
+      // Clean up
+      roi.delete();
+      processed.delete();
+      edges.delete();
+      contours.delete();
+      hierarchy.delete();
+      
+      return {
+        hasContent: confidence > 0.7,
+        confidence,
+        detectedCorners: confidence > 0.7 ? this.extractCornerPoints(rectangularContours) : undefined
+      };
+    } catch (error) {
+      console.warn('Rectangular content detection failed:', error);
+      return { hasContent: false, confidence: 0 };
+    }
+  }
+
+  private preprocessForDetection(src: cv.Mat): cv.Mat {
+    const processed = new cv.Mat();
+    
+    // Convert to grayscale
+    cv.cvtColor(src, processed, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Gaussian blur to reduce noise
+    const blurred = new cv.Mat();
+    cv.GaussianBlur(processed, blurred, new cv.Size(5, 5), 0);
+    
+    // Apply CLAHE for better contrast
+    const clahe = cv.createCLAHE(2.0, new cv.Size(8, 8));
+    const enhanced = new cv.Mat();
+    clahe.apply(blurred, enhanced);
+    
+    // Clean up
+    processed.delete();
+    blurred.delete();
+    
+    return enhanced;
+  }
+
+  private findRectangularContours(contours: cv.MatVector): cv.Mat[] {
+    const rectangularContours: cv.Mat[] = [];
+    
+    for (let i = 0; i < contours.size(); i++) {
+      const contour = contours.get(i);
+      const area = cv.contourArea(contour);
+      
+      // Filter by area (too small or too large)
+      if (area < 1000 || area > 100000) {
+        contour.delete();
+        continue;
+      }
+      
+      // Approximate contour to polygon
+      const epsilon = 0.02 * cv.arcLength(contour, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(contour, approx, epsilon, true);
+      
+      // Check if it's roughly rectangular (4 corners)
+      if (approx.rows === 4) {
+        rectangularContours.push(approx);
+      } else {
+        approx.delete();
+      }
+      
+      contour.delete();
+    }
+    
+    return rectangularContours;
+  }
+
+  private calculateDetectionConfidence(contours: cv.Mat[], roi: cv.Mat): number {
+    if (contours.length === 0) return 0;
+    
+    // Use the largest contour
+    let bestContour = contours[0];
+    let maxArea = cv.contourArea(bestContour);
+    
+    for (let i = 1; i < contours.length; i++) {
+      const area = cv.contourArea(contours[i]);
+      if (area > maxArea) {
+        bestContour = contours[i];
+        maxArea = area;
+      }
+    }
+    
+    // Calculate confidence based on area ratio and rectangularity
+    const roiArea = roi.rows * roi.cols;
+    const areaRatio = maxArea / roiArea;
+    
+    // Ideal area ratio is 0.3-0.8
+    let confidence = 0;
+    if (areaRatio >= 0.3 && areaRatio <= 0.8) {
+      confidence = 0.9;
+    } else if (areaRatio >= 0.2 && areaRatio <= 0.9) {
+      confidence = 0.7;
+    } else {
+      confidence = 0.3;
+    }
+    
+    return Math.min(confidence, 1.0);
+  }
+
+  private extractCornerPoints(contours: cv.Mat[]): CornerPoints {
+    if (contours.length === 0) {
+      throw new Error('No contours to extract corner points from');
+    }
+    
+    // Use the largest contour
+    const contour = contours.reduce((best, current) => 
+      cv.contourArea(current) > cv.contourArea(best) ? current : best
+    );
+    
+    // Extract 4 corner points
+    const points: cv.Point[] = [];
+    for (let i = 0; i < contour.rows; i++) {
+      const point = contour.data32S.slice(i * 2, i * 2 + 2);
+      points.push(new cv.Point(point[0], point[1]));
+    }
+    
+    // Sort points to get top-left, top-right, bottom-left, bottom-right
+    points.sort((a, b) => a.y - b.y); // Sort by y first
+    const topPoints = points.slice(0, 2).sort((a, b) => a.x - b.x);
+    const bottomPoints = points.slice(2, 4).sort((a, b) => a.x - b.x);
+    
+    return {
+      topLeft: { x: topPoints[0].x, y: topPoints[0].y },
+      topRight: { x: topPoints[1].x, y: topPoints[1].y },
+      bottomLeft: { x: bottomPoints[0].x, y: bottomPoints[0].y },
+      bottomRight: { x: bottomPoints[1].x, y: bottomPoints[1].y }
+    };
+  }
+
+  private createROIFromCorners(
+    src: cv.Mat, 
+    corners: CornerPoints, 
+    imageWidth: number, 
+    imageHeight: number
+  ): cv.Mat {
+    // Convert screen coordinates to image coordinates
+    const scaleX = imageWidth / window.innerWidth;
+    const scaleY = imageHeight / window.innerHeight;
+    
+    const roiCorners = {
+      topLeft: { x: corners.topLeft.x * scaleX, y: corners.topLeft.y * scaleY },
+      topRight: { x: corners.topRight.x * scaleX, y: corners.topRight.y * scaleY },
+      bottomLeft: { x: corners.bottomLeft.x * scaleX, y: corners.bottomLeft.y * scaleY },
+      bottomRight: { x: corners.bottomRight.x * scaleX, y: corners.bottomRight.y * scaleY }
+    };
+    
+    // Create ROI rectangle
+    const x = Math.min(roiCorners.topLeft.x, roiCorners.bottomLeft.x);
+    const y = Math.min(roiCorners.topLeft.y, roiCorners.topRight.y);
+    const width = Math.max(roiCorners.topRight.x, roiCorners.bottomRight.x) - x;
+    const height = Math.max(roiCorners.bottomLeft.y, roiCorners.bottomRight.y) - y;
+    
+    const rect = new cv.Rect(x, y, width, height);
+    return src.roi(rect);
+  }
+
+  private async loadOpenCV(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (typeof cv !== 'undefined') {
+        resolve();
+        return;
+      }
+      
+      const script = document.createElement('script');
+      script.src = 'https://docs.opencv.org/4.7.0/opencv.js';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load OpenCV.js'));
+      document.head.appendChild(script);
+    });
+  }
+}
+
+// Enhanced CornerGuideOverlay with real-time detection
+export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
+  isVisible,
+  isMobile = false,
+  onGuidePositionChange,
+  onDetectionChange,
+  className = ''
+}) => {
+  const [dualCorners, setDualCorners] = useState<DualCornerPoints | null>(null);
+  const [detectedOrientation, setDetectedOrientation] = useState<'portrait' | 'landscape' | null>(null);
+  const [detectionState, setDetectionState] = useState<GuideDetectionState | null>(null);
+  const [showPortraitGuides, setShowPortraitGuides] = useState(true);
+  const [showLandscapeGuides, setShowLandscapeGuides] = useState(true);
+  const [isAligned, setIsAligned] = useState(false);
+  const [isHighContrast, setIsHighContrast] = useState(false);
+  
+  const detectorRef = useRef<GuideContentDetector | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  // Initialize computer vision detector
+  useEffect(() => {
+    const initializeDetector = async () => {
+      if (!detectorRef.current) {
+        detectorRef.current = new GuideContentDetector();
+        await detectorRef.current.initialize();
+      }
+    };
+    
+    if (isVisible) {
+      initializeDetector();
+    }
+  }, [isVisible]);
+
+  // Start/stop real-time detection
+  useEffect(() => {
+    if (isVisible && detectorRef.current && dualCorners && cameraStreamRef.current) {
+      const handleDetectionChange = (detection: GuideDetectionState) => {
+        setDetectionState(detection);
+        
+        // Smart hiding logic based on detection results
+        if (detection.portrait.hasContent && detection.portrait.confidence > 0.8) {
+          setShowLandscapeGuides(false);
+          setDetectedOrientation('portrait');
+          onGuidePositionChange?.(dualCorners.portrait, 'portrait');
+        } else if (detection.landscape.hasContent && detection.landscape.confidence > 0.8) {
+          setShowPortraitGuides(false);
+          setDetectedOrientation('landscape');
+          onGuidePositionChange?.(dualCorners.landscape, 'landscape');
+        } else {
+          setShowPortraitGuides(true);
+          setShowLandscapeGuides(true);
+          setDetectedOrientation(null);
+        }
+        
+        onDetectionChange?.(detection);
+      };
+      
+      detectorRef.current.startDetection(
+        cameraStreamRef.current,
+        dualCorners.portrait,
+        dualCorners.landscape,
+        handleDetectionChange
+      );
+    }
+    
+    return () => {
+      if (detectorRef.current) {
+        detectorRef.current.stopDetection();
+      }
+    };
+  }, [isVisible, dualCorners, onGuidePositionChange, onDetectionChange]);
+
+  // Calculate guide positions for both orientations
+  const calculateDualGuidePositions = useCallback(() => {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     
-    // Reserve space for camera controls
-    const controlHeight = orientation === 'portrait' ? 120 : 80;
-    const availableHeight = screenHeight - controlHeight;
+    // Camera view area (top 80% of screen)
+    const cameraViewTop = 0;
+    const cameraViewBottom = screenHeight * 0.8;
+    const cameraViewHeight = cameraViewBottom - cameraViewTop;
+    const cameraViewCenterY = cameraViewTop + (cameraViewHeight / 2) - (cameraViewHeight * 0.05);
+    const cameraViewCenterX = screenWidth / 2;
     
-    let guideWidth, guideHeight;
+    const margin = 50;
+    const maxWidth = screenWidth - (margin * 2);
+    const maxHeight = cameraViewHeight - (margin * 2);
     
-    switch (aspectRatio) {
-      case '4:3':
-        guideWidth = Math.min(screenWidth * 0.8, availableHeight * 0.6);
-        guideHeight = guideWidth * 0.75;
-        break;
-      case '3:4':
-        guideWidth = Math.min(screenWidth * 0.7, availableHeight * 0.5);
-        guideHeight = guideWidth * 1.33;
-        break;
-      case '1:1':
-        guideWidth = Math.min(screenWidth * 0.6, availableHeight * 0.6);
-        guideHeight = guideWidth;
-        break;
-    }
+    // Portrait guide (3:4 aspect ratio)
+    const portraitWidth = Math.min(maxWidth * 0.8, maxHeight * 0.9);
+    const portraitHeight = portraitWidth * (4/3);
+    const finalPortraitWidth = portraitHeight > maxHeight ? maxHeight * (3/4) : portraitWidth;
+    const finalPortraitHeight = finalPortraitWidth * (4/3);
     
-    const centerX = screenWidth / 2;
-    const centerY = (availableHeight / 2) + (controlHeight / 2);
+    const portraitCorners: CornerPoints = {
+      topLeft: { x: cameraViewCenterX - finalPortraitWidth / 2, y: cameraViewCenterY - finalPortraitHeight / 2 },
+      topRight: { x: cameraViewCenterX + finalPortraitWidth / 2, y: cameraViewCenterY - finalPortraitHeight / 2 },
+      bottomLeft: { x: cameraViewCenterX - finalPortraitWidth / 2, y: cameraViewCenterY + finalPortraitHeight / 2 },
+      bottomRight: { x: cameraViewCenterX + finalPortraitWidth / 2, y: cameraViewCenterY + finalPortraitHeight / 2 }
+    };
+    
+    // Landscape guide (4:3 aspect ratio)
+    const landscapeWidth = Math.min(maxWidth * 0.98, maxHeight * 0.7);
+    const landscapeHeight = landscapeWidth * (3/4);
+    const finalLandscapeWidth = landscapeHeight > maxHeight ? maxHeight * (4/3) : landscapeWidth;
+    const finalLandscapeHeight = finalLandscapeWidth * (3/4);
+    
+    const landscapeCorners: CornerPoints = {
+      topLeft: { x: cameraViewCenterX - finalLandscapeWidth / 2, y: cameraViewCenterY - finalLandscapeHeight / 2 },
+      topRight: { x: cameraViewCenterX + finalLandscapeWidth / 2, y: cameraViewCenterY - finalLandscapeHeight / 2 },
+      bottomLeft: { x: cameraViewCenterX - finalLandscapeWidth / 2, y: cameraViewCenterY + finalLandscapeHeight / 2 },
+      bottomRight: { x: cameraViewCenterX + finalLandscapeWidth / 2, y: cameraViewCenterY + finalLandscapeHeight / 2 }
+    };
     
     return {
-      topLeft: { x: centerX - guideWidth / 2, y: centerY - guideHeight / 2 },
-      topRight: { x: centerX + guideWidth / 2, y: centerY - guideHeight / 2 },
-      bottomLeft: { x: centerX - guideWidth / 2, y: centerY + guideHeight / 2 },
-      bottomRight: { x: centerX + guideWidth / 2, y: centerY + guideHeight / 2 }
+      portrait: portraitCorners,
+      landscape: landscapeCorners
     };
-  }, [aspectRatio, orientation]);
+  }, []);
 
-  // Visual feedback for proper alignment
+  // Update guide positions and start detection
   const handleAlignmentCheck = useCallback(() => {
-    // Simple alignment check - could be enhanced with computer vision
-    const tolerance = 20; // pixels
-    const corners = calculateGuidePositions();
+    const dualCorners = calculateDualGuidePositions();
+    setDualCorners(dualCorners);
+    setIsAligned(true);
     
-    // Check if guides are within reasonable bounds
-    const isValid = Object.values(corners).every(corner => 
-      corner.x > 0 && corner.x < window.innerWidth &&
-      corner.y > 0 && corner.y < window.innerHeight
-    );
-    
-    setIsAligned(isValid);
-    setGuideCorners(corners);
-    onGuidePositionChange?.(corners);
-  }, [calculateGuidePositions, onGuidePositionChange]);
+    // Get camera stream for detection
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        cameraStreamRef.current = stream;
+      })
+      .catch(error => {
+        console.warn('Could not access camera stream for detection:', error);
+      });
+  }, [calculateDualGuidePositions]);
 
   useEffect(() => {
-    handleAlignmentCheck();
-  }, [handleAlignmentCheck]);
+    if (isVisible) {
+      handleAlignmentCheck();
+    }
+  }, [isVisible, handleAlignmentCheck]);
 
-  if (!isVisible) return null;
+  if (!isVisible || !dualCorners) return null;
 
-  const corners = calculateGuidePositions();
+  const portraitColor = '#ffffff';
+  const landscapeColor = '#ffeb3b';
+  const guideOpacity = isHighContrast ? 0.9 : 0.7;
 
   return (
-    <div className="corner-guide-overlay">
-      {/* Corner markers */}
-      {Object.entries(corners).map(([position, point]) => (
-        <div
-          key={position}
-          className={`corner-marker ${position} ${isAligned ? 'aligned' : ''}`}
-          style={{
-            left: point.x - 15,
-            top: point.y - 15,
-            width: 30,
-            height: 30
-          }}
-        />
-      ))}
-      
-      {/* Guide lines */}
-      <svg className="guide-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-        <line x1={corners.topLeft.x} y1={corners.topLeft.y} x2={corners.topRight.x} y2={corners.topRight.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
-        <line x1={corners.topRight.x} y1={corners.topRight.y} x2={corners.bottomRight.x} y2={corners.bottomRight.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
-        <line x1={corners.bottomRight.x} y1={corners.bottomRight.y} x2={corners.bottomLeft.x} y2={corners.bottomLeft.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
-        <line x1={corners.bottomLeft.x} y1={corners.bottomLeft.y} x2={corners.topLeft.x} y2={corners.topLeft.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
-      </svg>
+    <div 
+      className={`corner-guide-overlay absolute inset-0 pointer-events-none z-10 ${className}`}
+      role="img"
+      aria-label="Photo positioning guides for both portrait and landscape orientations"
+    >
+      {/* Portrait Corner Lines and Dashed Rectangle */}
+      {showPortraitGuides && (
+        <>
+          {/* Corner lines */}
+          <svg className="guide-lines portrait" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} aria-hidden="true">
+            {/* Corner line implementation */}
+          </svg>
+          {/* Dashed rectangle */}
+          <svg className="guide-lines portrait" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} aria-hidden="true">
+            {/* Dashed line implementation */}
+          </svg>
+        </>
+      )}
+
+      {/* Landscape Corner Lines and Dashed Rectangle */}
+      {showLandscapeGuides && (
+        <>
+          {/* Corner lines */}
+          <svg className="guide-lines landscape" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} aria-hidden="true">
+            {/* Corner line implementation */}
+          </svg>
+          {/* Dashed rectangle */}
+          <svg className="guide-lines landscape" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} aria-hidden="true">
+            {/* Dashed line implementation */}
+          </svg>
+        </>
+      )}
+
+      {/* Detection feedback */}
+      {detectionState && (
+        <div className="detection-feedback">
+          {detectionState.portrait.hasContent && (
+            <div className="portrait-detection-indicator">
+              Portrait detected (confidence: {Math.round(detectionState.portrait.confidence * 100)}%)
+            </div>
+          )}
+          {detectionState.landscape.hasContent && (
+            <div className="landscape-detection-indicator">
+              Landscape detected (confidence: {Math.round(detectionState.landscape.confidence * 100)}%)
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -460,13 +879,15 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
 
 ### Task 5.9 Technical Approach:
 ```typescript
-// Corner guide detector for enhanced smart cropping
+// Enhanced corner guide detector with real-time detection integration
 export class CornerGuideDetector {
-  private guideCorners: CornerPoints | null = null;
-  private confidenceThreshold = 0.9;
+  private guideDetectionState: GuideDetectionState | null = null;
+  private confidenceThreshold = 0.8;
+  private orientation: 'portrait' | 'landscape' | null = null;
 
-  setGuideCorners(corners: CornerPoints): void {
-    this.guideCorners = corners;
+  setGuideDetectionState(detection: GuideDetectionState, orientation: 'portrait' | 'landscape' | null): void {
+    this.guideDetectionState = detection;
+    this.orientation = orientation;
   }
 
   async detectWithGuides(
@@ -474,14 +895,20 @@ export class CornerGuideDetector {
     imageWidth: number,
     imageHeight: number
   ): Promise<DetectionResult> {
-    if (!this.guideCorners) {
+    if (!this.guideDetectionState || !this.orientation) {
       return this.getFallbackResult(imageWidth, imageHeight);
     }
 
     try {
+      // Get the detected guide corners from real-time detection
+      const guideCorners = this.getDetectedGuideCorners();
+      if (!guideCorners) {
+        return this.getFallbackResult(imageWidth, imageHeight);
+      }
+
       // Convert guide corners to image coordinates
       const imageCorners = this.convertGuideToImageCoordinates(
-        this.guideCorners,
+        guideCorners,
         imageWidth,
         imageHeight
       );
@@ -491,22 +918,51 @@ export class CornerGuideDetector {
         return this.getFallbackResult(imageWidth, imageHeight);
       }
 
-      // Use guide corners as seed points for JScanify
+      // Use guide corners as seed points for JScanify (Pass 5 - highest priority)
       const enhancedResult = await this.enhancedDetectionWithSeeds(
         imageData,
         imageCorners
       );
 
+      // Boost confidence based on real-time detection confidence
+      const boostedConfidence = this.calculateBoostedConfidence(enhancedResult.confidence);
+
       return {
         detected: true,
         cropArea: this.cornersToCropArea(imageCorners, imageWidth, imageHeight),
-        confidence: this.calculateGuideConfidence(imageCorners, imageWidth, imageHeight),
-        method: 'guide-assisted'
+        confidence: boostedConfidence,
+        method: 'guide-assisted',
+        orientation: this.orientation
       };
     } catch (error) {
       console.warn('Guide-based detection failed:', error);
       return this.getFallbackResult(imageWidth, imageHeight);
     }
+  }
+
+  private getDetectedGuideCorners(): CornerPoints | null {
+    if (!this.guideDetectionState || !this.orientation) return null;
+
+    const detection = this.orientation === 'portrait' 
+      ? this.guideDetectionState.portrait 
+      : this.guideDetectionState.landscape;
+
+    // Use detected corners if available, otherwise fall back to guide boundaries
+    return detection.detectedCorners || null;
+  }
+
+  private calculateBoostedConfidence(baseConfidence: number): number {
+    if (!this.guideDetectionState || !this.orientation) return baseConfidence;
+
+    const detection = this.orientation === 'portrait' 
+      ? this.guideDetectionState.portrait 
+      : this.guideDetectionState.landscape;
+
+    // Boost confidence based on real-time detection quality
+    const detectionConfidence = detection.confidence;
+    const boostFactor = Math.min(detectionConfidence * 0.3, 0.2); // Max 20% boost
+    
+    return Math.min(baseConfidence + boostFactor, 1.0);
   }
 
   private convertGuideToImageCoordinates(
@@ -634,15 +1090,21 @@ export class CornerGuideDetector {
     - Test across multiple Android and iOS devices for consistent native camera app experience
     - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9_
 
-  - [ ] 4.6 Implement white/grey corner guides for photo positioning
-    - Create CornerGuideOverlay component with white/grey corner markers
-    - Position corner guides to match standard photo dimensions (4:3, 3:4, 1:1)
+  - [ ] 4.6 Implement intelligent corner guides with real-time photo detection
+    - Create CornerGuideOverlay component with dual orientation guides (portrait 3:4, landscape 4:3)
+    - Position corner guides to match standard photo dimensions with proper centering in camera view
+    - Implement real-time computer vision detection within each guide's 4 corners using OpenCV.js
+    - Add GuideContentDetector class to analyze camera feed and detect rectangular objects within guide boundaries
+    - Implement smart hiding logic: when one guide detects content, hide the other guide automatically
+    - Add detection state management with confidence scoring for each guide orientation
+    - Create visual feedback system showing detection status and confidence levels
+    - Integrate guide detection results with smart cropper for enhanced accuracy (Pass 5 detection strategy)
+    - Add accessibility features (high contrast mode, screen reader support, ARIA labels)
     - Implement responsive corner guide positioning for portrait and landscape orientations
-    - Add subtle animation and visual feedback when guides are properly aligned
-    - Implement guide positioning that works with existing camera controls and quality indicators
-    - Add accessibility features (high contrast mode, screen reader support)
-    - Write unit tests for corner guide positioning and responsive behavior
-    - _Requirements: 1.3, 1.6, 8.1, 8.2, 8.5, User guidance, Smart detection enhancement_
+    - Add smooth animations and transitions when guides appear/disappear based on detection
+    - Write comprehensive unit tests for corner guide positioning, detection logic, and smart hiding behavior
+    - Add integration tests for guide-to-smart-cropper communication and detection accuracy
+    - _Requirements: 1.3, 1.6, 8.1, 8.2, 8.5, 5.9, User guidance, Smart detection enhancement, Real-time computer vision_
 
 - [ ] 5. Build professional smart cropping with JScanify integration
   - [x] 5.0 Install JScanify dependencies and update package configuration

@@ -195,7 +195,7 @@ describe('AdaptiveDetectionStrategy', () => {
 
   describe('Preprocessing Integration', () => {
     it('should use preprocessing when enabled', async () => {
-      const { imagePreprocessor } = require('./imagePreprocessor');
+      const { imagePreprocessor } = await import('./imagePreprocessor');
       
       mockScanner.findPaperContour.mockReturnValue({});
       mockScanner.getCornerPoints.mockReturnValue(mockCornerPoints);
@@ -211,7 +211,7 @@ describe('AdaptiveDetectionStrategy', () => {
     });
 
     it('should skip preprocessing when disabled', async () => {
-      const { imagePreprocessor } = require('./imagePreprocessor');
+      const { imagePreprocessor } = await import('./imagePreprocessor');
       jest.clearAllMocks();
       
       mockScanner.findPaperContour.mockReturnValue({});

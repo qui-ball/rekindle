@@ -14,6 +14,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import './CornerGuideOverlay.css';
+import { guideContentDetector, GuideDetectionResult, GuideDetectionState } from '../../services/GuideContentDetector';
 
 export interface CornerPoint {
   x: number;
@@ -31,6 +32,8 @@ export interface CornerGuideProps {
   isVisible: boolean;
   isMobile?: boolean;
   onGuidePositionChange?: (corners: CornerPoints, orientation: 'portrait' | 'landscape') => void;
+  onDetectionResult?: (result: GuideDetectionResult) => void;
+  videoElement?: HTMLVideoElement;
   className?: string;
 }
 
@@ -41,8 +44,10 @@ export interface DualCornerPoints {
 
 export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
   isVisible,
-  isMobile = false,
+  isMobile: _isMobile = false,
   onGuidePositionChange,
+  onDetectionResult,
+  videoElement,
   className = ''
 }) => {
   const [dualCorners, setDualCorners] = useState<DualCornerPoints | null>(null);
@@ -51,6 +56,8 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
   const [isHighContrast, setIsHighContrast] = useState(false);
   const [showPortraitGuides, setShowPortraitGuides] = useState(true);
   const [showLandscapeGuides, setShowLandscapeGuides] = useState(true);
+  const [detectionState, setDetectionState] = useState<GuideDetectionState | null>(null);
+  const [isDetecting, setIsDetecting] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Check for high contrast mode preference
@@ -126,19 +133,55 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
   }, []);
 
   // Helper function to calculate quadrilateral area
-  const calculateQuadrilateralArea = useCallback((corners: CornerPoints): number => {
-    const { topLeft, topRight, bottomLeft, bottomRight } = corners;
-    
-    // Calculate area using shoelace formula
-    const area = Math.abs(
-      (topLeft.x * topRight.y + topRight.x * bottomRight.y + 
-       bottomRight.x * bottomLeft.y + bottomLeft.x * topLeft.y) -
-      (topLeft.y * topRight.x + topRight.y * bottomRight.x + 
-       bottomRight.y * bottomLeft.x + bottomLeft.y * topLeft.x)
-    ) / 2;
-    
-    return area;
-  }, []);
+  // Removed calculateQuadrilateralArea as it's not used in the current implementation
+
+  // Initialize guide content detector
+  useEffect(() => {
+    const initializeDetector = async () => {
+      if (isVisible && videoElement) {
+        try {
+          await guideContentDetector.initialize();
+        } catch (error) {
+          console.error('Failed to initialize guide content detector:', error);
+        }
+      }
+    };
+
+    initializeDetector();
+  }, [isVisible, videoElement]);
+
+  // Start/stop real-time detection - start immediately, don't wait for full initialization
+  useEffect(() => {
+    if (isVisible && videoElement && dualCorners) {
+      const handleDetectionResult = (result: GuideDetectionResult) => {
+        setDetectionState(guideContentDetector.getDetectionState());
+        setDetectedOrientation(result.orientation);
+        setIsDetecting(result.isDetected);
+        
+        // Smart hiding logic: hide guides based on detection results
+        const shouldHidePortrait = guideContentDetector.shouldHideGuide('portrait');
+        const shouldHideLandscape = guideContentDetector.shouldHideGuide('landscape');
+        
+        setShowPortraitGuides(!shouldHidePortrait);
+        setShowLandscapeGuides(!shouldHideLandscape);
+        
+        // Notify parent component of detection results
+        onDetectionResult?.(result);
+      };
+
+      // Start detection immediately - the detector will handle initialization internally
+      guideContentDetector.startRealTimeDetection(
+        videoElement,
+        dualCorners.portrait,
+        dualCorners.landscape,
+        handleDetectionResult
+      );
+
+      return () => {
+        guideContentDetector.stopRealTimeDetection();
+      };
+    }
+  }, [isVisible, videoElement, dualCorners, onDetectionResult]);
 
   // Visual feedback for proper alignment and orientation detection
   const handleAlignmentCheck = useCallback(() => {
@@ -159,23 +202,9 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
     setIsAligned(isValid);
     setDualCorners(dualCorners);
     
-    // Smart hiding logic: each guide hides only when the OTHER orientation is detected
-    // By default, both guides are visible
-    setShowPortraitGuides(true);
-    setShowLandscapeGuides(true);
-    
-    // For now, always show both guides by default
-    // In a real implementation, this would use computer vision to detect
-    // which orientation the user is actually capturing
-    setDetectedOrientation(null);
-    
     // Call the callback with portrait corners by default (for compatibility)
     onGuidePositionChange?.(dualCorners.portrait, 'portrait');
-    
-    // TODO: Implement actual photo detection logic here
-    // When a photo is detected within one orientation's bounds,
-    // hide the other orientation's guides
-  }, [calculateDualGuidePositions, calculateQuadrilateralArea, onGuidePositionChange]);
+  }, [calculateDualGuidePositions, onGuidePositionChange]);
 
   // Update guide positions when props change
   useEffect(() => {
@@ -198,10 +227,8 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
 
   if (!isVisible || !dualCorners) return null;
 
-  const guideColor = isHighContrast ? '#ffffff' : '#ffffff';
   const guideOpacity = isHighContrast ? 0.9 : 0.7;
-  const markerSize = isMobile ? 24 : 30;
-  const portraitColor = '#ffffff';
+  const portraitColor = '#2196f3'; // Blue for portrait guides
   const landscapeColor = '#ffeb3b'; // Yellow for landscape guides
 
   return (
@@ -226,11 +253,11 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 aria-hidden="true"
               >
                 {/* Corner lines for portrait guide */}
-                {/* Top-left corner */}
+                {/* Top-left corner (L shape) */}
                 <line 
-                  x1={dualCorners.portrait.topLeft.x - 15} 
+                  x1={dualCorners.portrait.topLeft.x} 
                   y1={dualCorners.portrait.topLeft.y} 
-                  x2={dualCorners.portrait.topLeft.x + 15} 
+                  x2={dualCorners.portrait.topLeft.x + 20} 
                   y2={dualCorners.portrait.topLeft.y} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
@@ -238,18 +265,18 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.portrait.topLeft.x} 
-                  y1={dualCorners.portrait.topLeft.y - 15} 
+                  y1={dualCorners.portrait.topLeft.y} 
                   x2={dualCorners.portrait.topLeft.x} 
-                  y2={dualCorners.portrait.topLeft.y + 15} 
+                  y2={dualCorners.portrait.topLeft.y + 20} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
                 />
-                {/* Top-right corner */}
+                {/* Top-right corner (L shape) */}
                 <line 
-                  x1={dualCorners.portrait.topRight.x - 15} 
+                  x1={dualCorners.portrait.topRight.x - 20} 
                   y1={dualCorners.portrait.topRight.y} 
-                  x2={dualCorners.portrait.topRight.x + 15} 
+                  x2={dualCorners.portrait.topRight.x} 
                   y2={dualCorners.portrait.topRight.y} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
@@ -257,18 +284,18 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.portrait.topRight.x} 
-                  y1={dualCorners.portrait.topRight.y - 15} 
+                  y1={dualCorners.portrait.topRight.y} 
                   x2={dualCorners.portrait.topRight.x} 
-                  y2={dualCorners.portrait.topRight.y + 15} 
+                  y2={dualCorners.portrait.topRight.y + 20} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
                 />
-                {/* Bottom-left corner */}
+                {/* Bottom-left corner (L shape) */}
                 <line 
-                  x1={dualCorners.portrait.bottomLeft.x - 15} 
-                  y1={dualCorners.portrait.bottomLeft.y} 
-                  x2={dualCorners.portrait.bottomLeft.x + 15} 
+                  x1={dualCorners.portrait.bottomLeft.x} 
+                  y1={dualCorners.portrait.bottomLeft.y - 20} 
+                  x2={dualCorners.portrait.bottomLeft.x} 
                   y2={dualCorners.portrait.bottomLeft.y} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
@@ -276,18 +303,18 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.portrait.bottomLeft.x} 
-                  y1={dualCorners.portrait.bottomLeft.y - 15} 
-                  x2={dualCorners.portrait.bottomLeft.x} 
-                  y2={dualCorners.portrait.bottomLeft.y + 15} 
+                  y1={dualCorners.portrait.bottomLeft.y} 
+                  x2={dualCorners.portrait.bottomLeft.x + 20} 
+                  y2={dualCorners.portrait.bottomLeft.y} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
                 />
-                {/* Bottom-right corner */}
+                {/* Bottom-right corner (L shape) */}
                 <line 
-                  x1={dualCorners.portrait.bottomRight.x - 15} 
+                  x1={dualCorners.portrait.bottomRight.x - 20} 
                   y1={dualCorners.portrait.bottomRight.y} 
-                  x2={dualCorners.portrait.bottomRight.x + 15} 
+                  x2={dualCorners.portrait.bottomRight.x} 
                   y2={dualCorners.portrait.bottomRight.y} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
@@ -295,9 +322,9 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.portrait.bottomRight.x} 
-                  y1={dualCorners.portrait.bottomRight.y - 15} 
+                  y1={dualCorners.portrait.bottomRight.y - 20} 
                   x2={dualCorners.portrait.bottomRight.x} 
-                  y2={dualCorners.portrait.bottomRight.y + 15} 
+                  y2={dualCorners.portrait.bottomRight.y} 
                   stroke={portraitColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
@@ -320,11 +347,11 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 aria-hidden="true"
               >
                 {/* Corner lines for landscape guide */}
-                {/* Top-left corner */}
+                {/* Top-left corner (L shape) */}
                 <line 
-                  x1={dualCorners.landscape.topLeft.x - 15} 
+                  x1={dualCorners.landscape.topLeft.x} 
                   y1={dualCorners.landscape.topLeft.y} 
-                  x2={dualCorners.landscape.topLeft.x + 15} 
+                  x2={dualCorners.landscape.topLeft.x + 20} 
                   y2={dualCorners.landscape.topLeft.y} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
@@ -332,18 +359,18 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.landscape.topLeft.x} 
-                  y1={dualCorners.landscape.topLeft.y - 15} 
+                  y1={dualCorners.landscape.topLeft.y} 
                   x2={dualCorners.landscape.topLeft.x} 
-                  y2={dualCorners.landscape.topLeft.y + 15} 
+                  y2={dualCorners.landscape.topLeft.y + 20} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
                 />
-                {/* Top-right corner */}
+                {/* Top-right corner (L shape) */}
                 <line 
-                  x1={dualCorners.landscape.topRight.x - 15} 
+                  x1={dualCorners.landscape.topRight.x - 20} 
                   y1={dualCorners.landscape.topRight.y} 
-                  x2={dualCorners.landscape.topRight.x + 15} 
+                  x2={dualCorners.landscape.topRight.x} 
                   y2={dualCorners.landscape.topRight.y} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
@@ -351,18 +378,18 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.landscape.topRight.x} 
-                  y1={dualCorners.landscape.topRight.y - 15} 
+                  y1={dualCorners.landscape.topRight.y} 
                   x2={dualCorners.landscape.topRight.x} 
-                  y2={dualCorners.landscape.topRight.y + 15} 
+                  y2={dualCorners.landscape.topRight.y + 20} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
                 />
-                {/* Bottom-left corner */}
+                {/* Bottom-left corner (L shape) */}
                 <line 
-                  x1={dualCorners.landscape.bottomLeft.x - 15} 
-                  y1={dualCorners.landscape.bottomLeft.y} 
-                  x2={dualCorners.landscape.bottomLeft.x + 15} 
+                  x1={dualCorners.landscape.bottomLeft.x} 
+                  y1={dualCorners.landscape.bottomLeft.y - 20} 
+                  x2={dualCorners.landscape.bottomLeft.x} 
                   y2={dualCorners.landscape.bottomLeft.y} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
@@ -370,18 +397,18 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.landscape.bottomLeft.x} 
-                  y1={dualCorners.landscape.bottomLeft.y - 15} 
-                  x2={dualCorners.landscape.bottomLeft.x} 
-                  y2={dualCorners.landscape.bottomLeft.y + 15} 
+                  y1={dualCorners.landscape.bottomLeft.y} 
+                  x2={dualCorners.landscape.bottomLeft.x + 20} 
+                  y2={dualCorners.landscape.bottomLeft.y} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
                 />
-                {/* Bottom-right corner */}
+                {/* Bottom-right corner (L shape) */}
                 <line 
-                  x1={dualCorners.landscape.bottomRight.x - 15} 
+                  x1={dualCorners.landscape.bottomRight.x - 20} 
                   y1={dualCorners.landscape.bottomRight.y} 
-                  x2={dualCorners.landscape.bottomRight.x + 15} 
+                  x2={dualCorners.landscape.bottomRight.x} 
                   y2={dualCorners.landscape.bottomRight.y} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
@@ -389,9 +416,9 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
                 />
                 <line 
                   x1={dualCorners.landscape.bottomRight.x} 
-                  y1={dualCorners.landscape.bottomRight.y - 15} 
+                  y1={dualCorners.landscape.bottomRight.y - 20} 
                   x2={dualCorners.landscape.bottomRight.x} 
-                  y2={dualCorners.landscape.bottomRight.y + 15} 
+                  y2={dualCorners.landscape.bottomRight.y} 
                   stroke={landscapeColor} 
                   strokeWidth="4" 
                   opacity={guideOpacity}
@@ -514,6 +541,46 @@ export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
             )}
       
 
+
+      {/* Detection status indicators */}
+      {detectionState && (
+        <>
+          {/* Portrait detection indicator */}
+          {showPortraitGuides && detectionState.portrait.isDetected && (
+            <div 
+              className="absolute top-4 left-4 bg-white bg-opacity-90 text-black px-2 py-1 rounded text-xs font-medium transition-all duration-300"
+              style={{
+                opacity: detectionState.portrait.confidence,
+                transform: `scale(${0.8 + (detectionState.portrait.confidence * 0.2)})`
+              }}
+            >
+              📸 Portrait: {Math.round(detectionState.portrait.confidence * 100)}%
+            </div>
+          )}
+
+          {/* Landscape detection indicator */}
+          {showLandscapeGuides && detectionState.landscape.isDetected && (
+            <div 
+              className="absolute top-4 right-4 bg-yellow-400 bg-opacity-90 text-black px-2 py-1 rounded text-xs font-medium transition-all duration-300"
+              style={{
+                opacity: detectionState.landscape.confidence,
+                transform: `scale(${0.8 + (detectionState.landscape.confidence * 0.2)})`
+              }}
+            >
+              📸 Landscape: {Math.round(detectionState.landscape.confidence * 100)}%
+            </div>
+          )}
+
+          {/* Detection processing indicator */}
+          {isDetecting && (
+            <div 
+              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse"
+            >
+              🔍 Detecting...
+            </div>
+          )}
+        </>
+      )}
 
       {/* Alignment feedback */}
       {isAligned && (

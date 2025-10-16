@@ -324,8 +324,6 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
               photo={photo}
               availableCredits={{
                 totalCredits: 100, // Mock credit data
-                subscriptionCredits: 25,
-                topupCredits: 75,
                 subscriptionTier: 'remember',
                 lowCreditWarning: false,
                 creditHistory: [],

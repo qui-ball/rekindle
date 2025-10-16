@@ -22,13 +22,15 @@ import { CameraCaptureProps, CameraError } from './types';
 interface CameraCaptureExtendedProps extends CameraCaptureProps {
   isLandscape?: boolean;
   isMobile?: boolean;
+  onVideoElementReady?: (videoElement: HTMLVideoElement) => void;
 }
 
 export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
   onCapture,
   onError,
   facingMode = 'environment', // Back camera default
-  aspectRatio = 3/4 // Default to 3/4 for natural photo capture
+  aspectRatio = 3/4, // Default to 3/4 for natural photo capture
+  onVideoElementReady
   // isLandscape and isMobile are available for future use
 }) => {
   const [status, setStatus] = useState<string>('Starting camera...');
@@ -58,6 +60,13 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
     
     checkPWA();
   }, []);
+
+  // Notify parent when video element is ready
+  useEffect(() => {
+    if (videoRef.current && onVideoElementReady) {
+      onVideoElementReady(videoRef.current);
+    }
+  }, [onVideoElementReady]);
 
   // Handle camera errors
   const handleCameraError = useCallback((error: Error & { name?: string }) => {

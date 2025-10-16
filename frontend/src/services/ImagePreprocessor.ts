@@ -160,7 +160,7 @@ export class ImagePreprocessor {
       // Bilateral filter: d=9, sigmaColor=75, sigmaSpace=75
       // Preserves edges while smoothing noise
       this.cv.bilateralFilter(src, dst, 9, 75, 75, this.cv.BORDER_DEFAULT);
-    } catch (error) {
+    } catch {
       // Bilateral filter may fail on some images/browsers - gracefully fallback
       console.log('ℹ️ Bilateral filter unavailable, skipping noise reduction step');
       src.copyTo(dst);
@@ -234,8 +234,8 @@ export class ImagePreprocessor {
         11, // Block size
         2   // Constant subtracted from mean
       );
-    } catch (error) {
-      console.warn('⚠️ Adaptive thresholding failed:', error);
+    } catch {
+      console.warn('⚠️ Adaptive thresholding failed');
       src.copyTo(dst);
     }
   }
