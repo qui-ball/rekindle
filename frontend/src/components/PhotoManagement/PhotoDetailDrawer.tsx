@@ -26,6 +26,9 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   // Detect mobile device
   useEffect(() => {
@@ -38,19 +41,106 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle escape key
+  // Handle keyboard and mouse events
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      if (e.key === 'Escape') {
         onClose();
+      }
+      
+      // Handle scroll with arrow keys and page up/down
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || 
+          e.key === 'PageUp' || e.key === 'PageDown' || 
+          e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const drawerContent = document.querySelector('.drawer-content');
+        if (drawerContent) {
+          const scrollAmount = e.key === 'ArrowUp' ? -50 : 
+                              e.key === 'ArrowDown' ? 50 :
+                              e.key === 'PageUp' ? -300 :
+                              e.key === 'PageDown' ? 300 :
+                              e.key === 'Home' ? -drawerContent.scrollTop :
+                              drawerContent.scrollHeight;
+          
+          drawerContent.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+        }
+      }
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!isOpen) return;
+      
+      // Allow native scrolling for the drawer content
+      const drawerContent = document.querySelector('.drawer-content');
+      if (drawerContent && drawerContent.contains(e.target as Node)) {
+        // Let the native scroll handle it
+        return;
+      }
+      
+      // For other areas, prevent default and scroll the drawer content
+      e.preventDefault();
+      if (drawerContent) {
+        drawerContent.scrollBy({ top: e.deltaY, behavior: 'auto' });
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('wheel', handleWheel, { passive: false });
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('wheel', handleWheel);
+      };
     }
   }, [isOpen, onClose]);
+
+  // Handle touch gestures for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    const touch = e.targetTouches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    setTouchEnd(null);
+    setIsScrolling(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile || !touchStart) return;
+    const touch = e.targetTouches[0];
+    setTouchEnd({ x: touch.clientX, y: touch.clientY });
+    
+    // Check if this is a vertical scroll gesture
+    const deltaY = Math.abs(touch.clientY - touchStart.y);
+    const deltaX = Math.abs(touch.clientX - touchStart.x);
+    
+    if (deltaY > deltaX && deltaY > 10) {
+      setIsScrolling(true);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isMobile || !touchStart || !touchEnd || isScrolling) {
+      setTouchStart(null);
+      setTouchEnd(null);
+      setIsScrolling(false);
+      return;
+    }
+    
+    const deltaX = touchStart.x - touchEnd.x;
+    const deltaY = Math.abs(touchStart.y - touchEnd.y);
+    
+    // Only close if it's a horizontal swipe (not vertical scroll) and leftward
+    const isLeftSwipe = deltaX > 50 && deltaY < 100;
+    
+    if (isLeftSwipe) {
+      onClose();
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+    setIsScrolling(false);
+  };
 
   // Handle processing start
   const handleProcessingStart = async (options: ProcessingOptions) => {
@@ -82,7 +172,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
       <div
         className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
           isOpen ? 'opacity-50' : 'opacity-0 pointer-events-none'
-        } ${isMobile ? 'block' : 'hidden'}`}
+        } ${isMobile ? 'block' : 'block'}`}
         onClick={onClose}
       />
 
@@ -91,6 +181,9 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
         className={`fixed top-0 right-0 h-full bg-white shadow-xl transition-transform duration-300 z-50 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         } ${isMobile ? 'w-full' : 'w-3/5 max-w-2xl'}`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -110,7 +203,9 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
               )}
             </button>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Photo Details</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {isMobile ? 'Back to Gallery' : 'Photo Details'}
+              </h2>
               <p className="text-sm text-gray-500">{photo.originalFilename}</p>
             </div>
           </div>
@@ -123,7 +218,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto drawer-content" style={{ maxHeight: 'calc(100vh - 80px)' }}>
           {/* Original Photo */}
           <div className="p-4">
             <div className="mb-4">
@@ -217,16 +312,15 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
             <ProcessingOptionsPanel
               photo={photo}
               availableCredits={{
-                totalCredits: 100, // TODO: Get from context
+                totalCredits: 100, // Mock credit data
                 subscriptionCredits: 25,
                 topupCredits: 75,
                 subscriptionTier: 'remember',
                 lowCreditWarning: false,
                 creditHistory: [],
                 usageRules: {
-                  subscriptionFirst: true,
-                  subscriptionExpires: true,
-                  topupCarryOver: true
+                  creditsCarryOver: true,
+                  lostOnCancellation: true
                 }
               }}
               onOptionsChange={() => {}}

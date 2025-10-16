@@ -8,7 +8,7 @@ import {
   ManagementError,
   PaginationOptions
 } from '../../types/photo-management';
-import { photoManagementService, creditManagementService, processingJobService } from '../../services/photoManagementService';
+import { photoManagementService, processingJobService } from '../../services/photoManagementService';
 import { PhotoGallery } from './PhotoGallery';
 import { PhotoDetailDrawer } from './PhotoDetailDrawer';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -220,20 +220,38 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     if (!selectedPhoto) return;
     
     try {
-      // Check credit availability
-      const costBreakdown = await creditManagementService.calculateProcessingCost(options);
+      // For now, only handle restore option
+      if (!options.restore) {
+        throw new Error('Only restore option is currently supported');
+      }
       
-      if (costBreakdown.totalCost > costBreakdown.availableCredits) {
+      // Mock credit data - skip API calls for now
+      const mockCreditBalance = {
+        totalCredits: 100,
+        subscriptionCredits: 25,
+        topupCredits: 75,
+        subscriptionTier: 'remember' as const,
+        lowCreditWarning: false,
+        creditHistory: [],
+        usageRules: {
+          creditsCarryOver: true,
+          lostOnCancellation: true
+        }
+      };
+      
+      // Calculate cost for restore only (2 credits)
+      const restoreCost = 2;
+      
+      // Check credit availability (using mock data)
+      if (restoreCost > mockCreditBalance.totalCredits) {
         throw new Error('Insufficient credits for processing');
       }
       
-      // Create processing job
+      // Create processing job (restore only)
       const job = await processingJobService.createProcessingJob(selectedPhoto.id, options);
       
-      // Deduct credits
-      await creditManagementService.deductCredits(userId, costBreakdown.totalCost);
-      
-      // Credit balance is now handled globally
+      // Skip credit deduction for now (mock data)
+      console.log(`Mock: Deducted ${restoreCost} credits from user ${userId}`);
       
       // Update photo status
       setPhotos(prev => prev.map(p => 
@@ -246,7 +264,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       onProcessingComplete?.({
         photoId: selectedPhoto.id,
         resultId: job.id,
-        resultType: 'processing',
+        resultType: 'restored',
         fileUrl: '',
         thumbnailUrl: ''
       });
