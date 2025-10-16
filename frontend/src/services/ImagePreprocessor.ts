@@ -13,6 +13,7 @@
  */
 
 import { opencvLoader } from './opencvLoader';
+import type { OpenCVType, OpenCVMat } from '../types/opencv';
 
 export interface PreprocessingOptions {
   applyCLAHE?: boolean;
@@ -23,8 +24,8 @@ export interface PreprocessingOptions {
 }
 
 export interface PreprocessingResult {
-  preprocessed: unknown; // OpenCV Mat
-  originalCloned: unknown; // OpenCV Mat clone for cleanup
+  preprocessed: OpenCVMat;
+  originalCloned: OpenCVMat;
   needsCleanup: boolean;
   appliedTechniques: string[];
 }
@@ -34,7 +35,7 @@ export interface PreprocessingResult {
  * Improves detection in poor lighting, low contrast, and noisy images
  */
 export class ImagePreprocessor {
-  private cv: any = null;
+  private cv: OpenCVType | null = null;
 
   constructor() {
     // OpenCV will be loaded via opencvLoader
@@ -61,7 +62,7 @@ export class ImagePreprocessor {
    * Applies multiple techniques to improve edge visibility
    */
   preprocessForDetection(
-    src: any, // OpenCV Mat
+    src: OpenCVMat,
     options: PreprocessingOptions = {}
   ): PreprocessingResult {
     const appliedTechniques: string[] = [];
@@ -76,6 +77,10 @@ export class ImagePreprocessor {
     } = options;
 
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
+      
       // Clone source for processing
       const processed = src.clone();
       
@@ -140,8 +145,11 @@ export class ImagePreprocessor {
    * Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
    * Improves edge visibility in poor lighting conditions
    */
-  private applyCLAHE(src: any, dst: any): void {
+  private applyCLAHE(src: OpenCVMat, dst: OpenCVMat): void {
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
       const clahe = new this.cv.CLAHE(2.0, new this.cv.Size(8, 8));
       clahe.apply(src, dst);
       clahe.delete();
@@ -155,8 +163,11 @@ export class ImagePreprocessor {
    * Apply bilateral filter for noise reduction while preserving edges
    * Reduces noise and grain without blurring edges
    */
-  private applyBilateralFilter(src: any, dst: any): void {
+  private applyBilateralFilter(src: OpenCVMat, dst: OpenCVMat): void {
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
       // Bilateral filter: d=9, sigmaColor=75, sigmaSpace=75
       // Preserves edges while smoothing noise
       this.cv.bilateralFilter(src, dst, 9, 75, 75, this.cv.BORDER_DEFAULT);
@@ -171,8 +182,11 @@ export class ImagePreprocessor {
    * Enhance edges using unsharp masking technique
    * Improves edge sharpness for better detection
    */
-  private enhanceEdges(src: any, dst: any): void {
+  private enhanceEdges(src: OpenCVMat, dst: OpenCVMat): void {
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
       const blurred = new this.cv.Mat();
       const sharpened = new this.cv.Mat();
       
@@ -197,8 +211,11 @@ export class ImagePreprocessor {
    * Apply morphological operations to clean up detected edges
    * Removes small noise and fills gaps in edges
    */
-  private applyMorphologicalOperations(src: any, dst: any): void {
+  private applyMorphologicalOperations(src: OpenCVMat, dst: OpenCVMat): void {
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
       const kernel = this.cv.Mat.ones(3, 3, this.cv.CV_8U);
       const temp = new this.cv.Mat();
       
@@ -222,8 +239,11 @@ export class ImagePreprocessor {
    * Apply adaptive thresholding for variable lighting conditions
    * More aggressive technique for challenging images
    */
-  applyAdaptiveThreshold(src: any, dst: any): void {
+  applyAdaptiveThreshold(src: OpenCVMat, dst: OpenCVMat): void {
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
       // Adaptive threshold with mean method
       this.cv.adaptiveThreshold(
         src,
@@ -244,10 +264,13 @@ export class ImagePreprocessor {
    * Calculate median intensity of the image
    * Useful for determining if preprocessing is needed
    */
-  calculateMedianIntensity(src: any): number {
+  calculateMedianIntensity(src: OpenCVMat): number {
     try {
+      if (!this.cv) {
+        throw new Error('OpenCV not initialized');
+      }
       // Convert to grayscale if needed
-      let gray: any;
+      let gray: OpenCVMat;
       if (src.channels() > 1) {
         gray = new this.cv.Mat();
         this.cv.cvtColor(src, gray, this.cv.COLOR_RGBA2GRAY, 0);
@@ -274,7 +297,7 @@ export class ImagePreprocessor {
    * Determine if preprocessing would be beneficial based on image characteristics
    * Returns recommended preprocessing options
    */
-  analyzeImage(src: any): PreprocessingOptions {
+  analyzeImage(src: OpenCVMat): PreprocessingOptions {
     try {
       const intensity = this.calculateMedianIntensity(src);
       
@@ -321,10 +344,10 @@ export class ImagePreprocessor {
   cleanup(result: PreprocessingResult): void {
     try {
       if (result.needsCleanup && result.preprocessed) {
-        (result.preprocessed as any).delete();
+        result.preprocessed.delete();
       }
       if (result.needsCleanup && result.originalCloned) {
-        (result.originalCloned as any).delete();
+        result.originalCloned.delete();
       }
     } catch (error) {
       console.warn('⚠️ Cleanup failed:', error);
