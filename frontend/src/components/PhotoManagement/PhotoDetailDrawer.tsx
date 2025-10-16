@@ -312,16 +312,15 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
             <ProcessingOptionsPanel
               photo={photo}
               availableCredits={{
-                totalCredits: 100, // TODO: Get from context
+                totalCredits: 100, // Mock credit data
                 subscriptionCredits: 25,
                 topupCredits: 75,
                 subscriptionTier: 'remember',
                 lowCreditWarning: false,
                 creditHistory: [],
                 usageRules: {
-                  subscriptionFirst: true,
-                  subscriptionExpires: true,
-                  topupCarryOver: true
+                  creditsCarryOver: true,
+                  lostOnCancellation: true
                 }
               }}
               onOptionsChange={() => {}}

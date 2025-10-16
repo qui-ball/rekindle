@@ -15,7 +15,6 @@ import {
   ProcessingOptions,
   JobStatus
 } from '../types/photo-management';
-import { authService } from './authService';
 
 // Backend API response types
 interface BackendJob {
@@ -152,7 +151,6 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     try {
       const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}`, {
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -173,7 +171,6 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -192,7 +189,6 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}/results/${resultId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -214,7 +210,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`
+          'Content-Type': 'application/json'
         }
       });
 
@@ -233,7 +229,6 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     try {
       const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}/metadata`, {
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -249,15 +244,6 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     }
   }
 
-  private async getAuthToken(): Promise<string> {
-    try {
-      return await authService.getAccessToken();
-    } catch (error) {
-      console.error('Failed to get auth token:', error);
-      // Redirect to login or show auth error
-      throw new Error('Authentication required. Please log in again.');
-    }
-  }
 }
 
 /**
@@ -298,7 +284,6 @@ export class CreditManagementServiceImpl implements CreditManagementService {
       const response = await fetch(`${this.baseUrl}/v1/credits/calculate-cost`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(options)
@@ -330,7 +315,6 @@ export class CreditManagementServiceImpl implements CreditManagementService {
       const response = await fetch(`${this.baseUrl}/v1/credits/deduct`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ amount })
@@ -352,7 +336,6 @@ export class CreditManagementServiceImpl implements CreditManagementService {
       const response = await fetch(`${this.baseUrl}/v1/credits/usage-breakdown`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ cost })
@@ -369,14 +352,6 @@ export class CreditManagementServiceImpl implements CreditManagementService {
     }
   }
 
-  private async getAuthToken(): Promise<string> {
-    try {
-      return await authService.getAccessToken();
-    } catch (error) {
-      console.error('Failed to get auth token:', error);
-      throw new Error('Authentication required. Please log in again.');
-    }
-  }
 }
 
 /**
@@ -392,20 +367,43 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
 
   async createProcessingJob(photoId: string, options: ProcessingOptions): Promise<PhotoProcessingJob> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/processing/jobs`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ photoId, options })
-      });
+      // For now, only handle restore option
+      if (options.restore) {
+        const response = await fetch(`${this.baseUrl}/v1/jobs/${photoId}/restore`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'comfyui_default',
+            params: {
+              denoise: 0.8,
+              megapixels: options.quality === 'hd' ? 2.0 : 1.0
+            }
+          })
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to create processing job: ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Failed to create restore job: ${response.statusText}`);
+        }
+
+        const restoreAttempt = await response.json();
+        
+        // Transform to PhotoProcessingJob format
+        return {
+          id: restoreAttempt.id,
+          photoId: photoId,
+          userId: '', // Will be filled by parent component
+          options: options,
+          status: 'queued',
+          priority: 1,
+          costCredits: 2, // Restore costs 2 credits
+          createdAt: new Date(restoreAttempt.created_at),
+          resultIds: [restoreAttempt.id]
+        };
+      } else {
+        throw new Error('Only restore option is currently supported');
       }
-
-      return await response.json();
     } catch (error) {
       console.error('Error creating processing job:', error);
       throw error;
@@ -416,7 +414,6 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     try {
       const response = await fetch(`${this.baseUrl}/v1/processing/jobs/${jobId}/status`, {
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -437,7 +434,6 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
       const response = await fetch(`${this.baseUrl}/v1/processing/jobs/${jobId}/cancel`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -456,7 +452,6 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
       const response = await fetch(`${this.baseUrl}/v1/processing/jobs/${jobId}/retry`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -474,7 +469,6 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     try {
       const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}/processing-history`, {
         headers: {
-          'Authorization': `Bearer ${await this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -490,14 +484,6 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     }
   }
 
-  private async getAuthToken(): Promise<string> {
-    try {
-      return await authService.getAccessToken();
-    } catch (error) {
-      console.error('Failed to get auth token:', error);
-      throw new Error('Authentication required. Please log in again.');
-    }
-  }
 }
 
 // Export service instances

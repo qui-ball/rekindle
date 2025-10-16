@@ -34,6 +34,7 @@ class RunPodLauncher:
             api_key: RunPod API key (defaults to RUNPOD_API_KEY env var)
         """
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
+        print(f"RUNPOD_API_KEY: {self.api_key}")
         if not self.api_key:
             raise ValueError("RUNPOD_API_KEY environment variable not set")
 
@@ -49,7 +50,7 @@ class RunPodLauncher:
 
         # Pod configuration defaults
         self.default_gpu_count = 1
-        self.default_volume_gb = 1  # Minimal pod volume (using network volume instead)
+        self.default_volume_gb = 100  # Minimal pod volume (using network volume instead)
         self.default_container_disk_gb = 10  # Just enough for OS + Docker layers
         self.default_min_vcpu = 2
         self.default_min_memory_gb = 15
