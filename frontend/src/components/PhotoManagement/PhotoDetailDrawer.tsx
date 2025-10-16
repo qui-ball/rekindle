@@ -224,15 +224,26 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
             <div className="mb-4">
               <h3 className="text-md font-medium text-gray-900 mb-2">Original Photo</h3>
               <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: '24rem' }}>
-                <Image
-                  src={photo.metadata.originalUrl}
-                  alt={photo.originalFilename}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 60vw"
-                  className="object-contain"
-                  unoptimized
-                  priority={false}
-                />
+                {photo.metadata.originalUrl ? (
+                  <Image
+                    src={photo.metadata.originalUrl}
+                    alt={photo.originalFilename}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 60vw"
+                    className="object-contain"
+                    unoptimized
+                    priority={false}
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                    <div className="text-center text-gray-500">
+                      <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm">Loading image...</p>
+                    </div>
+                  </div>
+                )}
                 <div className="absolute top-2 right-2 flex space-x-2">
                   <button
                     onClick={() => handlePhotoAction('download', photo)}

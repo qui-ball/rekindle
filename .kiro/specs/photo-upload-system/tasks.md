@@ -6,18 +6,18 @@ This tasks file covers all requirements from requirements.md:
 
 | Requirement | Description | Covered By Tasks |
 |-------------|-------------|------------------|
-| Req 1 | Camera capture with native quality | 4.1, 4.2, 4.3, 4.4, 4.5 |
+| Req 1 | Camera capture with native quality | 4.1, 4.2, 4.3, 4.4, 4.5, 4.6 |
 | Req 2 | Gallery photo selection | 6.1, 6.2 |
 | Req 3 | Desktop drag & drop upload | 3.1, 3.2 |
 | Req 4 | QR code desktop-to-mobile flow | 9.1, 9.2 |
 | Req 5 | Progress feedback and status updates | 7.1, 7.2 |
 | Req 6 | File format and size validation | 2.1, 2.2, 2.3, 2.4 |
 | Req 7 | Security and privacy | 7.1, 10.2 |
-| Req 8 | Smart cropping with edge detection | 5.1, 5.2, 5.3, 5.4 |
+| Req 8 | Smart cropping with edge detection | 5.1, 5.2, 5.3, 5.4, 5.9 |
 | Req 9 | Simple and intuitive interface | 8.1, 8.2, 11.1, 11.2 |
-| Req 10 | Native camera app experience | 4.3, 4.4, 4.5 |
+| Req 10 | Native camera app experience | 4.3, 4.4, 4.5, 4.6 |
 | Req 11 | Upload preview with perspective correction | 10.1-A |
-| Req 12 | Enhanced smart cropping accuracy (95%+) | 5.6, 5.7, 5.8 |
+| Req 12 | Enhanced smart cropping accuracy (95%+) | 5.6, 5.7, 5.8, 5.9 |
 
 All 12 requirements are fully covered by implementation tasks.
 
@@ -349,6 +349,233 @@ export const useOpenCVInitialization = () => {
 };
 ```
 
+### Task 4.6 Technical Approach:
+```typescript
+// Corner guide overlay component for camera capture
+interface CornerGuideProps {
+  aspectRatio: '4:3' | '3:4' | '1:1';
+  orientation: 'portrait' | 'landscape';
+  isVisible: boolean;
+  onGuidePositionChange?: (corners: CornerPoints) => void;
+}
+
+export const CornerGuideOverlay: React.FC<CornerGuideProps> = ({
+  aspectRatio,
+  orientation,
+  isVisible,
+  onGuidePositionChange
+}) => {
+  const [guideCorners, setGuideCorners] = useState<CornerPoints | null>(null);
+  const [isAligned, setIsAligned] = useState(false);
+
+  // Calculate guide positions based on aspect ratio and orientation
+  const calculateGuidePositions = useCallback(() => {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    
+    // Reserve space for camera controls
+    const controlHeight = orientation === 'portrait' ? 120 : 80;
+    const availableHeight = screenHeight - controlHeight;
+    
+    let guideWidth, guideHeight;
+    
+    switch (aspectRatio) {
+      case '4:3':
+        guideWidth = Math.min(screenWidth * 0.8, availableHeight * 0.6);
+        guideHeight = guideWidth * 0.75;
+        break;
+      case '3:4':
+        guideWidth = Math.min(screenWidth * 0.7, availableHeight * 0.5);
+        guideHeight = guideWidth * 1.33;
+        break;
+      case '1:1':
+        guideWidth = Math.min(screenWidth * 0.6, availableHeight * 0.6);
+        guideHeight = guideWidth;
+        break;
+    }
+    
+    const centerX = screenWidth / 2;
+    const centerY = (availableHeight / 2) + (controlHeight / 2);
+    
+    return {
+      topLeft: { x: centerX - guideWidth / 2, y: centerY - guideHeight / 2 },
+      topRight: { x: centerX + guideWidth / 2, y: centerY - guideHeight / 2 },
+      bottomLeft: { x: centerX - guideWidth / 2, y: centerY + guideHeight / 2 },
+      bottomRight: { x: centerX + guideWidth / 2, y: centerY + guideHeight / 2 }
+    };
+  }, [aspectRatio, orientation]);
+
+  // Visual feedback for proper alignment
+  const handleAlignmentCheck = useCallback(() => {
+    // Simple alignment check - could be enhanced with computer vision
+    const tolerance = 20; // pixels
+    const corners = calculateGuidePositions();
+    
+    // Check if guides are within reasonable bounds
+    const isValid = Object.values(corners).every(corner => 
+      corner.x > 0 && corner.x < window.innerWidth &&
+      corner.y > 0 && corner.y < window.innerHeight
+    );
+    
+    setIsAligned(isValid);
+    setGuideCorners(corners);
+    onGuidePositionChange?.(corners);
+  }, [calculateGuidePositions, onGuidePositionChange]);
+
+  useEffect(() => {
+    handleAlignmentCheck();
+  }, [handleAlignmentCheck]);
+
+  if (!isVisible) return null;
+
+  const corners = calculateGuidePositions();
+
+  return (
+    <div className="corner-guide-overlay">
+      {/* Corner markers */}
+      {Object.entries(corners).map(([position, point]) => (
+        <div
+          key={position}
+          className={`corner-marker ${position} ${isAligned ? 'aligned' : ''}`}
+          style={{
+            left: point.x - 15,
+            top: point.y - 15,
+            width: 30,
+            height: 30
+          }}
+        />
+      ))}
+      
+      {/* Guide lines */}
+      <svg className="guide-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+        <line x1={corners.topLeft.x} y1={corners.topLeft.y} x2={corners.topRight.x} y2={corners.topRight.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
+        <line x1={corners.topRight.x} y1={corners.topRight.y} x2={corners.bottomRight.x} y2={corners.bottomRight.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
+        <line x1={corners.bottomRight.x} y1={corners.bottomRight.y} x2={corners.bottomLeft.x} y2={corners.bottomLeft.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
+        <line x1={corners.bottomLeft.x} y1={corners.bottomLeft.y} x2={corners.topLeft.x} y2={corners.topLeft.y} stroke="#ffffff" strokeWidth="2" strokeDasharray="5,5" opacity="0.7" />
+      </svg>
+    </div>
+  );
+};
+```
+
+### Task 5.9 Technical Approach:
+```typescript
+// Corner guide detector for enhanced smart cropping
+export class CornerGuideDetector {
+  private guideCorners: CornerPoints | null = null;
+  private confidenceThreshold = 0.9;
+
+  setGuideCorners(corners: CornerPoints): void {
+    this.guideCorners = corners;
+  }
+
+  async detectWithGuides(
+    imageData: string,
+    imageWidth: number,
+    imageHeight: number
+  ): Promise<DetectionResult> {
+    if (!this.guideCorners) {
+      return this.getFallbackResult(imageWidth, imageHeight);
+    }
+
+    try {
+      // Convert guide corners to image coordinates
+      const imageCorners = this.convertGuideToImageCoordinates(
+        this.guideCorners,
+        imageWidth,
+        imageHeight
+      );
+
+      // Validate guide positioning
+      if (!this.validateGuidePositioning(imageCorners, imageWidth, imageHeight)) {
+        return this.getFallbackResult(imageWidth, imageHeight);
+      }
+
+      // Use guide corners as seed points for JScanify
+      const enhancedResult = await this.enhancedDetectionWithSeeds(
+        imageData,
+        imageCorners
+      );
+
+      return {
+        detected: true,
+        cropArea: this.cornersToCropArea(imageCorners, imageWidth, imageHeight),
+        confidence: this.calculateGuideConfidence(imageCorners, imageWidth, imageHeight),
+        method: 'guide-assisted'
+      };
+    } catch (error) {
+      console.warn('Guide-based detection failed:', error);
+      return this.getFallbackResult(imageWidth, imageHeight);
+    }
+  }
+
+  private convertGuideToImageCoordinates(
+    guideCorners: CornerPoints,
+    imageWidth: number,
+    imageHeight: number
+  ): CornerPoints {
+    // Convert screen coordinates to image coordinates
+    // This accounts for camera preview scaling and positioning
+    const scaleX = imageWidth / window.innerWidth;
+    const scaleY = imageHeight / window.innerHeight;
+    
+    return {
+      topLeft: {
+        x: guideCorners.topLeft.x * scaleX,
+        y: guideCorners.topLeft.y * scaleY
+      },
+      topRight: {
+        x: guideCorners.topRight.x * scaleX,
+        y: guideCorners.topRight.y * scaleY
+      },
+      bottomLeft: {
+        x: guideCorners.bottomLeft.x * scaleX,
+        y: guideCorners.bottomLeft.y * scaleY
+      },
+      bottomRight: {
+        x: guideCorners.bottomRight.x * scaleX,
+        y: guideCorners.bottomRight.y * scaleY
+      }
+    };
+  }
+
+  private validateGuidePositioning(
+    corners: CornerPoints,
+    imageWidth: number,
+    imageHeight: number
+  ): boolean {
+    // Check if corners are within image bounds
+    const allCorners = Object.values(corners);
+    const margin = 50; // pixels from edge
+    
+    return allCorners.every(corner => 
+      corner.x >= margin && corner.x <= imageWidth - margin &&
+      corner.y >= margin && corner.y <= imageHeight - margin
+    );
+  }
+
+  private calculateGuideConfidence(
+    corners: CornerPoints,
+    imageWidth: number,
+    imageHeight: number
+  ): number {
+    // Higher confidence for properly positioned guides
+    const area = this.calculateQuadrilateralArea(corners);
+    const imageArea = imageWidth * imageHeight;
+    const areaRatio = area / imageArea;
+    
+    // Optimal area ratio is 0.3-0.8 of image
+    if (areaRatio >= 0.3 && areaRatio <= 0.8) {
+      return 0.95; // Very high confidence for well-positioned guides
+    } else if (areaRatio >= 0.2 && areaRatio <= 0.9) {
+      return 0.85; // Good confidence
+    } else {
+      return 0.7; // Lower confidence for edge cases
+    }
+  }
+}
+```
+
 - [ ] 3. Create drag-and-drop upload interface for desktop
   - [ ] 3.1 Build DragDropZone component with visual feedback
     - Create React component with drag-and-drop event handlers
@@ -406,6 +633,16 @@ export const useOpenCVInitialization = () => {
     - Ensure seamless transition from camera capture to cropping interface
     - Test across multiple Android and iOS devices for consistent native camera app experience
     - _Requirements: 1.3, 1.4, 1.5, 1.6, 1.7, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9_
+
+  - [ ] 4.6 Implement white/grey corner guides for photo positioning
+    - Create CornerGuideOverlay component with white/grey corner markers
+    - Position corner guides to match standard photo dimensions (4:3, 3:4, 1:1)
+    - Implement responsive corner guide positioning for portrait and landscape orientations
+    - Add subtle animation and visual feedback when guides are properly aligned
+    - Implement guide positioning that works with existing camera controls and quality indicators
+    - Add accessibility features (high contrast mode, screen reader support)
+    - Write unit tests for corner guide positioning and responsive behavior
+    - _Requirements: 1.3, 1.6, 8.1, 8.2, 8.5, User guidance, Smart detection enhancement_
 
 - [ ] 5. Build professional smart cropping with JScanify integration
   - [x] 5.0 Install JScanify dependencies and update package configuration
@@ -488,6 +725,17 @@ export const useOpenCVInitialization = () => {
     - _Requirements: 12.7, 12.8, Performance, Memory optimization, Battery efficiency_
     - _See: design.md (Adaptive Strategy) and requirements.md (Requirement 12)_
     - **✅ COMPLETED** - October 11, 2025 - Adaptive strategy with quick/multi-pass paths, 29 comprehensive tests passing, integrated into JScanifyService
+
+  - [ ] 5.9 Integrate corner guide positioning as smart detection strategy
+    - Create CornerGuideDetector class to leverage user-positioned corner guides
+    - Implement guide-based detection as Pass 5 in MultiPassDetector (highest priority)
+    - Use corner guide coordinates as initial seed points for JScanify detection
+    - Add confidence boost when detected edges align with user-placed guides
+    - Implement fallback to standard detection when guides are not properly positioned
+    - Create guide validation to ensure guides are within reasonable bounds
+    - Add performance optimization: skip other detection passes when guide-based detection succeeds
+    - Target: 98%+ accuracy for photos captured with proper guide alignment
+    - _Requirements: 4.6, 5.1, 5.7, 8.2, 8.3, 12.1, 12.4, 12.5, Enhanced accuracy through user guidance_
 
 - [ ] 6. Create mobile gallery access functionality
   - [ ] 6.1 Implement native photo picker integration with preview flow

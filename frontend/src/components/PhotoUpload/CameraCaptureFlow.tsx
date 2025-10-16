@@ -26,6 +26,7 @@ import { CameraCaptureProps } from './types';
 import { SmartPhotoDetector } from '../../services/SmartPhotoDetector';
 import { SmartCroppingInterface } from './SmartCroppingInterface';
 import { UploadPreview } from './UploadPreview';
+import { CornerGuideOverlay, type CornerPoints as GuideCornerPoints } from './CornerGuideOverlay';
 import type { CornerPoints } from '../../types/jscanify';
 
 type CaptureState = 'capturing' | 'preview' | 'uploadPreview';
@@ -74,7 +75,16 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   const [isLandscape, setIsLandscape] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cameraQuality, setCameraQuality] = useState({ lighting: 'analyzing', focus: 'analyzing' });
+  const [guideCorners, setGuideCorners] = useState<GuideCornerPoints | null>(null);
+  const [guideOrientation, setGuideOrientation] = useState<'portrait' | 'landscape' | null>(null);
+  const [showGuides, setShowGuides] = useState(true);
   const cropButtonRef = useRef<(() => void) | null>(null);
+
+  // Handle corner guide position changes
+  const handleGuidePositionChange = useCallback((corners: GuideCornerPoints, orientation: 'portrait' | 'landscape') => {
+    setGuideCorners(corners);
+    setGuideOrientation(orientation);
+  }, []);
 
   // Initialize SmartPhotoDetector only on client-side
   useEffect(() => {
@@ -340,6 +350,13 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           />
         </div>
 
+        {/* Corner Guide Overlay */}
+        <CornerGuideOverlay
+          isVisible={showGuides}
+          isMobile={isMobile}
+          onGuidePositionChange={handleGuidePositionChange}
+        />
+
         {/* Overlaid Header - centered title and right-aligned close button */}
         <div className="absolute top-6 left-0 right-0 z-20 flex justify-between items-center px-6">
           <div className="flex-1 flex justify-center">
@@ -442,7 +459,26 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           </div>
           
           <div style={{ width: '100%', height: '100%' }}></div>
-          <div style={{ width: '100%', height: '100%' }}></div>
+          
+          {/* Guide Toggle Button - positioned in Row 3, Col 5 */}
+          <div className="flex items-center justify-center relative" style={{ 
+            width: '100%', 
+            height: '100%',
+            gridRow: '3',
+            gridColumn: '5'
+          }}>
+            <button
+              onClick={() => setShowGuides(!showGuides)}
+              className={`w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-white shadow-lg transition-all duration-300 ${
+                showGuides 
+                  ? 'bg-blue-500 bg-opacity-70 hover:bg-opacity-90' 
+                  : 'bg-gray-500 bg-opacity-70 hover:bg-opacity-90'
+              }`}
+              aria-label={showGuides ? 'Hide positioning guides' : 'Show positioning guides'}
+            >
+              <span className="text-sm">📐</span>
+            </button>
+          </div>
           
           <div style={{ width: '100%', height: '100%' }}></div>
           <div style={{ width: '100%', height: '100%' }}></div>

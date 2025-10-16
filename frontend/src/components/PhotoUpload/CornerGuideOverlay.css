@@ -1,0 +1,95 @@
+/* Corner Guide Overlay Styles */
+
+@keyframes pulse {
+  0% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+}
+
+@keyframes guideGlow {
+  0% {
+    box-shadow: 0 0 5px #ffffff;
+  }
+  50% {
+    box-shadow: 0 0 15px #ffffff, 0 0 25px #ffffff;
+  }
+  100% {
+    box-shadow: 0 0 5px #ffffff;
+  }
+}
+
+.corner-guide-overlay {
+  /* Ensure overlay is above camera but below controls */
+  z-index: 15;
+}
+
+.corner-marker {
+  /* Smooth transitions for all properties */
+  transition: all 0.3s ease-in-out;
+}
+
+.corner-marker.aligned {
+  /* Enhanced glow when aligned */
+  animation: guideGlow 2s ease-in-out infinite;
+}
+
+.corner-marker.portrait.aligned {
+  /* White glow for portrait guides */
+  animation: guideGlow 2s ease-in-out infinite;
+}
+
+.corner-marker.landscape.aligned {
+  /* Yellow glow for landscape guides */
+  animation: guideGlow 2s ease-in-out infinite;
+}
+
+.guide-lines {
+  /* Ensure lines are visible but not intrusive */
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+}
+
+.alignment-feedback {
+  /* Subtle feedback when guides are properly positioned */
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+  .corner-marker {
+    border-width: 4px;
+    box-shadow: 0 0 10px #ffffff, 0 0 20px #ffffff;
+  }
+  
+  .guide-lines line {
+    stroke-width: 3;
+    opacity: 1;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .corner-marker,
+  .alignment-feedback {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  .corner-marker {
+    /* Larger markers on mobile for better touch targets */
+    width: 28px !important;
+    height: 28px !important;
+    border-width: 3px;
+  }
+}
