@@ -6,8 +6,6 @@ import boto3
 from botocore.exceptions import ClientError
 from typing import Optional, Tuple
 import io
-import uuid
-from pathlib import Path
 from loguru import logger
 from datetime import datetime, timezone
 from PIL import Image
@@ -249,11 +247,27 @@ class S3Service:
             logger.error(f"Error generating presigned URL: {e}")
             raise
 
+    def generate_presigned_download_url(self, key: str, expiration: int = 3600) -> str:
+        """
+        Generate a presigned URL for downloading/viewing a file from S3
+        """
+        try:
+            url = self.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": key},
+                ExpiresIn=expiration,
+            )
+            return url
+        except ClientError as e:
+            logger.error(f"Error generating presigned download URL for {key}: {e}")
+            raise
+
     def get_s3_url(self, key: str) -> str:
         """
-        Get the S3 URL for a given S3 key
+        Get a presigned S3 URL for viewing/downloading a file
+        This returns a presigned URL that works with private buckets
         """
-        return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
+        return self.generate_presigned_download_url(key, expiration=3600)
 
     def extract_key_from_url(self, url: str) -> str:
         """
@@ -264,7 +278,7 @@ class S3Service:
             if f".s3.{self.region}.amazonaws.com/" in url:
                 return url.split(f".s3.{self.region}.amazonaws.com/")[1]
             elif ".s3.amazonaws.com/" in url:
-                return url.split(f".s3.amazonaws.com/")[1]
+                return url.split(".s3.amazonaws.com/")[1]
         elif f"/{self.bucket}/" in url and "s3" in url and "amazonaws.com" in url:
             # Regional S3 URL format: https://s3.region.amazonaws.com/bucket/key
             parts = url.split(f"/{self.bucket}/")

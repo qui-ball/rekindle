@@ -9,6 +9,7 @@ export { PhotoGallery } from './PhotoGallery';
 export { PhotoDetailDrawer } from './PhotoDetailDrawer';
 export { PhotoStatusIndicator } from './PhotoStatusIndicator';
 export { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
+export { PhotoResultCard } from './PhotoResultCard';
 export { CreditBalanceDisplay } from './CreditBalanceDisplay';
 export { ErrorBoundary } from './ErrorBoundary';
 

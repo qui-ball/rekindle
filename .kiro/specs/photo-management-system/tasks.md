@@ -69,12 +69,16 @@ This implementation plan covers the complete photo management system including g
     - Add click-outside-to-close functionality on desktop
     - _Requirements: Navigation, User interaction_
 
-  - [ ] 3.3 Build results display and file management **[FRONTEND]**
-    - Display original photo and all associated results
+  - [x] 3.3 Build results display and file management **[FRONTEND]**
+    - Display original photo (already implemented - fetches presigned URL)
+    - Display all processed result images (restored, animated, colorized) below original
+    - Fetch presigned URLs for each processed result from backend (via S3 keys)
+    - Show actual result images with proper loading states and error handling
     - Add individual download/delete buttons for each result
     - Implement file action handlers (download, delete) - API calls
-    - Add status indicators for each result type
-    - _Requirements: File management, Results display_
+    - Add status indicators for each result type (processing, completed, failed)
+    - Support different result types with appropriate display (images, videos for animated)
+    - _Requirements: File management, Results display, S3 presigned URLs_
 
 - [ ] 4. Integrate drawer with photo gallery
   - [ ] 4.1 Connect drawer to gallery selection **[FRONTEND]**
