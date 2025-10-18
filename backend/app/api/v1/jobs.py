@@ -270,8 +270,12 @@ async def get_job(
         "animation_attempts": [],
     }
 
-    # Add restore attempts with URLs
+    # Add restore attempts with URLs (only include successful ones with valid S3 keys)
     for restore in job.restore_attempts:
+        # Skip restore attempts without valid S3 keys (empty, pending, or failed)
+        if not restore.s3_key or restore.s3_key == "" or restore.s3_key == "pending" or restore.s3_key == "failed":
+            continue
+            
         restore_dict = {
             "id": restore.id,
             "job_id": restore.job_id,
@@ -280,8 +284,7 @@ async def get_job(
             "params": restore.params,
             "created_at": restore.created_at,
         }
-        if restore.s3_key and restore.s3_key != "pending":
-            restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
+        restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
         job_dict["restore_attempts"].append(restore_dict)
 
     # Add animation attempts with URLs
@@ -344,7 +347,7 @@ async def get_job_image_url(
         )
 
 
-@router.get("/", response_model=List[JobResponse])
+@router.get("/", response_model=List[JobWithRelations])
 async def list_jobs(
     email: Optional[str] = None,
     skip: int = 0,
@@ -352,7 +355,7 @@ async def list_jobs(
     db: Session = Depends(get_db),
 ):
     """
-    List jobs with optional email filter and thumbnail URLs
+    List jobs with optional email filter, thumbnail URLs, and all restore/animation attempts
     """
     query = db.query(Job)
     if email:
@@ -360,7 +363,7 @@ async def list_jobs(
     
     jobs = query.offset(skip).limit(limit).all()
     
-    # Convert to response format with thumbnail presigned URLs
+    # Convert to response format with thumbnail presigned URLs and relations
     job_responses = []
     for job in jobs:
         job_dict = {
@@ -370,7 +373,9 @@ async def list_jobs(
             "selected_restore_id": job.selected_restore_id,
             "latest_animation_id": job.latest_animation_id,
             "thumbnail_s3_key": job.thumbnail_s3_key,
-            "thumbnail_url": None
+            "thumbnail_url": None,
+            "restore_attempts": [],
+            "animation_attempts": []
         }
         
         # Generate presigned URL for thumbnail if key exists
@@ -384,7 +389,51 @@ async def list_jobs(
             except Exception as e:
                 logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
         
-        job_responses.append(JobResponse(**job_dict))
+        # Add restore attempts with URLs (only include successful ones with valid S3 keys)
+        for restore in job.restore_attempts:
+            # Skip restore attempts without valid S3 keys (empty, pending, or failed)
+            if not restore.s3_key or restore.s3_key == "" or restore.s3_key == "pending" or restore.s3_key == "failed":
+                continue
+                
+            restore_dict = {
+                "id": restore.id,
+                "job_id": restore.job_id,
+                "s3_key": restore.s3_key,
+                "model": restore.model,
+                "params": restore.params,
+                "created_at": restore.created_at,
+            }
+            restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
+            job_dict["restore_attempts"].append(restore_dict)
+
+        # Add animation attempts with URLs
+        for animation in job.animation_attempts:
+            animation_dict = {
+                "id": animation.id,
+                "job_id": animation.job_id,
+                "restore_id": animation.restore_id,
+                "preview_s3_key": animation.preview_s3_key,
+                "result_s3_key": animation.result_s3_key,
+                "thumb_s3_key": animation.thumb_s3_key,
+                "model": animation.model,
+                "params": animation.params,
+                "created_at": animation.created_at,
+            }
+            if animation.preview_s3_key and animation.preview_s3_key != "pending":
+                animation_dict["preview_url"] = s3_service.get_s3_url(
+                    animation.preview_s3_key
+                )
+            if animation.result_s3_key:
+                animation_dict["result_url"] = s3_service.get_s3_url(
+                    animation.result_s3_key
+                )
+            if animation.thumb_s3_key:
+                animation_dict["thumb_url"] = s3_service.get_s3_url(
+                    animation.thumb_s3_key
+                )
+            job_dict["animation_attempts"].append(animation_dict)
+        
+        job_responses.append(JobWithRelations(**job_dict))
     
     return job_responses
 

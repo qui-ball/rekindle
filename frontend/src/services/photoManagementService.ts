@@ -128,11 +128,11 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       id: attempt.id,
       photoId: attempt.job_id,
       resultType: 'restored' as const,
-      fileKey: attempt.result_s3_key || '',
+      fileKey: attempt.s3_key || '', // Use s3_key (the main key), not result_s3_key
       thumbnailKey: attempt.thumb_s3_key || '',
-      status: attempt.result_s3_key ? 'completed' : 'processing',
+      status: attempt.s3_key && attempt.s3_key !== 'pending' && attempt.s3_key !== '' ? 'completed' : 'processing',
       createdAt: new Date(attempt.created_at),
-      completedAt: attempt.result_s3_key ? new Date(attempt.created_at) : undefined,
+      completedAt: attempt.s3_key && attempt.s3_key !== 'pending' && attempt.s3_key !== '' ? new Date(attempt.created_at) : undefined,
       processingJobId: attempt.id,
       metadata: {
         dimensions: { width: 1920, height: 1080 },
@@ -140,7 +140,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         format: 'jpeg',
         quality: 'hd',
         processingTime: 45,
-        model: attempt.model || 'qwen-3-image-edit',
+        model: attempt.model || 'comfyui_default',
         parameters: attempt.params || {}
       }
     }));
