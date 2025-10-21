@@ -1,3 +1,5 @@
+*.mp4
+
 # Dependencies
 node_modules/
 __pycache__/
