@@ -1,0 +1,21 @@
+{
+  "id": "runpod-serverless",
+  "started": "2025-10-21T09:43:00Z",
+  "lastUpdated": "2025-10-21T09:43:00Z",
+  "status": "active",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 5, "total": 5 }
+  },
+  "contextFiles": [
+    "backend/scripts/launch_runpod_pod.py",
+    "backend/app/services/comfyui.py",
+    "backend/app/workers/tasks/jobs.py",
+    "backend/app/core/config.py"
+  ],
+  "relatedFeatures": [
+    "runpod-launcher",
+    "comfyui-api"
+  ]
+}
