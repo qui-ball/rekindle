@@ -40,22 +40,45 @@ The system directly supports our core mission of "bringing memories to life" by 
 
 ### Requirement 3
 
-**User Story:** As a user, I want to select processing actions for my photos so that I can restore, colourize, or animate my memories with flexible options.
+**User Story:** As a user, I want to select processing actions for my photos with customizable parameters so that I can restore, colourize, or animate my memories with flexible options.
 
 #### Acceptance Criteria
 
 1. WHEN a user selects a photo THEN the system SHALL display a processing options panel with checkboxes for available actions
 2. WHEN processing options are shown THEN the system SHALL dynamically detect and include: "Restore", "Colourize", "Animate" (when available), and future features
-3. WHEN a user has insufficient credits for an option THEN the system SHALL disable that checkbox and show credit cost
-4. WHEN a user selects multiple options THEN the system SHALL show combined processing pricing with applicable discounts
-5. WHEN a user selects processing options THEN the system SHALL display individual credit costs for each action
-6. WHEN a user selects processing options THEN the system SHALL show total credits required and remaining balance after processing
-7. WHEN a user confirms processing THEN the system SHALL queue the job and update the photo status
-8. WHEN a user selects both "Restore" and "Colourize" THEN the system SHALL apply the combined processing discount
-9. WHEN processing costs are calculated THEN the system SHALL deduct from the user's unified credit balance
-10. IF a user has insufficient credits THEN the system SHALL prevent processing and show credit purchase options
+3. WHEN a user checks a processing option THEN the system SHALL slide down a parameter drawer below that option
+4. WHEN a parameter drawer opens THEN the system SHALL push the rest of the details page content down smoothly
+5. WHEN a parameter drawer is shown THEN the system SHALL display common parameters relevant to that processing type
+6. WHEN a parameter drawer is shown THEN the system SHALL provide an "Advanced Options" toggle to reveal additional parameters
+7. WHEN advanced options are toggled THEN the system SHALL expand the drawer further down with additional parameter controls
+8. WHEN a user unchecks a processing option THEN the system SHALL collapse the parameter drawer with smooth animation
+9. WHEN a user has insufficient credits for an option THEN the system SHALL disable that checkbox and show credit cost
+10. WHEN a user selects multiple options THEN the system SHALL show combined processing pricing with applicable discounts
+11. WHEN a user selects processing options THEN the system SHALL display individual credit costs for each action
+12. WHEN a user selects processing options THEN the system SHALL show total credits required and remaining balance after processing
+13. WHEN a user confirms processing THEN the system SHALL queue the job with all selected parameters and update the photo status
+14. WHEN a user selects both "Restore" and "Colourize" THEN the system SHALL apply the combined processing discount
+15. WHEN processing costs are calculated THEN the system SHALL deduct from the user's unified credit balance
+16. IF a user has insufficient credits THEN the system SHALL prevent processing and show credit purchase options
 
 ### Requirement 4
+
+**User Story:** As a user, I want to customize processing parameters for each job type so that I can control how my photos are processed.
+
+#### Acceptance Criteria
+
+1. WHEN a user checks "Restore" THEN the system SHALL display a parameter drawer with "Colourize" checkbox as a common parameter
+2. WHEN "Restore" advanced options are expanded THEN the system SHALL show denoise level slider and user prompt text input
+3. WHEN a user checks "Animate" THEN the system SHALL display a parameter drawer with "Video Duration" slider as a common parameter
+4. WHEN "Animate" advanced options are expanded THEN the system SHALL show user prompt text input
+5. WHEN parameter drawers are displayed THEN the system SHALL use smooth slide-down animations
+6. WHEN advanced options are toggled THEN the system SHALL expand drawers further with additional controls
+7. WHEN multiple processing options are checked THEN the system SHALL show separate parameter drawers for each option
+8. WHEN parameters are changed THEN the system SHALL update credit cost calculations in real-time
+9. WHEN processing is confirmed THEN the system SHALL include all selected parameters in the job queue
+10. WHEN parameters affect processing cost THEN the system SHALL clearly indicate any additional credit charges
+
+### Requirement 5
 
 **User Story:** As a user, I want to see my credit balance and understand processing costs so that I can manage my usage effectively.
 
@@ -68,7 +91,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 5. WHEN a user cancels their subscription THEN the system SHALL warn that all remaining credits will be lost
 6. IF a user exceeds available credits THEN the system SHALL prevent processing and suggest credit purchase
 
-### Requirement 5
+### Requirement 6
 
 **User Story:** As a user, I want to reprocess photos with different options so that I can experiment with different processing approaches.
 
@@ -82,7 +105,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 6. WHEN reprocessing fails THEN the system SHALL provide clear error messages and retry options
 7. WHEN reprocessing completes THEN the system SHALL update the photo's result collection with new outputs
 
-### Requirement 6
+### Requirement 7
 
 **User Story:** As a user, I want the system to generate new files for each processing result so that I can access all versions of my photos without losing the originals.
 
@@ -96,7 +119,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 6. WHEN a user deletes a result THEN the system SHALL only remove that specific result file, preserving the original
 7. WHEN processing fails THEN the system SHALL preserve the original photo and allow retry without data loss
 
-### Requirement 7
+### Requirement 8
 
 **User Story:** As a user, I want to manage my photo collection by downloading and deleting photos so that I can control my storage and access my results.
 
@@ -110,7 +133,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 6. WHEN a user deletes a photo THEN the system SHALL provide an undo option for a limited time
 7. IF a user deletes a photo with active processing jobs THEN the system SHALL cancel pending jobs and refund credits
 
-### Requirement 8
+### Requirement 9
 
 **User Story:** As a mobile user, I want the photo management interface to be optimized for touch interaction so that I can easily browse and manage my photos on my phone.
 
@@ -124,7 +147,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 6. WHEN a user uses the interface THEN the system SHALL maintain responsive performance on mobile devices
 7. WHEN a user rotates their device THEN the system SHALL adapt the layout appropriately
 
-### Requirement 9
+### Requirement 10
 
 **User Story:** As a user, I want clear visual feedback for processing status so that I understand what's happening with my photos.
 
@@ -138,7 +161,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 6. WHEN a user hovers over status indicators THEN the system SHALL show tooltips with additional information
 7. WHEN processing status changes THEN the system SHALL update the interface in real-time without requiring refresh
 
-### Requirement 10
+### Requirement 11
 
 **User Story:** As a user, I want to easily access my photos from other apps so that I can process photos I'm viewing elsewhere.
 
@@ -151,7 +174,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 5. WHEN a user shares multiple photos THEN the system SHALL handle them as separate processing jobs
 6. IF a shared photo fails to load THEN the system SHALL provide clear error messaging and fallback options
 
-### Requirement 11
+### Requirement 12
 
 **User Story:** As a user, I want the interface to be intuitive and emotionally engaging so that managing my photos feels natural and enjoyable.
 
@@ -165,7 +188,7 @@ The system directly supports our core mission of "bringing memories to life" by 
 6. WHEN a user views their photo collection THEN the system SHALL emphasize the emotional value of their memories
 7. IF a user appears confused THEN the system SHALL offer helpful suggestions and guidance
 
-### Requirement 12
+### Requirement 13
 
 **User Story:** As a user, I want the interface to have a modern, slick design that remains emotionally engaging and intuitive across all devices.
 

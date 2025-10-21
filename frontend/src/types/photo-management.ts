@@ -75,11 +75,32 @@ export interface CreditTransaction {
 // Processing Options Types
 export interface ProcessingOptions {
   restore: boolean;
-  colourize: boolean;
   animate: boolean;
   bringTogether: boolean;
   quality: 'standard' | 'hd';
-  customParameters?: Record<string, unknown>;
+  parameters?: ProcessingParameters;
+}
+
+// Processing Parameters (for each processing type)
+export interface ProcessingParameters {
+  restore?: RestoreParameters;
+  animate?: AnimateParameters;
+  bringTogether?: BringTogetherParameters;
+}
+
+export interface RestoreParameters {
+  colourize: boolean; // Common parameter - colourize is ONLY available as part of restore
+  denoiseLevel?: number; // Advanced: 0.5-0.9 (default: 0.7) - denoise strength
+  userPrompt?: string; // Advanced: custom instructions
+}
+
+export interface AnimateParameters {
+  videoDuration: number; // Common parameter: duration in seconds (5-30)
+  userPrompt?: string; // Advanced: custom instructions for animation
+}
+
+export interface BringTogetherParameters {
+  // Future parameters can be added here
 }
 
 export interface CostBreakdown {
@@ -163,6 +184,15 @@ export interface ProcessingOptionsPanelProps {
   onOptionsChange: (options: ProcessingOptions) => void;
   onProcess: (options: ProcessingOptions) => void;
   isProcessing: boolean;
+}
+
+export interface ProcessingParameterDrawerProps {
+  processingType: 'restore' | 'animate' | 'bringTogether';
+  isOpen: boolean;
+  parameters: RestoreParameters | AnimateParameters | BringTogetherParameters;
+  onParametersChange: (parameters: RestoreParameters | AnimateParameters | BringTogetherParameters) => void;
+  advancedOptionsOpen: boolean;
+  onToggleAdvancedOptions: () => void;
 }
 
 export interface CreditBalanceDisplayProps {

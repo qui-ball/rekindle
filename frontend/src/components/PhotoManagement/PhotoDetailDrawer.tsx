@@ -356,10 +356,56 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                 </div>
                 <div 
                   ref={resultsContainerRef}
-                  className="hide-scrollbar flex overflow-hidden -mx-4"
+                  data-testid="results-container"
+                  className="hide-scrollbar flex overflow-hidden -mx-4 cursor-grab active:cursor-grabbing"
                   style={{
-                    touchAction: 'pan-y', // Allow vertical scrolling, block horizontal
+                    touchAction: 'auto', // Allow both directions, JavaScript will handle detection
                     userSelect: 'none'
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent text selection
+                    const startX = e.clientX;
+                    const container = resultsContainerRef.current;
+                    if (!container) return;
+
+                    let moved = false;
+
+                    const handleMouseMove = (moveEvent: MouseEvent) => {
+                      if (moved) return;
+
+                      const deltaX = startX - moveEvent.clientX;
+                      const threshold = 50; // Minimum drag distance
+
+                      if (Math.abs(deltaX) > threshold) {
+                        moved = true;
+                        
+                        if (deltaX > 0 && currentResultIndex < photo.results.length - 1) {
+                          // Drag left - next result
+                          const nextIndex = currentResultIndex + 1;
+                          setCurrentResultIndex(nextIndex);
+                          scrollToResult(nextIndex);
+                        } else if (deltaX < 0 && currentResultIndex > 0) {
+                          // Drag right - previous result
+                          const prevIndex = currentResultIndex - 1;
+                          setCurrentResultIndex(prevIndex);
+                          scrollToResult(prevIndex);
+                        }
+                        
+                        cleanup();
+                      }
+                    };
+
+                    const handleMouseUp = () => {
+                      cleanup();
+                    };
+
+                    const cleanup = () => {
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                    };
+
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
                   }}
                   onTouchStart={(e) => {
                     const touch = e.touches[0];
@@ -387,6 +433,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                           // Determine if this is primarily horizontal or vertical
                           if (absDeltaX > absDeltaY) {
                             swipeDirection = 'horizontal';
+                            // Prevent default to stop vertical scrolling during horizontal swipe
+                            moveEvent.preventDefault();
                           } else {
                             swipeDirection = 'vertical';
                             // This is a vertical scroll, clean up and let it through
@@ -398,6 +446,9 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
 
                       // Only handle horizontal swipes
                       if (swipeDirection === 'horizontal') {
+                        // Continue preventing default for horizontal swipes
+                        moveEvent.preventDefault();
+                        
                         const threshold = 50; // Minimum swipe distance
                         if (Math.abs(deltaX) > threshold) {
                           moved = true;
@@ -430,8 +481,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                       container.removeEventListener('touchcancel', handleTouchEnd);
                     };
 
-                    // Use passive: true to allow smooth scrolling
-                    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+                    // Use passive: false to allow preventDefault for horizontal swipes
+                    container.addEventListener('touchmove', handleTouchMove, { passive: false });
                     container.addEventListener('touchend', handleTouchEnd, { passive: true });
                     container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
                   }}

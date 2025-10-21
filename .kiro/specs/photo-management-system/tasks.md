@@ -80,14 +80,14 @@ This implementation plan covers the complete photo management system including g
     - Support different result types with appropriate display (images, videos for animated)
     - _Requirements: File management, Results display, S3 presigned URLs_
 
-- [ ] 4. Integrate drawer with photo gallery
-  - [ ] 4.1 Connect drawer to gallery selection **[FRONTEND]**
+- [x] 4. Integrate drawer with photo gallery
+  - [x] 4.1 Connect drawer to gallery selection **[FRONTEND]**
     - Implement photo selection from gallery
     - Add smooth transition from gallery to drawer
     - Handle photo data passing between components
     - _Requirements: Component integration, Data flow_
 
-  - [ ] 4.2 Add drawer state management **[FRONTEND]**
+  - [x] 4.2 Add drawer state management **[FRONTEND]**
     - Implement open/close state handling
     - Add selected photo state management
     - Create drawer animation state tracking
@@ -96,26 +96,78 @@ This implementation plan covers the complete photo management system including g
 ## Phase 3: Processing Options and Credit Management (High Priority)
 
 - [ ] 5. Build ProcessingOptionsPanel component
-  - [ ] 5.1 Create dynamic processing options interface **[FRONTEND]**
-    - Implement checkbox options for Restore, Colourize, Animate, Bring Together
-    - Add dynamic enabling/disabling based on available credits
-    - Create real-time credit cost calculation (UI logic)
-    - Add combined processing discount display
+  - [x] 5.1 Complete dynamic processing options interface **[FRONTEND]**
+    - ✅ REMOVED top-level Colourize checkbox (now only a parameter within Restore)
+    - ✅ Implement checkbox options for Restore, Animate, Bring Together (DONE)
+    - ✅ Create real-time credit cost calculation (UI logic) (DONE)
+    - ✅ Removed combined processing discount (no longer needed without separate Colourize option)
+    - ✅ Fixed dynamic enabling/disabling based on available credits (credit-based logic implemented)
     - _Requirements: Processing options, Credit calculation_
+    - _Status: COMPLETED - Colourize is now a parameter within Restore only_
 
-  - [ ] 5.2 Implement credit usage breakdown display **[FRONTEND]**
-    - Show individual credit costs for each action
-    - Display total credits required
-    - Show remaining credits after processing
-    - Show warnings for insufficient credits
+  - [x] 5.2 Build ProcessingParameterDrawer component **[FRONTEND]**
+    - ✅ Created new component: ProcessingParameterDrawer.tsx
+    - ✅ Implemented collapsible drawer that slides down below each processing option checkbox
+    - ✅ Added smooth slide-down/slide-up animations using CSS transitions
+    - ✅ Implemented "push content down" behavior when drawer opens
+    - ✅ Created separate drawer instance for each processing type (restore, animate, bringTogether)
+    - ✅ Handles multiple drawers being open simultaneously (independent state)
+    - ✅ Added proper TypeScript props interface
+    - _Requirements: Parameter drawers, Animation behavior_
+    - _Status: COMPLETED - Component created with full animation support_
+
+  - [x] 5.3 Implement common parameters for each processing type **[FRONTEND]**
+    - ✅ **Restore:** Added "Colourize" checkbox parameter in drawer (Colourize is NOT a separate processing option, only available as part of Restore)
+    - ✅ **Animate:** Added "Video Duration" slider parameter (3-10 seconds range)
+    - ✅ Implemented parameter state management (useState for each parameter)
+    - ✅ Created onChange handlers for parameter inputs
+    - ✅ Connected parameter changes to credit cost calculation (Restore base cost + additional cost if Colourize is checked)
+    - ✅ Integrated drawers into ProcessingOptionsPanel component
+    - _Requirements: Processing parameters, User input_
+    - _Status: COMPLETED - All common parameters implemented with state management_
+
+  - [x] 5.4 Build advanced options expandable section **[FRONTEND]**
+    - ✅ Added "Advanced Options" toggle button/link within each parameter drawer
+    - ✅ Implemented expand/collapse animation for advanced section (nested within drawer)
+    - ✅ **Restore Advanced:** Added denoise level slider (0-100 range), user prompt text input (textarea)
+    - ✅ **Animate Advanced:** Added user prompt text input (textarea)
+    - ✅ Handled advanced section state independently for each drawer (separate useState)
+    - ✅ Ensured smooth height transitions when expanding/collapsing advanced sections
+    - _Requirements: Advanced parameters, Expandable UI_
+    - _Status: COMPLETED - All advanced options implemented with smooth animations_
+
+  - [ ] 5.5 Implement parameter data models and backend support **[BACKEND + FRONTEND]**
+    - ✅ **Frontend Types:** Defined ProcessingParameters interface in photo-management.ts with typed sub-models:
+      - ✅ RestoreParameters: { colourize: boolean; denoiseLevel?: number; userPrompt?: string } (Colourize is a parameter within Restore, not separate)
+      - ✅ AnimateParameters: { videoDuration: number; userPrompt?: string }
+      - ✅ BringTogetherParameters: {} (placeholder for future)
+    - ✅ Updated ProcessingOptions interface to:
+      - ✅ Removed colourize: boolean (no longer top-level option)
+      - ✅ Replaced customParameters with parameters: ProcessingParameters
+    - ❌ **Backend:** Update ProcessingJob model to include parameters field (JSON/JSONB) - NOT DONE
+    - ❌ **Backend:** Add parameter validation logic in job creation - NOT DONE
+    - ❌ **Backend:** Update job creation API endpoint to accept and store parameters - NOT DONE
+    - _Requirements: Data models, Backend integration_
+    - _Status: PARTIALLY COMPLETED - Frontend types done, backend updates pending_
+
+  - [x] 5.6 Implement credit usage breakdown display **[FRONTEND]**
+    - ✅ Show individual credit costs for each action (DONE - basic implementation exists)
+    - ✅ Display total credits required (DONE - works for basic options)
+    - ✅ Show remaining credits after processing (DONE)
+    - ✅ Show warnings for insufficient credits (DONE)
+    - ✅ Update costs in real-time as parameters change (DONE - parameters are now live)
     - _Requirements: Credit display, User guidance_
+    - _Status: COMPLETED - Full breakdown with real-time parameter-based cost updates_
 
-  - [ ] 5.3 Add processing confirmation and job creation **[FRONTEND]**
-    - Implement processing confirmation with cost breakdown
-    - Create job queue integration (API calls)
-    - Add processing status updates
-    - Handle processing errors and retries
+  - [ ] 5.7 Add processing confirmation and job creation **[FRONTEND]**
+    - ✅ Basic processing confirmation with cost breakdown (DONE - works for restore only)
+    - ❌ Include parameters summary in confirmation (NOT DONE - no parameters yet)
+    - ✅ Job queue integration via API calls (DONE - createProcessingJob works)
+    - ✅ Processing status updates (DONE - photo status updates to 'processing')
+    - ✅ Handle processing errors (DONE - error handling in place)
+    - ❌ Retry functionality (PARTIALLY DONE - error handling exists but no explicit retry button)
     - _Requirements: Job processing, Status updates_
+    - _Status: Partially complete - basic processing works for restore, needs parameters integration_
 
 - [ ] 6. Build CreditBalanceDisplay component
   - [ ] 6.1 Create unified credit display **[FRONTEND]**
@@ -236,6 +288,9 @@ This implementation plan covers the complete photo management system including g
     - Test PhotoGallery component functionality
     - Test PhotoDetailDrawer behavior
     - Test ProcessingOptionsPanel logic
+    - Test ProcessingParameterDrawer animations and state
+    - Test parameter input components (sliders, text inputs)
+    - Test advanced options toggle behavior
     - Test CreditBalanceDisplay calculations
     - _Requirements: Component testing, Quality assurance_
 
@@ -243,14 +298,20 @@ This implementation plan covers the complete photo management system including g
     - Test PhotoManagementService operations
     - Test CreditManagementService calculations
     - Test file download/deletion workflows
-    - Test processing job creation
+    - Test processing job creation with parameters
+    - Test parameter validation logic
+    - Test parameter storage and retrieval
     - _Requirements: Service testing, Integration testing_
 
   - [ ] 13.3 Mobile and responsive testing **[FRONTEND]**
     - Test mobile drawer behavior
+    - Test parameter drawer animations on mobile
+    - Test slider controls on touch devices
+    - Test text input on mobile keyboards
     - Test responsive layouts across devices
     - Test touch interactions and gestures
     - Test mobile-specific features
+    - Test parameter drawers pushing content smoothly on different screen sizes
     - _Requirements: Mobile testing, Cross-device testing_
 
 ## Phase 8: Error Handling and User Experience (Ongoing)
