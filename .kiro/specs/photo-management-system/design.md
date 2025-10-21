@@ -182,6 +182,34 @@ interface ProcessingOptionsPanelProps {
 - Disabled state for unaffordable options
 - Combined processing discount indicators
 - Processing confirmation with cost breakdown
+- Parameter drawers that slide down when options are checked
+- Advanced options toggle for each processing type
+
+#### ProcessingParameterDrawer
+**Purpose:** Collapsible parameter drawer that appears below each processing option when checked
+**Props:**
+```typescript
+interface ProcessingParameterDrawerProps {
+  processingType: 'restore' | 'animate' | 'colourize' | 'bring_together';
+  isOpen: boolean;
+  parameters: ProcessingParameters;
+  onParametersChange: (parameters: ProcessingParameters) => void;
+  advancedOptionsOpen: boolean;
+  onToggleAdvancedOptions: () => void;
+}
+```
+
+**Key Features:**
+- **Smooth Animations:** Slide-down animation when opened, pushing content below down
+- **Common Parameters Section:** Always visible when drawer is open
+  - **Restore:** Colourize checkbox
+  - **Animate:** Video duration slider
+- **Advanced Options Toggle:** Expandable section for advanced parameters
+  - **Restore Advanced:** Denoise level slider, user prompt text input
+  - **Animate Advanced:** User prompt text input
+- **Layout Behavior:** Content below drawer smoothly shifts down when opened
+- **Multiple Drawers:** Each processing option has its own independent drawer
+- **Real-time Updates:** Parameter changes immediately affect credit cost calculations
 
 #### CreditBalanceDisplay
 **Purpose:** Prominent credit balance display with unified credit tracking
@@ -361,7 +389,33 @@ interface ProcessingOptions {
   animate: boolean;
   bringTogether: boolean;
   quality: 'standard' | 'hd';
-  customParameters?: Record<string, any>;
+  parameters: ProcessingParameters;
+}
+
+interface ProcessingParameters {
+  restore?: RestoreParameters;
+  animate?: AnimateParameters;
+  colourize?: ColourizeParameters;
+  bringTogether?: BringTogetherParameters;
+}
+
+interface RestoreParameters {
+  colourize: boolean; // Common parameter
+  denoiseLevel?: number; // Advanced: 0-100
+  userPrompt?: string; // Advanced: custom instructions
+}
+
+interface AnimateParameters {
+  videoDuration: number; // Common parameter: duration in seconds (e.g., 3-10)
+  userPrompt?: string; // Advanced: custom instructions for animation
+}
+
+interface ColourizeParameters {
+  // Future parameters can be added here
+}
+
+interface BringTogetherParameters {
+  // Future parameters can be added here
 }
 
 interface CostBreakdown {
@@ -620,6 +674,117 @@ interface StatusOverlay {
     text: 'Failed - Tap to Retry';
   };
 }
+```
+
+### Parameter Drawer Design
+
+#### Processing Options with Parameter Drawers (Mobile)
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              MOBILE PROCESSING OPTIONS                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────────────────────┐   │
+│  │ Processing Options:                                                    │   │
+│  │                                                                         │   │
+│  │ ☑ Restore (2 credits)                                                 │   │
+│  │ ┌────────────────────────────────────────────────────────────────────┐│   │
+│  │ │ ⎿ Common Parameters                                                ││   │
+│  │ │   ☐ Colourize                                                      ││   │
+│  │ │                                                                     ││   │
+│  │ │   ▼ Advanced Options                                               ││   │
+│  │ │   ┌──────────────────────────────────────────────────────────────┐││   │
+│  │ │   │ Denoise Level: [====·····] 40%                               │││   │
+│  │ │   │                                                               │││   │
+│  │ │   │ User Prompt:                                                 │││   │
+│  │ │   │ ┌──────────────────────────────────────────────────────────┐│││   │
+│  │ │   │ │ Focus on face details...                                 ││││   │
+│  │ │   │ └──────────────────────────────────────────────────────────┘│││   │
+│  │ │   └──────────────────────────────────────────────────────────────┘││   │
+│  │ └────────────────────────────────────────────────────────────────────┘│   │
+│  │                                                                         │   │
+│  │ ☑ Animate (8 credits)                                                 │   │
+│  │ ┌────────────────────────────────────────────────────────────────────┐│   │
+│  │ │ ⎿ Common Parameters                                                ││   │
+│  │ │   Video Duration: [=======···] 7 seconds                          ││   │
+│  │ │                                                                     ││   │
+│  │ │   ▼ Advanced Options                                               ││   │
+│  │ │   ┌──────────────────────────────────────────────────────────────┐││   │
+│  │ │   │ User Prompt:                                                 │││   │
+│  │ │   │ ┌──────────────────────────────────────────────────────────┐│││   │
+│  │ │   │ │ Make eyes blink and subtle smile...                      ││││   │
+│  │ │   │ └──────────────────────────────────────────────────────────┘│││   │
+│  │ │   └──────────────────────────────────────────────────────────────┘││   │
+│  │ └────────────────────────────────────────────────────────────────────┘│   │
+│  │                                                                         │   │
+│  │ ☐ Bring Together (6 credits)                                          │   │
+│  │                                                                         │   │
+│  │ Total: 10 credits | Balance after: 110 credits | Process Photo        │   │
+│  └─────────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Parameter Drawer Animation Behavior
+```typescript
+interface ParameterDrawerAnimation {
+  // When checkbox is checked
+  open: {
+    animation: 'slideDown';
+    duration: 300;
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)';
+    behavior: 'pushContentDown'; // Content below shifts down smoothly
+  };
+  
+  // When checkbox is unchecked
+  close: {
+    animation: 'slideUp';
+    duration: 250;
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)';
+    behavior: 'pullContentUp'; // Content below shifts up smoothly
+  };
+  
+  // When advanced options are toggled
+  expandAdvanced: {
+    animation: 'slideDown';
+    duration: 250;
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)';
+    behavior: 'expandDrawer'; // Drawer height increases, pushing content below
+  };
+  
+  collapseAdvanced: {
+    animation: 'slideUp';
+    duration: 250;
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)';
+    behavior: 'shrinkDrawer'; // Drawer height decreases, pulling content up
+  };
+}
+```
+
+#### Parameter Drawer States
+```typescript
+interface ParameterDrawerState {
+  isOpen: boolean; // Drawer is visible
+  advancedOptionsOpen: boolean; // Advanced section is expanded
+  parameters: ProcessingParameters; // Current parameter values
+}
+
+// Visual states
+const drawerStates = {
+  collapsed: {
+    height: 0;
+    opacity: 0;
+    overflow: 'hidden';
+  },
+  openBasic: {
+    height: 'auto'; // Height for common parameters only
+    opacity: 1;
+    overflow: 'visible';
+  },
+  openAdvanced: {
+    height: 'auto'; // Height includes advanced parameters
+    opacity: 1;
+    overflow: 'visible';
+  }
+};
 ```
 
 ### Animation and Interaction Design

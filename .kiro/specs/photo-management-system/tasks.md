@@ -103,16 +103,47 @@ This implementation plan covers the complete photo management system including g
     - Add combined processing discount display
     - _Requirements: Processing options, Credit calculation_
 
-  - [ ] 5.2 Implement credit usage breakdown display **[FRONTEND]**
+  - [ ] 5.2 Build ProcessingParameterDrawer component **[FRONTEND]**
+    - Create collapsible drawer component that slides down below processing options
+    - Implement smooth slide-down/slide-up animations
+    - Add behavior to push content below drawer down when opening
+    - Create separate drawer instances for each processing type (restore, animate, etc.)
+    - Handle multiple drawers being open simultaneously
+    - _Requirements: Parameter drawers, Animation behavior_
+
+  - [ ] 5.3 Implement common parameters for each processing type **[FRONTEND]**
+    - **Restore:** Add "Colourize" checkbox parameter
+    - **Animate:** Add "Video Duration" slider parameter (3-10 seconds)
+    - Add parameter state management and onChange handlers
+    - Connect parameters to credit cost calculation
+    - _Requirements: Processing parameters, User input_
+
+  - [ ] 5.4 Build advanced options expandable section **[FRONTEND]**
+    - Create "Advanced Options" toggle button
+    - Implement expand/collapse animation for advanced section
+    - **Restore Advanced:** Add denoise level slider (0-100), user prompt text input
+    - **Animate Advanced:** Add user prompt text input
+    - Handle advanced section state independently for each drawer
+    - _Requirements: Advanced parameters, Expandable UI_
+
+  - [ ] 5.5 Implement parameter data models and backend support **[BACKEND]**
+    - Create ProcessingParameters data model with restore/animate/colourize/bringTogether sub-models
+    - Update ProcessingJob model to include parameters field
+    - Add parameter validation logic
+    - Update job creation API to accept and store parameters
+    - _Requirements: Data models, Backend integration_
+
+  - [ ] 5.6 Implement credit usage breakdown display **[FRONTEND]**
     - Show individual credit costs for each action
-    - Display total credits required
+    - Display total credits required (including parameter-based costs)
     - Show remaining credits after processing
     - Show warnings for insufficient credits
+    - Update costs in real-time as parameters change
     - _Requirements: Credit display, User guidance_
 
-  - [ ] 5.3 Add processing confirmation and job creation **[FRONTEND]**
-    - Implement processing confirmation with cost breakdown
-    - Create job queue integration (API calls)
+  - [ ] 5.7 Add processing confirmation and job creation **[FRONTEND]**
+    - Implement processing confirmation with cost breakdown and parameters summary
+    - Create job queue integration with parameters (API calls)
     - Add processing status updates
     - Handle processing errors and retries
     - _Requirements: Job processing, Status updates_
@@ -236,6 +267,9 @@ This implementation plan covers the complete photo management system including g
     - Test PhotoGallery component functionality
     - Test PhotoDetailDrawer behavior
     - Test ProcessingOptionsPanel logic
+    - Test ProcessingParameterDrawer animations and state
+    - Test parameter input components (sliders, text inputs)
+    - Test advanced options toggle behavior
     - Test CreditBalanceDisplay calculations
     - _Requirements: Component testing, Quality assurance_
 
@@ -243,14 +277,20 @@ This implementation plan covers the complete photo management system including g
     - Test PhotoManagementService operations
     - Test CreditManagementService calculations
     - Test file download/deletion workflows
-    - Test processing job creation
+    - Test processing job creation with parameters
+    - Test parameter validation logic
+    - Test parameter storage and retrieval
     - _Requirements: Service testing, Integration testing_
 
   - [ ] 13.3 Mobile and responsive testing **[FRONTEND]**
     - Test mobile drawer behavior
+    - Test parameter drawer animations on mobile
+    - Test slider controls on touch devices
+    - Test text input on mobile keyboards
     - Test responsive layouts across devices
     - Test touch interactions and gestures
     - Test mobile-specific features
+    - Test parameter drawers pushing content smoothly on different screen sizes
     - _Requirements: Mobile testing, Cross-device testing_
 
 ## Phase 8: Error Handling and User Experience (Ongoing)
