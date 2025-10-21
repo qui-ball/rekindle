@@ -7,10 +7,13 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from loguru import logger
 from typing import Dict, Any, Optional
+from pathlib import Path
 import json
+import random
 
 from app.workers.celery_app import celery_app
 from app.core.database import SessionLocal
+from app.core.config import settings
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.services.s3 import s3_service
 from app.services.comfyui import comfyui_service
@@ -42,9 +45,9 @@ def process_restoration(
         job = db.query(Job).filter(Job.id == job_uuid).first()
         if not job:
             raise ValueError(f"Job {job_id} not found")
-        
-        logger.info(f"Starting restoration for job {job_id}")
-        
+
+        logger.info(f"Starting restoration for job {job_id}, mode: {settings.COMFYUI_MODE}")
+
         # Download uploaded image from S3
         uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
         # Try common extensions if default fails
@@ -57,91 +60,142 @@ def process_restoration(
                 break
             except Exception:
                 continue
-        
+
         if not image_data:
             raise ValueError(f"No uploaded image found for job {job_id}")
-        
+
         # Extract restoration parameters
         denoise = params.get("denoise", 0.7)
         megapixels = params.get("megapixels", 1.0)
-        
-        # Process with ComfyUI
-        restored_image_data = comfyui_service.restore_image(
-            image_data=image_data,
-            filename=f"job_{job_id}.jpg",
-            denoise=denoise,
-            megapixels=megapixels,
-        )
-        
-        # Create restore attempt record
-        restore = RestoreAttempt(
-            job_id=job_uuid,
-            s3_key="",  # Will be set below
-            model=model or "comfyui_default",
-            params=params,
-        )
-        db.add(restore)
-        db.flush()  # Get the restore ID
-        
-        # Generate timestamp ID for this restore attempt
-        restore_timestamp_id = s3_service.generate_timestamp_id()
-        
-        # Upload restored image to S3 with timestamp ID
-        restored_url = s3_service.upload_restored_image(
-            image_content=restored_image_data,
-            job_id=job_id,
-            restore_id=restore_timestamp_id,
-            extension="jpg",
-        )
-        
-        # Update restore attempt with S3 key using timestamp
-        restore.s3_key = f"restored/{job_id}/{restore_timestamp_id}.jpg"
-        
-        # Generate and upload thumbnail for restored image
-        try:
-            thumbnail_url = s3_service.upload_job_thumbnail(
-                image_content=restored_image_data,
+
+        # Route based on mode
+        if settings.COMFYUI_MODE == "serverless":
+            # Serverless mode - submit and exit
+            from app.services.runpod_serverless import runpod_serverless_service
+
+            # Upload image to network volume
+            volume_path = runpod_serverless_service.upload_image_to_volume(
+                image_data=image_data,
                 job_id=job_id,
                 extension="jpg"
             )
-            # Update job's thumbnail to the restored image thumbnail
-            job.thumbnail_s3_key = f"thumbnails/{job_id}.jpg"
-            logger.info(f"Generated thumbnail for restored image {job_id}: {job.thumbnail_s3_key}")
-        except Exception as thumb_error:
-            logger.error(f"Failed to generate thumbnail for restored image {job_id}: {thumb_error}")
-            # Continue without thumbnail - non-critical error
-        
-        # Update job's selected restore
-        job.selected_restore_id = restore.id
-        
-        db.commit()
-        
-        logger.success(f"Completed restoration {restore.id} for job {job_id}")
-        
-        return {
-            "status": "success",
-            "job_id": job_id,
-            "restore_id": str(restore.id),
-            "restored_url": restored_url,
-        }
+
+            # Load and modify workflow
+            workflow_path = Path(__file__).parent.parent / "workflows" / "restore.json"
+            with open(workflow_path, "r") as f:
+                workflow = json.load(f)
+
+            # Update workflow parameters
+            workflow["78"]["inputs"]["image"] = f"job_{job_id}.jpg"  # Filename only
+            workflow["93"]["inputs"]["megapixels"] = megapixels
+            workflow["3"]["inputs"]["denoise"] = denoise
+            workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
+
+            # Submit job with webhook
+            webhook_url = f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/runpod-completion"
+            runpod_job_id = runpod_serverless_service.submit_job(
+                workflow=workflow,
+                webhook_url=webhook_url,
+                job_id=job_id
+            )
+
+            # Create restore attempt record (pending state)
+            restore = RestoreAttempt(
+                job_id=job_uuid,
+                s3_key="pending",  # Will be set by webhook
+                model=model or "runpod_serverless",
+                params={**params, "runpod_job_id": runpod_job_id},
+            )
+            db.add(restore)
+            db.commit()
+
+            logger.info(f"Submitted serverless job {runpod_job_id} for {job_id}")
+
+            return {
+                "status": "submitted",
+                "job_id": job_id,
+                "runpod_job_id": runpod_job_id,
+                "restore_id": str(restore.id),
+            }
+
+        else:
+            # Pod mode - existing synchronous behavior
+            restored_image_data = comfyui_service.restore_image(
+                image_data=image_data,
+                filename=f"job_{job_id}.jpg",
+                denoise=denoise,
+                megapixels=megapixels,
+            )
+
+            # Create restore attempt record
+            restore = RestoreAttempt(
+                job_id=job_uuid,
+                s3_key="",  # Will be set below
+                model=model or "comfyui_pod",
+                params=params,
+            )
+            db.add(restore)
+            db.flush()  # Get the restore ID
+
+            # Generate timestamp ID for this restore attempt
+            restore_timestamp_id = s3_service.generate_timestamp_id()
+
+            # Upload restored image to S3 with timestamp ID
+            restored_url = s3_service.upload_restored_image(
+                image_content=restored_image_data,
+                job_id=job_id,
+                restore_id=restore_timestamp_id,
+                extension="jpg",
+            )
+
+            # Update restore attempt with S3 key using timestamp
+            restore.s3_key = f"restored/{job_id}/{restore_timestamp_id}.jpg"
+
+            # Generate and upload thumbnail for restored image
+            try:
+                thumbnail_url = s3_service.upload_job_thumbnail(
+                    image_content=restored_image_data,
+                    job_id=job_id,
+                    extension="jpg"
+                )
+                # Update job's thumbnail to the restored image thumbnail
+                job.thumbnail_s3_key = f"thumbnails/{job_id}.jpg"
+                logger.info(f"Generated thumbnail for restored image {job_id}: {job.thumbnail_s3_key}")
+            except Exception as thumb_error:
+                logger.error(f"Failed to generate thumbnail for restored image {job_id}: {thumb_error}")
+                # Continue without thumbnail - non-critical error
+
+            # Update job's selected restore
+            job.selected_restore_id = restore.id
+
+            db.commit()
+
+            logger.success(f"Completed restoration {restore.id} for job {job_id}")
+
+            return {
+                "status": "success",
+                "job_id": job_id,
+                "restore_id": str(restore.id),
+                "restored_url": restored_url,
+            }
     
     except Exception as e:
         logger.error(f"Error processing restoration for job {job_id}: {e}")
         db.rollback()
-        
+
         # Create failed restore attempt record
         try:
             restore = RestoreAttempt(
                 job_id=job_uuid,
                 s3_key="failed",
-                model=model or "comfyui_default",
+                model=model or f"comfyui_{settings.COMFYUI_MODE}",
                 params={**params, "error": str(e)},
             )
             db.add(restore)
             db.commit()
         except Exception as db_error:
             logger.error(f"Error saving failure state: {db_error}")
-        
+
         raise e
     
     finally:
