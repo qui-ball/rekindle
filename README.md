@@ -25,10 +25,29 @@ Transform old, damaged, or faded family photos into vibrant, restored memories u
    ```
 
 2. **One-time setup for HTTPS (required for mobile camera testing):**
+   
+   **macOS:**
    ```bash
    brew install mkcert
    mkcert -install
    ```
+   
+   **Linux:**
+   ```bash
+   # Install dependencies (Debian/Ubuntu)
+   sudo apt update
+   sudo apt install -y libnss3-tools
+   
+   # Download and install mkcert
+   curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+   chmod +x mkcert-v*-linux-amd64
+   sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+   
+   # Install the local CA
+   mkcert -install
+   ```
+   
+   For other Linux distributions, see [mkcert documentation](https://github.com/FiloSottile/mkcert#linux).
 
 3. **Start the development environment:**
    ```bash
@@ -62,4 +81,4 @@ For detailed development information, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
 
-**Built with ❤️ for families who want to preserve their precious memories.**# Test PR banner
+**Built with ❤️ for families who want to preserve their precious memories.**

@@ -10,12 +10,29 @@ const hostname = '0.0.0.0';
 const port = 3000;
 
 // Get local IP address
+// Excludes Docker network interfaces (docker0, br-*, and 172.x.x.x private networks)
 function getLocalIP() {
+  // Check if host IP is provided via environment variable (set by dev-docker.sh)
+  if (process.env.HOST_IP && process.env.HOST_IP !== 'localhost') {
+    return process.env.HOST_IP;
+  }
+  
   const interfaces = os.networkInterfaces();
+  const dockerInterfaces = ['docker0', 'br-'];
+  const dockerIPRanges = ['172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.'];
+  
   for (const name of Object.keys(interfaces)) {
+    // Skip Docker interfaces
+    if (dockerInterfaces.some(prefix => name.startsWith(prefix))) {
+      continue;
+    }
+    
     for (const interface of interfaces[name]) {
       if (interface.family === 'IPv4' && !interface.internal) {
-        return interface.address;
+        // Skip Docker IP ranges (172.17.0.0/12)
+        if (!dockerIPRanges.some(range => interface.address.startsWith(range))) {
+          return interface.address;
+        }
       }
     }
   }
@@ -42,7 +59,6 @@ function loadCertificates() {
   for (const certPath of certPaths) {
     try {
       if (fs.existsSync(certPath.key) && fs.existsSync(certPath.cert)) {
-        console.log(`📜 Using certificates: ${certPath.cert}`);
         return {
           key: fs.readFileSync(certPath.key),
           cert: fs.readFileSync(certPath.cert),
@@ -81,22 +97,6 @@ app.prepare().then(() => {
       process.exit(1);
     })
     .listen(port, hostname, () => {
-      console.log('');
-      console.log('🔒 HTTPS Development Server Ready!');
-      console.log('');
-      console.log(`📍 Server running on: https://${hostname}:${port}`);
-      console.log(`🏠 Local access: https://localhost:${port}`);
-      console.log(`🌐 Network access: https://${LOCAL_IP}:${port}`);
-      console.log('');
-      console.log('📱 Mobile Camera Testing:');
-      console.log(`   1. Connect your mobile device to the same WiFi network`);
-      console.log(`   2. Open: https://${LOCAL_IP}:${port}`);
-      console.log(`   3. Accept the security certificate (it's locally trusted)`);
-      console.log(`   4. Camera should work properly with HTTPS! 📷`);
-      console.log('');
-      console.log('🔧 Development:');
-      console.log('   - Hot reload is enabled');
-      console.log('   - Press Ctrl+C to stop');
-      console.log('');
+      // Quiet startup - main info shown by dev-docker.sh
     });
 });

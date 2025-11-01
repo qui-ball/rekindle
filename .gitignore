@@ -96,6 +96,7 @@ out/
 .nuxt/
 .cache/
 .parcel-cache/
+*.tsbuildinfo
 
 # PWA generated files
 frontend/public/sw.js

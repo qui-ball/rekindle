@@ -16,6 +16,7 @@ services:
       - CHOKIDAR_USEPOLLING=true  # Enable hot reload in Docker
       - WATCHPACK_POLLING=true
       - NODE_ENV=development
+      - HOST_IP=${HOST_IP:-}  # Host IP for mobile access (set by dev-docker.sh)
     networks:
       - rekindle-network
     command: ${DOCKER_COMMAND:-npm run dev}
@@ -41,6 +42,7 @@ services:
       - rekindle-network
     depends_on:
       - redis
+      - postgres
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -53,6 +55,24 @@ services:
       - "6379:6379"
     networks:
       - rekindle-network
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=rekindle
+      - POSTGRES_PASSWORD=rekindle_password
+      - POSTGRES_DB=rekindle
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - rekindle-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rekindle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
   celery:
@@ -70,6 +90,7 @@ services:
       - rekindle-network
     depends_on:
       - redis
+      - postgres
     command: uv run celery -A app.workers.celery_app worker --loglevel=info
 
   flower:
@@ -90,12 +111,14 @@ services:
       - rekindle-network
     depends_on:
       - redis
+      - postgres
     command: uv run celery -A app.workers.celery_app flower --port=5555
 
 volumes:
   backend-venv:
   celery-venv:
   flower-venv:
+  postgres-data:
 
 networks:
   rekindle-network:
