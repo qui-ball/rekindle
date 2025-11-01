@@ -37,65 +37,102 @@
 ### Task 1.1: Create Auth0 Tenant
 **Type:** Infrastructure  
 **Priority:** P0  
-**Estimated Time:** 2 hours
+**Estimated Time:** 2 hours  
+**Status:** ✅ COMPLETED
 
 **Description:**
-Set up Auth0 account and create production tenant.
+Set up Auth0 account and create tenant with development and production applications.
+
+**Note:** Free tier allows only 1 tenant (25,000 MAU total). Using single-tenant, multiple-application strategy:
+- Single tenant for both dev and prod
+- Separate applications for environment isolation
+- Callback URLs differentiate environments
 
 **Subtasks:**
-- [ ] Create Auth0 account at auth0.com
-- [ ] Create tenant (e.g., `rekindle.auth0.com`)
-- [ ] Choose region (US/EU based on target market)
-- [ ] Note down tenant domain
-- [ ] Take screenshot of tenant dashboard
+- [x] Create Auth0 account at auth0.com
+- [x] Development tenant auto-created (e.g., `dev-xxxxx.us.auth0.com`)
+- [x] Choose region (US - auto-selected)
+- [x] Note down tenant domain
+- [x] Take screenshot of tenant dashboard
+- [x] Verify free tier limits (25,000 MAU, 1 tenant limit confirmed)
+- [x] Create "Rekindle Development" application (Regular Web App)
+- [x] Create "Rekindle Production" application (Regular Web App)
+- [x] Document Client IDs and Secrets for both applications
+- [x] Configure Grant Types (Authorization Code, Refresh Token)
 
 **Acceptance Criteria:**
-- Auth0 tenant created and accessible
-- Tenant domain confirmed
-- Free tier limits verified (25,000 MAU)
+- ✅ Auth0 tenant created and accessible
+- ✅ Tenant domain confirmed
+- ✅ Free tier limits verified (25,000 MAU, 1 tenant on free tier)
+- ✅ Development application created with credentials documented
+- ✅ Production application created with credentials documented
+- ✅ Single-tenant strategy documented
+
+**Environment Strategy:**
+```
+Tenant: [your-tenant].us.auth0.com (shared)
+├── App 1: Rekindle Development → localhost:3000
+└── App 2: Rekindle Production → rekindle.app
+```
 
 **Resources:**
 - Auth0 Docs: https://auth0.com/docs/get-started/auth0-overview/create-tenants
+- Applications: https://auth0.com/docs/get-started/applications
 
 ---
 
-### Task 1.2: Configure Social Identity Providers
+### Task 1.2: Configure Social Identity Providers (Google Only - MVP)
 **Type:** Infrastructure  
 **Priority:** P0  
-**Estimated Time:** 3 hours
+**Estimated Time:** 1 hour (reduced from 3 hours)  
+**Status:** In Progress
 
 **Description:**
-Set up Google, Facebook, and Apple OAuth providers in Auth0.
+Set up Google OAuth for "Continue with Google" functionality. Facebook and Apple Sign In deferred to post-launch.
+
+**MVP Decision:** 
+- ✅ **Google OAuth** - Primary social login for MVP
+- ⏭️ **Facebook** - Deferred to post-launch (Task 1.2b)
+- ⏭️ **Apple Sign In** - Deferred to post-launch (Task 1.2c)
+
+**Important Notes:**
+- Auth0 Callback URL: `https://[your-tenant].us.auth0.com/login/callback`
+- Configure at tenant level (shared across both Dev and Prod applications)
+- Enable for both "Rekindle Development" and "Rekindle Production" applications
+- Start with Auth0 dev keys for speed, upgrade to own OAuth app before production launch
 
 **Subtasks:**
-- [ ] Enable Google OAuth
-  - Create Google OAuth app in Google Cloud Console
-  - Configure OAuth consent screen
-  - Add callback URLs
-  - Copy client ID and secret to Auth0
-- [ ] Enable Facebook OAuth
-  - Create Facebook app
-  - Configure Facebook Login
-  - Add callback URLs
-  - Copy app ID and secret to Auth0
-- [ ] Enable Apple OAuth
-  - Set up Apple developer account
-  - Create Services ID
-  - Configure Sign in with Apple
-  - Add callback URLs
-  - Copy credentials to Auth0
-- [ ] Test each provider with test account
+- [ ] Enable Google OAuth in Auth0
+  - [ ] Navigate to Authentication → Social in Auth0 Dashboard
+  - [ ] Select "Google / Gmail" connection
+  - [ ] Option A: Use Auth0 developer keys (quick setup - shows "Unverified App")
+  - [ ] Enable for both "Rekindle Development" and "Rekindle Production" applications
+  - [ ] Test connection with "Try Connection" button
+  - [ ] Verify email retrieved successfully
+- [ ] Document credentials and setup
+- [ ] (Optional) Create production Google OAuth app:
+  - [ ] Create Google Cloud Project
+  - [ ] Configure OAuth consent screen
+  - [ ] Create OAuth Client ID
+  - [ ] Add callback URL: `https://[your-tenant].us.auth0.com/login/callback`
+  - [ ] Replace Auth0 dev keys with your own credentials
+  - [ ] Test connection again
 
 **Acceptance Criteria:**
-- All three social providers configured
-- Test login successful for each provider
-- Callback URLs correctly set
-- User email retrieved from each provider
+- ✅ Google OAuth configured and active in Auth0 Dashboard
+- ✅ Test login successful (can use Auth0 dev keys for now)
+- ✅ Auth0 callback URL correctly set
+- ✅ User email retrieved from Google
+- ✅ Both Development and Production applications enabled for Google
+- ✅ Connection shows "Active" status in Auth0
+
+**Deferred to Post-Launch:**
+- Facebook Login (Task 1.2b)
+- Apple Sign In (Task 1.2c)
 
 **Resources:**
 - Google: https://auth0.com/docs/connections/social/google
-- Facebook: https://auth0.com/docs/connections/social/facebook
-- Apple: https://auth0.com/docs/connections/social/apple
+- Google Cloud Console: https://console.cloud.google.com/ (for production OAuth app)
 
 ---
 
