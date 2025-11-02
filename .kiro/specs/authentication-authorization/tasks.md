@@ -15,7 +15,8 @@
 
 | Phase | Duration | Tasks | Status |
 |-------|----------|-------|--------|
-| Phase 1: Auth0 Setup | Week 1 | 8 tasks | Not Started |
+| Phase 0: Cleanup Auth0 Setup | Week 1 (Day 1) | 3 tasks | Not Started |
+| Phase 1: Supabase Setup | Week 1 (Day 1-2) | 7 tasks | Not Started |
 | Phase 2: Frontend Auth | Week 2 | 10 tasks | Not Started |
 | Phase 3: Backend Auth | Week 2-3 | 12 tasks | Not Started |
 | Phase 4: User Management | Week 3-4 | 11 tasks | Not Started |
@@ -23,69 +24,136 @@
 | Phase 6: Authorization | Week 5 | 9 tasks | Not Started |
 | Phase 7: Testing & Security | Week 6-7 | 8 tasks | Not Started |
 
-**Total Tasks:** 67  
+**Total Tasks:** 70 (3 cleanup + 67 implementation)  
 **Frontend Tasks:** 28  
 **Backend Tasks:** 30  
-**Infrastructure Tasks:** 9
+**Infrastructure Tasks:** 12 (3 cleanup + 9 setup)
 
 ---
 
-## Phase 1: Auth0 Setup & Configuration
-**Duration:** Week 1 (3-5 days)  
-**Dependencies:** None
+## Phase 0: Cleanup Auth0 Setup
+**Duration:** Day 1 (2-3 hours)  
+**Dependencies:** None  
+**Note:** Clean up completed Auth0 setup before starting Supabase implementation
 
-### Task 1.1: Create Auth0 Tenant
+### Task 0.1: Remove Auth0 Tenant
 **Type:** Infrastructure  
 **Priority:** P0  
-**Estimated Time:** 2 hours  
-**Status:** ✅ COMPLETED
+**Estimated Time:** 30 minutes  
+**Status:** Not Started
 
 **Description:**
-Set up Auth0 account and create tenant with development and production applications.
-
-**Note:** Free tier allows only 1 tenant (25,000 MAU total). Using single-tenant, multiple-application strategy:
-- Single tenant for both dev and prod
-- Separate applications for environment isolation
-- Callback URLs differentiate environments
+Clean up Auth0 tenant and applications that were previously set up.
 
 **Subtasks:**
-- [x] Create Auth0 account at auth0.com
-- [x] Development tenant auto-created (e.g., `dev-xxxxx.us.auth0.com`)
-- [x] Choose region (US - auto-selected)
-- [x] Note down tenant domain
-- [x] Take screenshot of tenant dashboard
-- [x] Verify free tier limits (25,000 MAU, 1 tenant limit confirmed)
-- [x] Create "Rekindle Development" application (Regular Web App)
-- [x] Create "Rekindle Production" application (Regular Web App)
-- [x] Document Client IDs and Secrets for both applications
-- [x] Configure Grant Types (Authorization Code, Refresh Token)
+- [ ] Log into Auth0 Dashboard
+- [ ] Navigate to Applications section
+- [ ] Delete "Rekindle Development" application
+- [ ] Delete "Rekindle Production" application
+- [ ] Navigate to Settings > General
+- [ ] Delete Auth0 tenant (if desired, or keep for reference)
+- [ ] Document any credentials that may be needed for reference
 
 **Acceptance Criteria:**
-- ✅ Auth0 tenant created and accessible
-- ✅ Tenant domain confirmed
-- ✅ Free tier limits verified (25,000 MAU, 1 tenant on free tier)
-- ✅ Development application created with credentials documented
-- ✅ Production application created with credentials documented
-- ✅ Single-tenant strategy documented
+- ✅ All Auth0 applications deleted
+- ✅ Tenant deleted or documented as deprecated
+- ✅ Credentials documented if needed for reference
 
-**Environment Strategy:**
-```
-Tenant: [your-tenant].us.auth0.com (shared)
-├── App 1: Rekindle Development → localhost:3000
-└── App 2: Rekindle Production → rekindle.app
-```
+---
+
+### Task 0.2: Clean Up Auth0 Email Templates
+**Type:** Infrastructure  
+**Priority:** P0  
+**Estimated Time:** 15 minutes  
+**Status:** Not Started
+
+**Description:**
+Remove any Auth0 email template customizations (if keeping tenant, templates will remain but are not used).
+
+**Subtasks:**
+- [ ] (Optional) Document any template content for reference
+- [ ] (Optional) Reset email templates to defaults if tenant is kept
+- [ ] Note: Templates can remain if tenant is kept for reference
+
+**Acceptance Criteria:**
+- ✅ Email template customizations documented if needed
+- ✅ Templates reset to defaults (if tenant kept)
+
+---
+
+### Task 0.3: Clean Up Auth0 Universal Login Configuration
+**Type:** Infrastructure  
+**Priority:** P0  
+**Estimated Time:** 15 minutes  
+**Status:** Not Started
+
+**Description:**
+Remove Auth0 Universal Login customizations (if keeping tenant, configurations will remain but are not used).
+
+**Subtasks:**
+- [ ] (Optional) Document any branding settings for reference
+- [ ] (Optional) Reset Universal Login to defaults if tenant is kept
+- [ ] Note: Configurations can remain if tenant is kept for reference
+
+**Acceptance Criteria:**
+- ✅ Universal Login customizations documented if needed
+- ✅ Configurations reset to defaults (if tenant kept)
+
+---
+
+## Phase 1: Supabase Setup & Configuration
+**Duration:** Week 1 (2-3 days)  
+**Dependencies:** Phase 0 complete
+
+**Note:** This phase replaces the previous Auth0 setup. Supabase provides a simpler, more developer-friendly authentication solution with built-in email template testing.
+
+### Task 1.1: Create Supabase Project
+**Type:** Infrastructure  
+**Priority:** P0  
+**Estimated Time:** 30 minutes  
+**Status:** Not Started
+
+**Description:**
+Set up Supabase account and create project for authentication.
+
+**Note:** Free tier allows 50,000 MAU. Using single project strategy:
+- Single project for both dev and prod (or separate projects)
+- Environment variables differentiate environments
+- Supabase Auth handles all authentication flows
+
+**Subtasks:**
+- [ ] Create Supabase account at supabase.com
+- [ ] Click "New Project"
+- [ ] Fill in project details:
+  - Name: "Rekindle" (or "Rekindle Development")
+  - Database Password: Generate strong password
+  - Region: Choose closest to your users (US East recommended)
+- [ ] Wait for project to provision (2-3 minutes)
+- [ ] Note down project URL (e.g., `https://xxx.supabase.co`)
+- [ ] Navigate to Settings > API
+- [ ] Document API keys:
+  - Project URL
+  - Anon/public key (for frontend)
+  - Service role key (for backend - keep secret!)
+
+**Acceptance Criteria:**
+- ✅ Supabase project created and accessible
+- ✅ Project URL confirmed
+- ✅ Free tier limits verified (50,000 MAU)
+- ✅ API keys documented securely
+- ✅ Project status shows "Active"
 
 **Resources:**
-- Auth0 Docs: https://auth0.com/docs/get-started/auth0-overview/create-tenants
-- Applications: https://auth0.com/docs/get-started/applications
+- Supabase Docs: https://supabase.com/docs/guides/auth
+- Project Setup: https://supabase.com/docs/guides/getting-started
 
 ---
 
 ### Task 1.2: Configure Social Identity Providers (Google Only - MVP)
 **Type:** Infrastructure  
 **Priority:** P0  
-**Estimated Time:** 1 hour (reduced from 3 hours)  
-**Status:** In Progress
+**Estimated Time:** 30 minutes  
+**Status:** Not Started
 
 **Description:**
 Set up Google OAuth for "Continue with Google" functionality. Facebook and Apple Sign In deferred to post-launch.
@@ -96,218 +164,259 @@ Set up Google OAuth for "Continue with Google" functionality. Facebook and Apple
 - ⏭️ **Apple Sign In** - Deferred to post-launch (Task 1.2c)
 
 **Important Notes:**
-- Auth0 Callback URL: `https://[your-tenant].us.auth0.com/login/callback`
-- Configure at tenant level (shared across both Dev and Prod applications)
-- Enable for both "Rekindle Development" and "Rekindle Production" applications
-- Start with Auth0 dev keys for speed, upgrade to own OAuth app before production launch
+- Supabase Callback URL: `https://[project-id].supabase.co/auth/v1/callback`
+- Configure in Supabase Dashboard → Authentication → Providers
+- Much simpler setup than Auth0 - no need for separate apps
 
 **Subtasks:**
-- [ ] Enable Google OAuth in Auth0
-  - [ ] Navigate to Authentication → Social in Auth0 Dashboard
-  - [ ] Select "Google / Gmail" connection
-  - [ ] Option A: Use Auth0 developer keys (quick setup - shows "Unverified App")
-  - [ ] Enable for both "Rekindle Development" and "Rekindle Production" applications
-  - [ ] Test connection with "Try Connection" button
+- [ ] Enable Google OAuth in Supabase
+  - [ ] Navigate to Authentication → Providers in Supabase Dashboard
+  - [ ] Select "Google" provider
+  - [ ] Option A: Use Supabase's built-in Google OAuth (quick setup)
+  - [ ] Option B: Create Google Cloud Project and configure OAuth app:
+    - [ ] Create Google Cloud Project
+    - [ ] Configure OAuth consent screen
+    - [ ] Create OAuth Client ID and Secret
+    - [ ] Add callback URL: `https://[project-id].supabase.co/auth/v1/callback`
+    - [ ] Enter Client ID and Secret in Supabase
+  - [ ] Save configuration
+  - [ ] Test connection with test login
   - [ ] Verify email retrieved successfully
 - [ ] Document credentials and setup
-- [ ] (Optional) Create production Google OAuth app:
-  - [ ] Create Google Cloud Project
-  - [ ] Configure OAuth consent screen
-  - [ ] Create OAuth Client ID
-  - [ ] Add callback URL: `https://[your-tenant].us.auth0.com/login/callback`
-  - [ ] Replace Auth0 dev keys with your own credentials
-  - [ ] Test connection again
 
 **Acceptance Criteria:**
-- ✅ Google OAuth configured and active in Auth0 Dashboard
-- ✅ Test login successful (can use Auth0 dev keys for now)
-- ✅ Auth0 callback URL correctly set
+- ✅ Google OAuth configured and active in Supabase Dashboard
+- ✅ Test login successful
+- ✅ Supabase callback URL correctly set
 - ✅ User email retrieved from Google
-- ✅ Both Development and Production applications enabled for Google
-- ✅ Connection shows "Active" status in Auth0
+- ✅ Provider shows "Enabled" status in Supabase
 
 **Deferred to Post-Launch:**
 - Facebook Login (Task 1.2b)
 - Apple Sign In (Task 1.2c)
 
 **Resources:**
-- Google: https://auth0.com/docs/connections/social/google
-- Google Cloud Console: https://console.cloud.google.com/ (for production OAuth app)
+- Supabase Google OAuth: https://supabase.com/docs/guides/auth/social-login/auth-google
+- Google Cloud Console: https://console.cloud.google.com/
 
 ---
 
 ### Task 1.3: Configure Email Templates
 **Type:** Infrastructure  
 **Priority:** P1  
-**Estimated Time:** 2 hours
+**Estimated Time:** 1 hour
 
 **Description:**
-Customize Auth0 email templates for verification and password reset.
+Customize Supabase email templates for verification and password reset.
+
+**Note:** Supabase allows testing email templates directly in the dashboard without requiring an external email provider (unlike Auth0).
 
 **Subtasks:**
-- [ ] Navigate to Branding > Email Templates
-- [ ] Customize "Verification Email" template
+- [ ] Navigate to Authentication → Email Templates in Supabase Dashboard
+- [ ] Customize "Confirm signup" template
   - Update subject line
   - Update email body
   - Add Rekindle branding
-  - Test with real email
-- [ ] Customize "Change Password" template
+  - Test email template directly in dashboard
+- [ ] Customize "Reset password" template
   - Update subject line
   - Update email body
   - Add Rekindle branding
-  - Test with real email
-- [ ] Customize "Welcome Email" template (optional)
+  - Test email template directly in dashboard
+- [ ] Customize "Magic Link" template (optional)
 - [ ] Configure "From" email address
-- [ ] Set up custom email provider (optional, SendGrid/AWS SES)
+- [ ] Test email delivery with real email address
+- [ ] (Optional for production) Set up custom SMTP provider
 
 **Acceptance Criteria:**
-- Email templates branded with Rekindle look and feel
-- Test emails received successfully
-- All links work correctly
-- Email deliverability tested
+- ✅ Email templates branded with Rekindle look and feel
+- ✅ Test emails can be sent from dashboard (no external provider needed!)
+- ✅ All links work correctly
+- ✅ Email deliverability tested
+- ✅ Templates saved successfully
 
 ---
 
-### Task 1.4: Configure Universal Login
+### Task 1.4: Configure Redirect URLs
 **Type:** Infrastructure  
-**Priority:** P1  
-**Estimated Time:** 2 hours
+**Priority:** P0  
+**Estimated Time:** 15 minutes
 
 **Description:**
-Customize Auth0 Universal Login page to match Rekindle branding.
+Configure allowed redirect URLs for Supabase authentication.
+
+**Note:** Supabase doesn't require a hosted login page like Auth0. We'll build our own login UI, but need to configure allowed redirect URLs.
 
 **Subtasks:**
-- [ ] Navigate to Branding > Universal Login
-- [ ] Choose "New Universal Login Experience"
-- [ ] Customize colors (primary, background)
-- [ ] Upload Rekindle logo
-- [ ] Customize page layout
-- [ ] Add "Remember me" checkbox
-- [ ] Test login page appearance
-- [ ] Test on mobile devices
+- [ ] Navigate to Authentication → URL Configuration in Supabase Dashboard
+- [ ] Add Site URL:
+  - Development: `http://localhost:3000`
+  - Production: `https://rekindle.app`
+- [ ] Add Redirect URLs:
+  - Development: `http://localhost:3000/auth/callback`
+  - Production: `https://rekindle.app/auth/callback`
+  - Development: `http://localhost:3000/**`
+  - Production: `https://rekindle.app/**`
+- [ ] Save configuration
+- [ ] Test redirect flow
 
 **Acceptance Criteria:**
-- Login page matches Rekindle brand
-- Mobile responsive
-- All social login buttons visible
-- Clear error messages
+- ✅ Site URL configured for both environments
+- ✅ Redirect URLs configured correctly
+- ✅ Redirects work properly
+- ✅ Configuration saved
 
 ---
 
-### Task 1.5: Configure JWT Settings
+### Task 1.5: Configure JWT and Session Settings
 **Type:** Infrastructure  
 **Priority:** P0  
 **Estimated Time:** 1 hour
 
 **Description:**
-Configure JWT token settings for API authentication.
+Configure JWT token and session settings for Supabase authentication.
+
+**What is a JWT and why do we need this?**
+- JWT (JSON Web Token) is a secure way for your frontend to authenticate API requests to your backend
+- When a user logs in via Supabase, they get a JWT token that proves their identity
+- Your backend needs to verify this token is valid before allowing access to protected routes
+- Supabase automatically generates JWTs - we just need to configure token expiration and session settings
+
+**Step-by-Step Instructions:**
+
+**Step 1: Navigate to Authentication Settings**
+1. Log into your Supabase Dashboard: https://app.supabase.com
+2. Select your Rekindle project
+3. Navigate to Authentication → Settings
+
+**Step 2: Configure JWT Settings**
+1. Scroll down to "JWT Settings" section
+2. Configure the following:
+
+**JWT Expiration:**
+- Set to `3600` seconds (1 hour)
+- **Why 1 hour?** Tokens expire for security - if someone steals a token, it won't work forever. 1 hour is a good balance between security and user experience.
+
+**JWT Secret:**
+- Supabase automatically generates a JWT secret
+- **Important:** Never share this secret publicly
+- This is used to sign and verify JWT tokens
+
+**Step 3: Configure Session Settings**
+1. Scroll to "Session Settings" section
+2. Configure the following:
+
+**Session Duration:**
+- Default: `3600` seconds (1 hour)
+- This matches JWT expiration for consistency
+
+**Refresh Token Rotation:**
+- Enable refresh token rotation (recommended for security)
+- This automatically rotates refresh tokens when used
+
+**Step 4: Document Important Values**
+Create a note with these values (you'll need them later):
+
+```
+Supabase Configuration:
+- Project URL: https://[project-id].supabase.co
+- JWKS URL: https://[project-id].supabase.co/.well-known/jwks.json
+- Token Expiration: 3600 seconds (1 hour)
+- Signing Algorithm: RS256 (default)
+- Anon Key: [from Settings > API]
+- Service Role Key: [from Settings > API - keep secret!]
+```
+
+**Note on JWT Verification:**
+- Supabase automatically uses RS256 for JWT signing
+- Your backend will verify tokens using the JWKS URL
+- JWKS URL format: `https://[project-id].supabase.co/.well-known/jwks.json`
+- We'll configure the backend to verify tokens in Task 3.4
 
 **Subtasks:**
-- [ ] Navigate to Applications > APIs
-- [ ] Create API: "Rekindle Backend API"
-- [ ] Set identifier: `https://api.rekindle.app`
-- [ ] Configure token expiration: 1 hour
-- [ ] Enable RS256 signing algorithm
-- [ ] Add custom claims (if needed)
-- [ ] Test JWT generation
-- [ ] Download JWKS for verification
+- [ ] Navigate to Authentication → Settings in Supabase Dashboard
+- [ ] Review JWT Settings (default is usually correct)
+- [ ] Set JWT Expiration to 3600 seconds (1 hour)
+- [ ] Review Session Settings
+- [ ] Enable refresh token rotation
+- [ ] Document JWKS URL (format: `https://[project-id].supabase.co/.well-known/jwks.json`)
+- [ ] Document Project URL
+- [ ] Verify all settings saved
 
 **Acceptance Criteria:**
-- API created in Auth0
-- JWT tokens generated with correct audience
-- Token expiration set to 1 hour
-- JWKS URL accessible
+- ✅ JWT expiration set to 3600 seconds (1 hour)
+- ✅ Session duration configured
+- ✅ Refresh token rotation enabled
+- ✅ JWKS URL documented (for backend use)
+- ✅ Project URL documented
+- ✅ Settings saved successfully
 
 ---
 
 ### Task 1.6: Set Up Webhooks
 **Type:** Infrastructure  
 **Priority:** P1  
-**Estimated Time:** 1 hour
+**Estimated Time:** 30 minutes
 
 **Description:**
-Configure Auth0 webhooks to sync user events to backend.
+Configure Supabase webhooks to sync user events to backend.
 
 **Subtasks:**
-- [ ] Navigate to Monitoring > Streams
-- [ ] Create new webhook stream
-- [ ] Set endpoint: `https://api.rekindle.app/api/webhooks/auth0`
+- [ ] Navigate to Database > Webhooks in Supabase Dashboard
+- [ ] Click "Create a new webhook"
+- [ ] Set endpoint: `https://api.rekindle.app/api/webhooks/supabase`
+- [ ] Select table: `auth.users`
 - [ ] Select events to subscribe:
-  - user.created
-  - user.updated
-  - user.deleted
-  - session.created (optional)
-  - session.ended (optional)
+  - INSERT (user.created)
+  - UPDATE (user.updated)
+  - DELETE (user.deleted)
 - [ ] Generate webhook secret
 - [ ] Save webhook secret to environment variables
 - [ ] Test webhook delivery (once backend is ready)
 
 **Acceptance Criteria:**
-- Webhook stream configured
-- Correct events subscribed
-- Webhook secret generated and stored
-- Endpoint URL set correctly
+- ✅ Webhook configured in Supabase
+- ✅ Correct events subscribed (INSERT, UPDATE, DELETE)
+- ✅ Webhook secret generated and stored securely
+- ✅ Endpoint URL set correctly
 
 ---
 
 ### Task 1.7: Configure Security Settings
 **Type:** Infrastructure  
 **Priority:** P0  
-**Estimated Time:** 2 hours
-
-**Description:**
-Configure security settings including brute force protection and MFA.
-
-**Subtasks:**
-- [ ] Navigate to Security > Attack Protection
-- [ ] Enable Brute Force Protection
-  - Set max attempts: 5
-  - Set block duration: 15 minutes
-- [ ] Enable Breached Password Detection (free tier)
-- [ ] Configure MFA (optional for MVP)
-  - Enable authenticator apps
-  - Enable SMS (paid, later)
-  - Generate backup codes
-- [ ] Set session timeouts:
-  - Inactivity timeout: 7 days
-  - Absolute timeout: 30 days
-- [ ] Review and accept Auth0 security recommendations
-
-**Acceptance Criteria:**
-- Brute force protection enabled
-- Account lockout after 5 failed attempts
-- Breached passwords blocked
-- Session timeouts configured
-
----
-
-### Task 1.8: Configure Allowed URLs
-**Type:** Infrastructure  
-**Priority:** P0  
 **Estimated Time:** 30 minutes
 
 **Description:**
-Configure allowed callback URLs, logout URLs, and web origins.
+Configure security settings including rate limiting and MFA.
 
 **Subtasks:**
-- [ ] Navigate to Applications > Rekindle App
-- [ ] Add Allowed Callback URLs:
-  - http://localhost:3000/api/auth/callback (dev)
-  - https://rekindle.app/api/auth/callback (prod)
-- [ ] Add Allowed Logout URLs:
-  - http://localhost:3000 (dev)
-  - https://rekindle.app (prod)
-- [ ] Add Allowed Web Origins:
-  - http://localhost:3000 (dev)
-  - https://rekindle.app (prod)
-- [ ] Save settings
-- [ ] Test redirect flows
+- [ ] Navigate to Authentication → Settings in Supabase Dashboard
+- [ ] Review Security Settings section
+- [ ] Configure Rate Limiting:
+  - Enable rate limiting (default is usually sufficient)
+  - Set max attempts: 5 per minute (or use defaults)
+- [ ] Configure MFA (optional for MVP):
+  - Enable TOTP (Time-based One-Time Password)
+  - Can be enabled later if needed
+- [ ] Review Session Settings:
+  - Session duration: 3600 seconds (1 hour) - already configured
+  - Refresh token rotation: Enabled - already configured
+- [ ] Review Password Settings:
+  - Password minimum length: 8 characters (default)
+  - Password requirements: Enable complexity rules
 
 **Acceptance Criteria:**
-- All URLs configured correctly
-- Dev and prod environments work
-- Redirects function properly
-- CORS errors resolved
+- ✅ Rate limiting configured
+- ✅ Session settings reviewed and confirmed
+- ✅ Password requirements set
+- ✅ Security settings saved
+
+---
+
+**Note:** This task was already covered in Task 1.4: Configure Redirect URLs. Task 1.8 is not needed for Supabase as redirect URLs are configured in Task 1.4.
+
+**Task 1.8 is merged into Task 1.4: Configure Redirect URLs.**
 
 ---
 

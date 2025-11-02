@@ -22,11 +22,11 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Next.js Frontend (Port 3000)                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │ Auth0 Next.js SDK (@auth0/nextjs-auth0)                  │   │
-│  │  • <Auth0Provider /> - Wraps app                         │   │
-│  │  • useUser() - Get current user                          │   │
+│  │ Supabase Auth SDK (@supabase/supabase-js)                │   │
+│  │  • Supabase client - Authentication service              │   │
+│  │  • useAuth() hook - Get current user                    │   │
 │  │  • getSession() - Get server-side session                │   │
-│  │  • withPageAuthRequired() - Protect pages                │   │
+│  │  • Protected routes middleware                          │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                             │                                    │
 │                             ▼                                    │
@@ -44,7 +44,7 @@
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │ JWT Middleware (app/api/deps.py)                         │   │
 │  │  • Verify JWT signature                                  │   │
-│  │  • Extract Auth0 user ID                                 │   │
+│  │  • Extract Supabase user ID                              │   │
 │  │  • Fetch user from database                              │   │
 │  │  • Inject User object into request                       │   │
 │  └──────────────────────────────────────────────────────────┘   │
@@ -68,7 +68,7 @@
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Auth0 Service                                 │
+│                    Supabase Auth Service                          │
 │  • User authentication                                           │
 │  • Social OAuth providers                                        │
 │  • Email verification                                            │
@@ -91,7 +91,7 @@
 CREATE TABLE users (
     -- Core Identity
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    auth0_user_id VARCHAR(255) UNIQUE NOT NULL,
+    supabase_user_id VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     email_verified BOOLEAN DEFAULT FALSE,
     
@@ -127,12 +127,12 @@ CREATE TABLE users (
     last_login_at TIMESTAMP WITH TIME ZONE,
     
     -- Indexes
-    CONSTRAINT unique_auth0_id UNIQUE (auth0_user_id),
+    CONSTRAINT unique_supabase_id UNIQUE (supabase_user_id),
     CONSTRAINT unique_email UNIQUE (email)
 );
 
 -- Indexes for performance
-CREATE INDEX idx_users_auth0_id ON users(auth0_user_id);
+CREATE INDEX idx_users_supabase_id ON users(supabase_user_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_tier ON users(subscription_tier);
 CREATE INDEX idx_users_stripe_customer ON users(stripe_customer_id);
@@ -176,7 +176,7 @@ class User(Base):
 
     # Core Identity
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    auth0_user_id = Column(String(255), unique=True, nullable=False, index=True)
+    supabase_user_id = Column(String(255), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     email_verified = Column(Boolean, default=False)
 
@@ -268,7 +268,7 @@ export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'paused';
 export interface User {
   // Core Identity
   id: string;
-  auth0UserId: string;
+  supabaseUserId: string;
   email: string;
   emailVerified: boolean;
 
@@ -407,8 +407,8 @@ async def sync_user(
     db: Session = Depends(get_db),
 ):
     """
-    Sync user from Auth0 to backend database.
-    Called by frontend after Auth0 signup or via webhook.
+    Sync user from Supabase to backend database.
+    Called by frontend after Supabase signup or via webhook.
     """
     pass
 
@@ -448,15 +448,15 @@ async def export_user_data(
 #### Webhook Endpoints
 
 ```python
-# backend/app/api/webhooks/auth0.py
+# backend/app/api/webhooks/supabase.py
 
-@router.post("/webhooks/auth0")
-async def handle_auth0_webhook(
+@router.post("/webhooks/supabase")
+async def handle_supabase_webhook(
     request: Request,
     db: Session = Depends(get_db),
 ):
     """
-    Handle Auth0 webhook events:
+    Handle Supabase webhook events:
     - user.created
     - user.updated
     - user.deleted
@@ -589,7 +589,7 @@ async def biometric_authentication(
 # backend/app/schemas/user.py
 
 class UserSyncRequest(BaseModel):
-    auth0_user_id: str
+    supabase_user_id: str
     email: EmailStr
     first_name: str | None = None
     last_name: str | None = None
@@ -626,7 +626,7 @@ class UserUpdateRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: UUID
-    auth0_user_id: str
+    supabase_user_id: str
     email: EmailStr
     email_verified: bool
     first_name: str | None
@@ -666,21 +666,21 @@ class UserResponse(BaseModel):
 
 1. User visits /sign-up page
    ↓
-2. Next.js renders Auth0 signup UI
+2. Next.js renders Supabase signup UI
    ↓
 3. User enters email + password OR clicks social login
    ↓
-4. Auth0 creates user account
+4. Supabase creates user account
    ↓
-5. Auth0 sends verification email
+5. Supabase sends verification email
    ↓
 6. User clicks verification link
    ↓
-7. Auth0 marks email as verified
+7. Supabase marks email as verified
    ↓
-8. Auth0 redirects back to /api/auth/callback
+8. Supabase redirects back to callback URL
    ↓
-9. Next.js Auth0 SDK creates session
+9. Next.js Supabase SDK creates session
    ↓
 10. Next.js stores JWT in secure httpOnly cookie
    ↓
@@ -709,17 +709,17 @@ class UserResponse(BaseModel):
 
 1. User visits /sign-in page
    ↓
-2. Next.js renders Auth0 login UI
+2. Next.js renders Supabase login UI
    ↓
 3. User enters credentials OR clicks social login
    ↓
-4. Auth0 verifies credentials
+4. Supabase verifies credentials
    ↓
-5. Auth0 creates session + generates JWT
+5. Supabase creates session + generates JWT
    ↓
-6. Auth0 redirects to /api/auth/callback
+6. Supabase redirects to callback URL
    ↓
-7. Next.js Auth0 SDK validates callback
+7. Next.js Supabase SDK validates callback
    ↓
 8. Next.js stores JWT in secure httpOnly cookie
    ↓
@@ -727,7 +727,7 @@ class UserResponse(BaseModel):
    ↓
 10. Backend:
     - Verifies JWT signature
-    - Extracts auth0_user_id from token
+    - Extracts supabase_user_id from token
     - Fetches user from database
     - Updates last_login_at
     - Returns user profile
@@ -754,12 +754,12 @@ class UserResponse(BaseModel):
    ↓
 5. JWT Middleware (deps.py):
    - Extract JWT from Authorization header
-   - Verify JWT signature using Auth0 public keys
+   - Verify JWT signature using Supabase public keys
    - Check JWT expiration
-   - Extract auth0_user_id from JWT payload
+   - Extract supabase_user_id from JWT payload
    ↓
 6. Fetch user from database:
-   - Query: SELECT * FROM users WHERE auth0_user_id = ?
+   - Query: SELECT * FROM users WHERE supabase_user_id = ?
    - Check account_status = 'active'
    ↓
 7. Inject User object into request context
@@ -786,11 +786,11 @@ class UserResponse(BaseModel):
    ↓
 3. IF token expires in <5 minutes:
    ↓
-4. Frontend calls Auth0 SDK refresh method
+4. Frontend calls Supabase SDK refresh method
    ↓
-5. Auth0 SDK uses refresh token to get new JWT
+5. Supabase SDK uses refresh token to get new JWT
    ↓
-6. Auth0 issues new JWT (1-hour lifetime)
+6. Supabase issues new JWT (1-hour lifetime)
    ↓
 7. Next.js updates session cookie with new JWT
    ↓
@@ -831,7 +831,7 @@ MOBILE SESSION - SCENARIO A: User already logged in
    ↓
 8a. Opens: https://rekindle.app/upload?token=abc123
    ↓
-9a. Frontend detects Auth0 session exists
+9a. Frontend detects Supabase session exists
    ↓
 10a. Frontend calls GET /api/v1/sessions/qr-token/abc123
    ↓
@@ -851,7 +851,7 @@ MOBILE SESSION - SCENARIO B: User NOT logged in
    ↓
 8b. Opens: https://rekindle.app/upload?token=abc123
    ↓
-9b. Frontend detects NO Auth0 session
+9b. Frontend detects NO Supabase session
    ↓
 10b. Check if biometric authentication available:
    - iOS: Check Face ID / Touch ID
@@ -892,12 +892,12 @@ MOBILE SESSION - SCENARIO B: User NOT logged in
 
 14c. ON FAILURE (biometric rejected, 3 attempts):
    - Show "Unable to verify. Please sign in."
-   - Redirect to Auth0 login: /api/auth/login?returnTo=/upload?token=abc123
-   - After Auth0 login, return to upload page
+   - Redirect to Supabase login with return URL
+   - After Supabase login, return to upload page
    ↓
 15c. IF biometric NOT available:
-   - Redirect to Auth0 login immediately
-   - After Auth0 login, return to upload page
+   - Redirect to Supabase login immediately
+   - After Supabase login, return to upload page
 
 
 UPLOAD COMPLETION (Both scenarios converge here)
@@ -923,7 +923,7 @@ ERROR SCENARIOS
 - Token expired (>5 minutes): Show "QR code expired. Please try again."
 - Token already used: Show "QR code already used. Generate a new one."
 - User mismatch: Show "This QR code belongs to a different account."
-- Biometric failure (3x): Fallback to Auth0 login
+- Biometric failure (3x): Fallback to Supabase login
 - WebSocket disconnect: Fallback to polling (every 2 seconds)
 ```
 
@@ -1317,7 +1317,7 @@ export default function MobileUploadPage({
         setBiometricAvailable(true);
         setShowBiometricPrompt(true);
       } else {
-        // Fallback to Auth0 login
+        // Fallback to Supabase login
         window.location.href = `/api/auth/login?returnTo=/upload?token=${token}`;
       }
     };
@@ -1381,12 +1381,12 @@ export default function MobileUploadPage({
     "kid": "ins_..."
   },
   "payload": {
-    "sub": "auth0|abc123...",
+    "sub": "abc123...",  // Supabase user UUID
     "email": "user@example.com",
     "email_verified": true,
     "iat": 1729533600,
     "exp": 1729537200,
-    "iss": "https://rekindle.auth0.com",
+    "iss": "https://xxx.supabase.co/auth/v1",
     "aud": "https://api.rekindle.app"
   },
   "signature": "..."
@@ -1396,13 +1396,13 @@ export default function MobileUploadPage({
 ### Session Cookie Configuration
 
 ```typescript
-// Next.js Auth0 configuration
-export const authConfig = {
-  secret: process.env.AUTH0_SECRET,
-  baseURL: process.env.AUTH0_BASE_URL,
-  issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
-  clientID: process.env.AUTH0_CLIENT_ID,
-  clientSecret: process.env.AUTH0_CLIENT_SECRET,
+// Supabase client configuration
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
   session: {
     cookie: {
       httpOnly: true,      // Prevent XSS
@@ -1450,24 +1450,17 @@ async def upload_photo(request: Request, ...):
 
 ## Frontend Implementation
 
-### Auth0 Provider Setup
+### Supabase Auth Setup
 
 ```typescript
-// frontend/src/app/layout.tsx
+// frontend/src/lib/supabase.ts
 
-import { UserProvider } from '@auth0/nextjs-auth0/client';
+import { createClient } from '@supabase/supabase-js';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>
-        <UserProvider>
-          {children}
-        </UserProvider>
-      </body>
-    </html>
-  );
-}
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 ```
 
 ### Protected Routes Middleware
@@ -1475,9 +1468,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```typescript
 // frontend/src/middleware.ts
 
-import { withMiddlewareAuthRequired } from '@auth0/nextjs-auth0/edge';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse } from 'next/server';
 
-export default withMiddlewareAuthRequired();
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/sign-in', req.url));
+  }
+  
+  return res;
+}
 
 export const config = {
   matcher: [

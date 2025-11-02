@@ -4,24 +4,24 @@
 
 **Created:** October 21, 2025  
 **Status:** Approved  
-**Decision:** Auth0 (25,000 MAU free tier confirmed)  
+**Decision:** Supabase Auth (50,000 MAU free tier)  
 **Priority:** P0 - Critical for MVP launch
 
 ---
 
 ## Executive Summary
 
-Implement user authentication and authorization system using Auth0 to enable:
+Implement user authentication and authorization system using Supabase Auth to enable:
 - User registration and login (email/password + social)
 - Session management with JWT tokens
 - Tier-based access control (Free, Remember, Cherish, Forever)
 - Credit-based feature gating
 - User profile and account management
 
-**Key Decision:** Auth0 selected over Clerk, AWS Cognito, Supabase
-- **Reason:** 25,000 MAU free tier covers entire MVP phase ($0 cost)
-- **Trade-off:** 5-7 day implementation vs 2-3 days (Clerk)
-- **Benefit:** Trusted brand for 30-60 y/o demographic, enterprise security
+**Key Decision:** Supabase Auth selected for authentication
+- **Reason:** 50,000 MAU free tier covers entire MVP phase ($0 cost)
+- **Benefit:** Modern developer experience, built-in email template testing, lower cost at scale
+- **Architecture:** Supabase Auth standalone (no database or storage migration required)
 
 ---
 
@@ -79,7 +79,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 - User can login with email and password
 - Support "Remember me" functionality
 - Display clear error for incorrect credentials
-- Lock account after 5 failed attempts (Auth0 handles)
+- Lock account after 5 failed attempts (Supabase handles)
 - Support password reset flow
 
 **FR-2.2: Social Login**
@@ -148,7 +148,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 - QR code contains one-time token (5-minute expiry)
 - Mobile user scans QR code to open upload page
 
-**IF mobile user already logged in (Auth0 session exists):**
+**IF mobile user already logged in (Supabase session exists):**
 - Validate token and proceed to upload instantly (zero friction)
 
 **IF mobile user NOT logged in:**
@@ -156,7 +156,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 - Prompt for biometric authentication (Face ID / Touch ID / Fingerprint)
 - On biometric success: Create temporary session (1-hour lifetime)
 - On biometric failure: Show error, allow retry (3 attempts)
-- On biometric unavailable: Fallback to Auth0 login flow
+- On biometric unavailable: Fallback to Supabase login flow
 - After authentication: Validate token and proceed to upload
 
 **General:**
@@ -193,7 +193,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 **FR-6.1: Password Reset**
 - User can request password reset via email
-- Auth0 sends reset link (valid 24 hours)
+- Supabase sends reset link (valid 24 hours)
 - User creates new password
 - Invalidate all sessions after password change
 - Send confirmation email
@@ -211,7 +211,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 - Send verification email on registration
 - Provide "Resend verification" option
 - Mark account as verified after confirmation
-- Limit features until verified (Auth0 handles)
+- Limit features until verified (Supabase handles)
 
 **FR-7.2: Email Change Verification**
 - Send verification to new email address
@@ -240,7 +240,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 **NFR-1.1: Data Protection**
 - All communication over HTTPS/TLS 1.3
-- Passwords hashed with bcrypt (Auth0 handles)
+- Passwords hashed with bcrypt (Supabase handles)
 - JWT tokens signed with RS256
 - Session cookies: httpOnly, secure, sameSite=lax
 - User data encrypted at rest (PostgreSQL)
@@ -275,8 +275,8 @@ Implement user authentication and authorization system using Auth0 to enable:
 - Permission check: <50ms
 
 **NFR-2.2: Availability**
-- 99.9% uptime (Auth0 SLA)
-- Graceful degradation if Auth0 unavailable
+- 99.9% uptime (Supabase SLA)
+- Graceful degradation if Supabase unavailable
 - Queue authentication during outages
 - Display clear status messages
 
@@ -305,14 +305,14 @@ Implement user authentication and authorization system using Auth0 to enable:
 ### NFR-4: Reliability
 
 **NFR-4.1: Error Handling**
-- Graceful handling of Auth0 errors
+- Graceful handling of Supabase errors
 - Retry logic for transient failures
 - Fallback messaging when services unavailable
 - User-friendly error messages
 - Comprehensive error logging
 
 **NFR-4.2: Data Consistency**
-- User data synced between Auth0 and backend
+- User data synced between Supabase and backend
 - Credit deductions are atomic
 - Session state consistent across devices
 - Handle race conditions in credit usage
@@ -331,25 +331,25 @@ Implement user authentication and authorization system using Auth0 to enable:
 - Track failed login attempts
 - Monitor JWT verification failures
 - Alert on unusual patterns
-- Track Auth0 API usage
+- Track Supabase API usage
 
 ---
 
 ## Technical Constraints
 
 ### TC-1: Authentication Provider
-- **Must use:** Auth0 for authentication
-- **Reason:** 25,000 MAU free tier, enterprise security
+- **Must use:** Supabase Auth for authentication
+- **Reason:** 50,000 MAU free tier, modern developer experience
 - **Limitation:** Vendor lock-in, complex dashboard
 
 ### TC-2: Tech Stack
 - **Frontend:** Next.js 14 with App Router
 - **Backend:** FastAPI with Python 3.11+
 - **Database:** PostgreSQL for user data
-- **Session:** JWT tokens via Auth0
+- **Session:** JWT tokens via Supabase Auth
 
 ### TC-3: Integration Points
-- **Auth0 APIs:** User management, authentication
+- **Supabase APIs:** User management, authentication
 - **Stripe:** Subscription and payment sync
 - **Backend API:** User profile, credits, permissions
 - **Frontend:** React components, hooks, middleware
@@ -441,33 +441,33 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 ## Integration Requirements
 
-### INT-1: Auth0 Integration
+### INT-1: Supabase Auth Integration
 
 **INT-1.1: Configuration**
-- Set up Auth0 tenant
+- Set up Supabase project
 - Configure social identity providers (Google, Facebook, Apple)
 - Set up email templates (verification, password reset)
 - Configure JWT token settings
 - Set up webhook endpoints
 
 **INT-1.2: Frontend Integration**
-- Install `@auth0/nextjs` SDK
-- Configure Auth0Provider
-- Implement protected routes middleware
+- Install `@supabase/supabase-js` SDK
+- Create Supabase client instance
+- Implement auth hooks and context
 - Create sign-in/sign-up components
 - Handle OAuth callbacks
 
 **INT-1.3: Backend Integration**
-- Verify JWT tokens from Auth0
+- Verify JWT tokens from Supabase
 - Validate token signatures
 - Extract user ID from JWT
 - Handle token expiration
-- Sync users from Auth0 webhooks
+- Sync users from Supabase webhooks
 
 ### INT-2: Backend API Integration
 
 **INT-2.1: User Management**
-- `POST /api/v1/users/sync` - Create user from Auth0
+- `POST /api/v1/users/sync` - Create user from Supabase
 - `GET /api/v1/users/me` - Get current user profile
 - `PUT /api/v1/users/me` - Update user profile
 - `DELETE /api/v1/users/me` - Request account deletion
@@ -481,7 +481,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 - Update last_login_at timestamp
 
 **INT-2.3: Webhooks**
-- `POST /api/webhooks/auth0` - Handle Auth0 events
+- `POST /api/webhooks/supabase` - Handle Supabase events
   - `user.created` - Create user in database
   - `user.updated` - Update user in database
   - `user.deleted` - Mark user as deleted
@@ -528,7 +528,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 **DR-1.1: Required Fields**
 - User ID (UUID, primary key)
-- Auth0 User ID (unique, indexed)
+- Supabase User ID (unique, indexed)
 - Email (unique, indexed)
 - Email verified (boolean)
 - First name
@@ -574,7 +574,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 ## Security Requirements
 
 ### SEC-1: Authentication Security
-- Passwords hashed with bcrypt (Auth0)
+- Passwords hashed with bcrypt (Supabase)
 - JWT tokens signed with RS256
 - Token expiration: 1 hour
 - Refresh token rotation
@@ -656,7 +656,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 ## Migration & Rollout
 
 ### Phase 1: Development (Week 1-2)
-- Set up Auth0 tenant
+- Set up Supabase project
 - Configure social providers
 - Implement frontend auth flow
 - Implement backend JWT verification
@@ -695,25 +695,25 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 ## Risks & Mitigations
 
-### Risk 1: Auth0 Outage
+### Risk 1: Supabase Outage
 - **Impact:** Users cannot login
 - **Probability:** Low (99.9% SLA)
 - **Mitigation:** Queue requests, clear error messages, status page
 
-### Risk 2: Auth0 Cost Overrun
-- **Impact:** Unexpected costs if exceeding 25K MAU
+### Risk 2: Supabase Cost Overrun
+- **Impact:** Unexpected costs if exceeding 50K MAU
 - **Probability:** Medium
-- **Mitigation:** Monitor MAU daily, alerts at 20K, plan for upgrade
+- **Mitigation:** Monitor MAU daily, alerts at 45K, plan for upgrade
 
 ### Risk 3: Security Vulnerability
 - **Impact:** User data breach
-- **Probability:** Low (using Auth0)
+- **Probability:** Low (using Supabase)
 - **Mitigation:** Regular security audits, penetration testing, monitoring
 
 ### Risk 4: Complex Setup
 - **Impact:** Delayed launch
 - **Probability:** Medium
-- **Mitigation:** 5-7 day buffer, Auth0 documentation, community support
+- **Mitigation:** 5-7 day buffer, Supabase documentation, community support
 
 ### Risk 5: User Adoption
 - **Impact:** Low signups
@@ -724,7 +724,7 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 ## Open Questions
 
-1. ✅ **RESOLVED:** Auth0 free tier limit? **Answer:** 25,000 MAU confirmed
+1. ✅ **RESOLVED:** Supabase free tier limit? **Answer:** 50,000 MAU confirmed
 2. **PENDING:** Should we implement MFA in MVP or defer to Phase 2?
 3. **PENDING:** What login methods to prioritize? (Email first? Social first?)
 4. **PENDING:** Account deletion: immediate or grace period? **Recommendation:** 30-day grace
@@ -757,37 +757,35 @@ Implement user authentication and authorization system using Auth0 to enable:
 
 ## Appendix
 
-### A. Auth0 Configuration Checklist
-- [ ] Create Auth0 tenant
+### A. Supabase Configuration Checklist
+- [ ] Create Supabase project
 - [ ] Configure Google OAuth
 - [ ] Configure Facebook OAuth
 - [ ] Configure Apple OAuth
-- [ ] Set up email templates
+- [ ] Set up email templates (testable in dashboard)
 - [ ] Configure JWT settings
 - [ ] Set up webhook URLs
 - [ ] Configure allowed callback URLs
 - [ ] Configure allowed logout URLs
 - [ ] Set session timeout
-- [ ] Enable breached password detection (paid)
+- [ ] Enable MFA (TOTP) if needed
 
 ### B. Environment Variables
 ```bash
 # Frontend
-NEXT_PUBLIC_AUTH0_DOMAIN=xxx.auth0.com
-NEXT_PUBLIC_AUTH0_CLIENT_ID=xxx
-AUTH0_SECRET=xxx
-AUTH0_BASE_URL=https://rekindle.app
-AUTH0_ISSUER_BASE_URL=https://xxx.auth0.com
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
 
 # Backend
-AUTH0_DOMAIN=xxx.auth0.com
-AUTH0_AUDIENCE=https://api.rekindle.app
-AUTH0_WEBHOOK_SECRET=xxx
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=xxx
+SUPABASE_SERVICE_KEY=xxx  # Backend only, keep secret!
+SUPABASE_WEBHOOK_SECRET=xxx
 ```
 
 ### C. Reference Documents
-- Auth0 Documentation: https://auth0.com/docs
-- Next.js Auth0 SDK: https://github.com/auth0/nextjs-auth0
+- Supabase Auth Documentation: https://supabase.com/docs/guides/auth
+- Supabase JS Client: https://supabase.com/docs/reference/javascript/auth-api
 - JWT Best Practices: https://tools.ietf.org/html/rfc8725
 - OWASP Auth Cheatsheet: https://cheatsheetseries.owasp.org
 
