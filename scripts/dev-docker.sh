@@ -27,6 +27,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# Check if Supabase CLI is installed
+if ! command -v supabase &> /dev/null; then
+    echo "❌ Supabase CLI is not installed!"
+    echo ""
+    echo "Please install it using one of the following:"
+    echo "  macOS:   brew install supabase/tap/supabase"
+    echo "  Linux:   See https://supabase.com/docs/guides/cli/getting-started"
+    echo "  Windows: See https://supabase.com/docs/guides/cli/getting-started"
+    echo ""
+    echo "Or visit: https://supabase.com/docs/guides/cli/getting-started"
+    exit 1
+fi
+
 # Auto-handle .venv conflicts with fallback logic
 if [ -d "backend/.venv" ]; then
     echo "⚠️  Local .venv detected - will auto-remove if needed"
@@ -76,6 +89,69 @@ else
     
     PROTOCOL="http"
     MODE_DESC="HTTP (Standard Development)"
+fi
+
+# Start Supabase if not already running
+echo "🔐 Starting Supabase..."
+if supabase status >/dev/null 2>&1; then
+    echo "✅ Supabase is already running"
+else
+    echo "🚀 Starting local Supabase instance..."
+    SUPABASE_OUTPUT=$(supabase start 2>&1)
+    if [ $? -ne 0 ]; then
+        echo "❌ Failed to start Supabase"
+        echo "$SUPABASE_OUTPUT"
+        exit 1
+    fi
+    echo "✅ Supabase started successfully"
+fi
+
+# Wait for Supabase to be ready
+echo "⏳ Waiting for Supabase to be ready..."
+for i in {1..30}; do
+    if curl -s http://localhost:54321/rest/v1/ > /dev/null 2>&1; then
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "⚠️  Supabase may not be fully ready, but continuing..."
+    fi
+    sleep 1
+done
+
+# Extract Supabase credentials and set environment variables
+# Use host.docker.internal for containers to access host services
+SUPABASE_URL="http://localhost:54321"
+SUPABASE_URL_FOR_CONTAINERS="http://host.docker.internal:54321"
+
+# Try to extract keys from supabase status output
+# First try JSON output, then fallback to parsing text output
+if command -v jq &> /dev/null && supabase status --output json >/dev/null 2>&1; then
+    SUPABASE_ANON_KEY=$(supabase status --output json 2>/dev/null | jq -r '.DB.APIKeys.anon' 2>/dev/null || echo "")
+    SUPABASE_SERVICE_KEY=$(supabase status --output json 2>/dev/null | jq -r '.DB.APIKeys.service_role' 2>/dev/null || echo "")
+else
+    # Fallback: parse from text output
+    STATUS_OUTPUT=$(supabase status 2>/dev/null || echo "")
+    SUPABASE_ANON_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'anon key:\s+\K[^\s]+' | head -1 || echo "")
+    SUPABASE_SERVICE_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'service_role key:\s+\K[^\s]+' | head -1 || echo "")
+fi
+
+# Export Supabase environment variables for use in Docker containers
+export SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
+export SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY"
+
+# Also set frontend environment variables (containers access via host.docker.internal)
+export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
+export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
+    echo "✅ Supabase environment variables configured"
+    echo "   API URL: $SUPABASE_URL"
+    echo "   Studio URL: http://localhost:54323"
+else
+    echo "⚠️  Could not extract Supabase keys automatically"
+    echo "   You may need to set them manually in your .env files"
+    echo "   Run 'supabase status' to see the keys"
 fi
 
 # Stop any existing containers
@@ -163,9 +239,13 @@ if [ "$HTTPS_MODE" = true ]; then
     echo "📱 Mobile: https://$LOCAL_IP:3000 (same WiFi network)"
 fi
 echo ""
+echo "🔐 Supabase Services:"
+echo "   API URL:    http://localhost:54321"
+echo "   Studio URL: http://localhost:54323"
+echo ""
 echo "💡 Quick commands:"
 echo "   Logs:    docker compose logs -f [service]"
-echo "   Stop:    docker compose down"
+echo "   Stop:    ./dev stop"
 echo ""
 
 # Show logs if requested

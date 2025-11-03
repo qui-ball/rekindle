@@ -15,6 +15,7 @@ Transform old, damaged, or faded family photos into vibrant, restored memories u
 
 ### Prerequisites
 - Docker & Docker Compose
+- Supabase CLI (for local authentication)
 
 ### Run the Application
 
@@ -24,7 +25,17 @@ Transform old, damaged, or faded family photos into vibrant, restored memories u
    cd rekindle
    ```
 
-2. **One-time setup for HTTPS (required for mobile camera testing):**
+2. **Install Supabase CLI:**
+   
+   **macOS:**
+   ```bash
+   brew install supabase/tap/supabase
+   ```
+   
+   **Linux/Windows:**
+   See [Supabase CLI installation guide](https://supabase.com/docs/guides/cli/getting-started)
+
+3. **One-time setup for HTTPS (required for mobile camera testing):**
    
    **macOS:**
    ```bash
@@ -49,19 +60,22 @@ Transform old, damaged, or faded family photos into vibrant, restored memories u
    
    For other Linux distributions, see [mkcert documentation](https://github.com/FiloSottile/mkcert#linux).
 
-3. **Start the development environment:**
+4. **Start the development environment:**
    ```bash
    ./dev
    ```
 
-   This will:
-   - Start the frontend application with hot reload and HTTPS
-   - Generate trusted SSL certificates automatically
+   This will automatically:
+   - Start Supabase (authentication & API)
+   - Start all Docker services (frontend, backend, database, Redis)
+   - Generate trusted SSL certificates (if needed)
    - Show you all access URLs
 
-4. **Access the application:**
-   - **Local**: https://localhost:3000
-   - **Mobile**: https://YOUR_IP:3000 (shown in terminal output)
+5. **Access the application:**
+   - **Frontend**: http://localhost:3000 (or https://localhost:3000 in HTTPS mode)
+   - **Backend API**: http://localhost:8000
+   - **Supabase Studio**: http://localhost:54323
+   - **Mobile**: https://YOUR_IP:3000 (shown in terminal output, same WiFi network)
 
 ### Stop the Application
 
@@ -71,9 +85,9 @@ Transform old, damaged, or faded family photos into vibrant, restored memories u
 
 ## 📱 Mobile Testing
 
-The application includes camera functionality that requires HTTPS on mobile devices. The development environment automatically sets up a secure tunnel for testing.
+The application includes camera functionality that requires HTTPS on mobile devices. Use `./dev https` to start in HTTPS mode for mobile testing.
 
-After running `./dev`, use the provided HTTPS URL (e.g., `https://xxxxx.ngrok-free.app`) on your mobile device to test camera features.
+After running `./dev https`, use the provided HTTPS URL on your mobile device (same WiFi network) to test camera features.
 
 ## 🛠️ Development
 

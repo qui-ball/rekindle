@@ -16,7 +16,7 @@
 | Phase | Duration | Tasks | Status |
 |-------|----------|-------|--------|
 | Phase 0: Cleanup Auth0 Setup | Week 1 (Day 1) | 3 tasks | Not Started |
-| Phase 1: Supabase Setup | Week 1 (Day 1-2) | 7 tasks | Not Started |
+| Phase 1: Supabase Setup | Week 1 (Day 1-2) | 9 tasks | Not Started |
 | Phase 2: Frontend Auth | Week 2 | 10 tasks | Not Started |
 | Phase 3: Backend Auth | Week 2-3 | 12 tasks | Not Started |
 | Phase 4: User Management | Week 3-4 | 11 tasks | Not Started |
@@ -24,10 +24,10 @@
 | Phase 6: Authorization | Week 5 | 9 tasks | Not Started |
 | Phase 7: Testing & Security | Week 6-7 | 8 tasks | Not Started |
 
-**Total Tasks:** 70 (3 cleanup + 67 implementation)  
+**Total Tasks:** 72 (3 cleanup + 69 implementation)  
 **Frontend Tasks:** 28  
 **Backend Tasks:** 30  
-**Infrastructure Tasks:** 12 (3 cleanup + 9 setup)
+**Infrastructure Tasks:** 14 (3 cleanup + 11 setup)
 
 ---
 
@@ -122,16 +122,16 @@ Set up Supabase account and create project for authentication.
 - Supabase Auth handles all authentication flows
 
 **Subtasks:**
-- [ ] Create Supabase account at supabase.com
-- [ ] Click "New Project"
-- [ ] Fill in project details:
+- [x] Create Supabase account at supabase.com
+- [x] Click "New Project"
+- [x] Fill in project details:
   - Name: "Rekindle" (or "Rekindle Development")
   - Database Password: Generate strong password
   - Region: Choose closest to your users (US East recommended)
-- [ ] Wait for project to provision (2-3 minutes)
-- [ ] Note down project URL (e.g., `https://xxx.supabase.co`)
-- [ ] Navigate to Settings > API
-- [ ] Document API keys:
+- [x] Wait for project to provision (2-3 minutes)
+- [x] Note down project URL (e.g., `https://xxx.supabase.co`)
+- [x] Navigate to Settings > API
+- [x] Document API keys:
   - Project URL
   - Anon/public key (for frontend)
   - Service role key (for backend - keep secret!)
@@ -146,6 +146,124 @@ Set up Supabase account and create project for authentication.
 **Resources:**
 - Supabase Docs: https://supabase.com/docs/guides/auth
 - Project Setup: https://supabase.com/docs/guides/getting-started
+
+**Note:** This task sets up the cloud Supabase project for production use. For local development, see Task 1.1b below.
+
+---
+
+### Task 1.1b: Set Up Local Supabase Development (Docker)
+**Type:** Infrastructure  
+**Priority:** P0  
+**Estimated Time:** 45 minutes  
+**Status:** Not Started
+
+**Description:**
+Set up Supabase locally using Docker for smooth development experience. This will be integrated into the `./dev` script so everything starts together.
+
+**Why Local Supabase:**
+- Fast development (no network latency)
+- No cloud API rate limits
+- Free unlimited testing
+- Works offline
+- Matches production environment exactly
+- Easy to reset/reset data
+
+**Subtasks:**
+- [x] Install Supabase CLI: `brew install supabase/tap/supabase` (macOS) or see https://supabase.com/docs/guides/cli/getting-started
+- [x] Verify installation: `supabase --version`
+- [x] Initialize Supabase in project root: `supabase init`
+  - This creates `supabase/` directory with config
+- [x] Start local Supabase: `supabase start`
+  - This starts Docker containers for:
+    - PostgreSQL (port 54322)
+    - Supabase Studio (port 54323)
+    - Auth API (port 54324)
+    - Rest API (port 54325)
+    - Realtime (port 54326)
+    - Storage API (port 54327)
+    - PostgREST (port 54328)
+- [x] Note local credentials (shown after `supabase start`):
+  - API URL: `http://localhost:54321`
+  - GraphQL URL: `http://localhost:54321/graphql/v1`
+  - DB URL: `postgresql://postgres:postgres@localhost:54322/postgres`
+  - Studio URL: `http://localhost:54323`
+  - Anon key: (shown in output)
+  - Service role key: (shown in output)
+- [x] Create `.env.local.example` with local Supabase variables:
+  ```
+  NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key>
+  ```
+- [x] Update `backend/.env.example` with local Supabase variables:
+  ```
+  SUPABASE_URL=http://localhost:54321
+  SUPABASE_ANON_KEY=<local-anon-key>
+  SUPABASE_SERVICE_KEY=<local-service-role-key>
+  ```
+- [x] Integrate Supabase into `./dev` script (see Task 1.1c)
+- [x] Test local Supabase Studio: `open http://localhost:54323`
+- [ ] Verify local auth works in frontend
+
+**Acceptance Criteria:**
+- ✅ Supabase CLI installed
+- ✅ Local Supabase initialized
+- ✅ Local Supabase running via Docker
+- ✅ Environment variables configured for local development
+- ✅ Supabase integrated into `./dev` script
+- ✅ Local Supabase Studio accessible
+- ✅ Can create test users locally
+
+**Resources:**
+- Supabase CLI Docs: https://supabase.com/docs/guides/cli
+- Local Development: https://supabase.com/docs/guides/cli/local-development
+- Docker Requirements: Docker Desktop must be running
+
+**Note:** The local Supabase instance runs separately from your main `docker-compose.yml`. The Supabase CLI manages its own Docker containers. For production, use the cloud project from Task 1.1.
+
+---
+
+### Task 1.1c: Integrate Supabase into Dev Script
+**Type:** Infrastructure  
+**Priority:** P0  
+**Estimated Time:** 30 minutes  
+**Status:** Not Started
+
+**Description:**
+Update the `./dev` script to automatically start/stop Supabase along with other development services.
+
+**Subtasks:**
+- [x] Update `scripts/dev-docker.sh`:
+  - [x] Check if Supabase CLI is installed (with helpful error if not)
+  - [x] Run `supabase start` before starting docker-compose services
+  - [x] Wait for Supabase to be ready before proceeding
+  - [x] Set local Supabase environment variables automatically
+  - [x] On stop (`./dev stop`), run `supabase stop` to stop local Supabase
+- [x] Update `./dev` script:
+  - [x] Add `supabase stop` to stop command
+  - [x] Update help text to mention Supabase
+- [x] Create helper script `scripts/supabase-status.sh` to check if Supabase is running
+- [x] Test integration:
+  - [x] Run `./dev start` - verify Supabase starts automatically
+  - [x] Run `./dev stop` - verify Supabase stops automatically
+  - [x] Verify environment variables are set correctly
+  - [x] Verify frontend can connect to local Supabase
+- [x] Document in README or development docs
+
+**Acceptance Criteria:**
+- ✅ `./dev start` automatically starts Supabase
+- ✅ `./dev stop` automatically stops Supabase
+- ✅ Environment variables automatically configured
+- ✅ No manual steps needed for developers
+- ✅ Helpful error messages if Supabase CLI missing
+
+**Files to Modify:**
+- `scripts/dev-docker.sh`
+- `dev` (root script)
+
+**Files to Create:**
+- `scripts/supabase-status.sh` (optional helper)
+
+**Note:** When switching between local and cloud Supabase, developers can change environment variables. Local development uses `http://localhost:54321`, production uses cloud URL.
 
 ---
 
@@ -248,23 +366,50 @@ Configure allowed redirect URLs for Supabase authentication.
 **Note:** Supabase doesn't require a hosted login page like Auth0. We'll build our own login UI, but need to configure allowed redirect URLs.
 
 **Subtasks:**
-- [ ] Navigate to Authentication → URL Configuration in Supabase Dashboard
-- [ ] Add Site URL:
+- [x] Navigate to Authentication → URL Configuration in Supabase Dashboard
+- [x] Add Site URL:
   - Development: `http://localhost:3000`
-  - Production: `https://rekindle.app`
-- [ ] Add Redirect URLs:
+  - Production: `https://rekindle.app` (TODO: Add when ready)
+- [x] Add Redirect URLs:
   - Development: `http://localhost:3000/auth/callback`
-  - Production: `https://rekindle.app/auth/callback`
+  - Production: `https://rekindle.app/auth/callback` (TODO: Add when ready)
   - Development: `http://localhost:3000/**`
-  - Production: `https://rekindle.app/**`
-- [ ] Save configuration
-- [ ] Test redirect flow
+  - Production: `https://rekindle.app/**` (TODO: Add when ready)
+- [x] Save configuration (Development URLs only)
+- [ ] Add Production URLs when ready for production deployment
+- [ ] Test redirect flow (see Testing Instructions below)
+
+**Testing Instructions for Redirect Flow:**
+
+Since Supabase doesn't have a built-in redirect testing feature, you'll need to test the redirect flow manually through your application:
+
+1. **Basic Redirect Test (After Frontend Auth Setup):**
+   - Once you've implemented the authentication flow (Task 2.1+), test the redirect:
+   - Navigate to your sign-in page at `http://localhost:3000/sign-in`
+   - Click "Continue with Google" (or any OAuth provider)
+   - Verify you're redirected to Supabase auth
+   - After authentication, verify you're redirected back to `http://localhost:3000/auth/callback`
+   - Verify you're then redirected to your intended destination (dashboard, etc.)
+
+2. **Manual URL Test:**
+   - You can also test by directly accessing the callback URL:
+   - `http://localhost:3000/auth/callback?code=[auth-code]`
+   - If configured correctly, Supabase should accept the redirect
+   - If not configured, you'll get an error about invalid redirect URL
+
+3. **Error Testing:**
+   - Try accessing an invalid redirect URL (not in your allowed list)
+   - Should get a clear error message from Supabase
+   - This confirms your allowed URLs list is working
+
+**Note:** You won't be able to fully test the redirect flow until you implement the frontend authentication (Phase 2). For now, you can verify the configuration is saved in Supabase Dashboard.
 
 **Acceptance Criteria:**
-- ✅ Site URL configured for both environments
-- ✅ Redirect URLs configured correctly
-- ✅ Redirects work properly
-- ✅ Configuration saved
+- ✅ Site URL configured for Development
+- ✅ Redirect URLs configured correctly for Development
+- ✅ Production URLs added when ready (can be deferred until production deployment)
+- ✅ Configuration saved in Supabase Dashboard
+- ✅ Redirect flow tested after frontend auth implementation (Task 2.1+)
 
 ---
 
@@ -362,11 +507,11 @@ Supabase Configuration:
 Configure Supabase webhooks to sync user events to backend.
 
 **Subtasks:**
-- [ ] Navigate to Database > Webhooks in Supabase Dashboard
-- [ ] Click "Create a new webhook"
-- [ ] Set endpoint: `https://api.rekindle.app/api/webhooks/supabase`
-- [ ] Select table: `auth.users`
-- [ ] Select events to subscribe:
+- [x] Navigate to Database > Webhooks in Supabase Dashboard
+- [x] Click "Create a new webhook"
+- [x] Set endpoint: `https://api.rekindle.app/api/webhooks/supabase`
+- [x] Select table: `auth.users`
+- [x] Select events to subscribe:
   - INSERT (user.created)
   - UPDATE (user.updated)
   - DELETE (user.deleted)
@@ -393,10 +538,10 @@ Configure security settings including rate limiting and MFA.
 **Subtasks:**
 - [ ] Navigate to Authentication → Settings in Supabase Dashboard
 - [ ] Review Security Settings section
-- [ ] Configure Rate Limiting:
+- [x] Configure Rate Limiting:
   - Enable rate limiting (default is usually sufficient)
   - Set max attempts: 5 per minute (or use defaults)
-- [ ] Configure MFA (optional for MVP):
+- [x] Configure MFA (optional for MVP):
   - Enable TOTP (Time-based One-Time Password)
   - Can be enabled later if needed
 - [ ] Review Session Settings:
@@ -424,57 +569,60 @@ Configure security settings including rate limiting and MFA.
 **Duration:** Week 2 (5 days)  
 **Dependencies:** Phase 1 complete
 
-### Task 2.1: Install Auth0 Next.js SDK
+### Task 2.1: Install Supabase JavaScript Client
 **Type:** Frontend  
 **Priority:** P0  
 **Estimated Time:** 30 minutes
 
 **Description:**
-Install and configure Auth0 Next.js SDK in frontend.
+Install and configure Supabase JavaScript client in frontend.
 
 **Subtasks:**
-- [ ] Install package: `npm install @auth0/nextjs-auth0`
-- [ ] Create `.env.local` with Auth0 credentials
+- [ ] Install package: `npm install @supabase/supabase-js @supabase/auth-helpers-nextjs`
+- [ ] Create `.env.local` with Supabase credentials
 - [ ] Add environment variables:
-  - AUTH0_SECRET
-  - AUTH0_BASE_URL
-  - AUTH0_ISSUER_BASE_URL
-  - AUTH0_CLIENT_ID
-  - AUTH0_CLIENT_SECRET
-- [ ] Create `app/api/auth/[auth0]/route.ts`
-- [ ] Export handleAuth()
+  - NEXT_PUBLIC_SUPABASE_URL
+  - NEXT_PUBLIC_SUPABASE_ANON_KEY
+- [ ] Create `lib/supabase.ts` to initialize Supabase client
+- [ ] Create `app/api/auth/callback/route.ts` for callback handling
 
 **Acceptance Criteria:**
 - Package installed successfully
 - Environment variables set
-- Auth0 API routes working
+- Supabase client initialized
 - No build errors
 
 **Files to Create:**
 - `frontend/.env.local`
-- `frontend/app/api/auth/[auth0]/route.ts`
+- `frontend/src/lib/supabase.ts`
+- `frontend/app/api/auth/callback/route.ts`
 
 ---
 
-### Task 2.2: Set Up UserProvider
+### Task 2.2: Set Up Supabase Auth Context
 **Type:** Frontend  
 **Priority:** P0  
 **Estimated Time:** 1 hour
 
 **Description:**
-Wrap application with Auth0 UserProvider.
+Create and configure Supabase authentication context provider.
 
 **Subtasks:**
-- [ ] Update `app/layout.tsx`
-- [ ] Import and wrap with `<UserProvider>`
+- [ ] Create `contexts/AuthContext.tsx`
+- [ ] Use Supabase `createClientComponentClient()` for auth
+- [ ] Create `AuthProvider` component
+- [ ] Update `app/layout.tsx` to wrap with `<AuthProvider>`
 - [ ] Test user context accessibility
 - [ ] Handle loading states
 - [ ] Handle error states
 
 **Acceptance Criteria:**
-- UserProvider wraps entire app
+- AuthProvider wraps entire app
 - User context accessible in all components
 - Loading states handled gracefully
+
+**Files to Create:**
+- `frontend/src/contexts/AuthContext.tsx`
 
 **Files to Modify:**
 - `frontend/app/layout.tsx`
@@ -492,8 +640,8 @@ Create branded sign-in page with social login options.
 **Subtasks:**
 - [ ] Create `app/sign-in/page.tsx`
 - [ ] Add "Sign In" heading
-- [ ] Add email/password form (redirects to Auth0)
-- [ ] Add social login buttons (Google, Facebook, Apple)
+- [ ] Add email/password form (uses Supabase auth)
+- [ ] Add social login buttons (Google, Facebook, Apple) using Supabase OAuth
 - [ ] Add "Don't have an account?" link to sign-up
 - [ ] Add "Forgot password?" link
 - [ ] Style to match Rekindle brand
@@ -525,8 +673,8 @@ Create branded sign-up page with social registration options.
 - [ ] Create `app/sign-up/page.tsx`
 - [ ] Add "Get Started Free" heading
 - [ ] Add "3 free credits" value proposition
-- [ ] Add email/password form (redirects to Auth0)
-- [ ] Add social signup buttons
+- [ ] Add email/password form (uses Supabase auth)
+- [ ] Add social signup buttons (using Supabase OAuth)
 - [ ] Add "Already have an account?" link
 - [ ] Add terms of service checkbox
 - [ ] Style to match Rekindle brand
@@ -555,11 +703,12 @@ Create middleware to protect authenticated routes.
 
 **Subtasks:**
 - [ ] Create `middleware.ts`
-- [ ] Import `withMiddlewareAuthRequired` from Auth0
+- [ ] Use Supabase `createMiddlewareClient()` for auth checks
 - [ ] Define protected route patterns:
   - /dashboard/*
   - /photos/*
   - /settings/*
+- [ ] Check user session using Supabase auth
 - [ ] Add redirect to /sign-in if unauthenticated
 - [ ] Test protection on all routes
 - [ ] Handle loading states
@@ -586,8 +735,9 @@ Create hook to fetch and manage current user data from backend.
 
 **Subtasks:**
 - [ ] Create `hooks/useCurrentUser.ts`
-- [ ] Use Auth0's `useUser()` hook
-- [ ] Fetch user profile from backend API
+- [ ] Use Supabase `useSession()` or auth context
+- [ ] Fetch user from Supabase auth session
+- [ ] Fetch additional user profile from backend API (if needed)
 - [ ] Handle loading state
 - [ ] Handle error state
 - [ ] Cache user data
@@ -686,7 +836,7 @@ Implement sign-out functionality throughout the app.
 **Subtasks:**
 - [ ] Create sign-out button component
 - [ ] Add sign-out to user menu/dropdown
-- [ ] Call Auth0 logout endpoint
+- [ ] Call Supabase `signOut()` method
 - [ ] Clear local user state
 - [ ] Redirect to homepage
 - [ ] Add confirmation modal (optional)
@@ -833,9 +983,9 @@ Implement JWT token verification middleware.
 **Subtasks:**
 - [ ] Update `app/api/deps.py`
 - [ ] Implement `get_current_user()` function
-- [ ] Verify JWT signature using Auth0 JWKS
-- [ ] Extract auth0_user_id from token
-- [ ] Fetch user from database
+- [ ] Verify JWT signature using Supabase JWKS
+- [ ] Extract `supabase_user_id` (or `sub` claim) from token
+- [ ] Fetch user from database by Supabase user ID
 - [ ] Check account status (active)
 - [ ] Update last_login_at
 - [ ] Handle token expiration
@@ -861,7 +1011,7 @@ Implement JWT token verification middleware.
 **Estimated Time:** 2 hours
 
 **Description:**
-Create endpoint to sync users from Auth0 to backend.
+Create endpoint to sync users from Supabase to backend.
 
 **Subtasks:**
 - [ ] Create `app/api/v1/users.py`
@@ -1000,18 +1150,18 @@ Create endpoint to export all user data (GDPR compliance).
 
 ---
 
-### Task 3.10: Create Auth0 Webhook Handler
+### Task 3.10: Create Supabase Webhook Handler
 **Type:** Backend  
 **Priority:** P1  
 **Estimated Time:** 3 hours
 
 **Description:**
-Create webhook endpoint to handle Auth0 events.
+Create webhook endpoint to handle Supabase events.
 
 **Subtasks:**
-- [ ] Create `app/api/webhooks/auth0.py`
-- [ ] Implement POST `/webhooks/auth0`
-- [ ] Verify webhook signature
+- [ ] Create `app/api/webhooks/supabase.py`
+- [ ] Implement POST `/webhooks/supabase`
+- [ ] Verify webhook signature (Supabase webhook secret)
 - [ ] Handle user.created event
 - [ ] Handle user.updated event
 - [ ] Handle user.deleted event
@@ -1026,7 +1176,7 @@ Create webhook endpoint to handle Auth0 events.
 - Errors logged and handled
 
 **Files to Create:**
-- `backend/app/api/webhooks/auth0.py`
+- `backend/app/api/webhooks/supabase.py`
 
 ---
 
@@ -1057,7 +1207,7 @@ Add rate limiting to protect authentication endpoints.
 **Files to Modify:**
 - `backend/app/main.py`
 - `backend/app/api/v1/users.py`
-- `backend/app/api/webhooks/auth0.py`
+- `backend/app/api/webhooks/supabase.py`
 
 ---
 
@@ -1195,7 +1345,7 @@ Create flow for changing email address.
 
 **Subtasks:**
 - [ ] Create change email form
-- [ ] Trigger Auth0 email change
+- [ ] Trigger Supabase email change using `updateUser()`
 - [ ] Show verification required message
 - [ ] Handle verification callback
 - [ ] Update backend after verification
@@ -1224,7 +1374,7 @@ Create form for changing password.
 - [ ] Create change password form
 - [ ] Validate current password
 - [ ] Validate new password strength
-- [ ] Trigger Auth0 password change
+- [ ] Trigger Supabase password change using `updateUser()`
 - [ ] Show success message
 - [ ] Invalidate other sessions
 - [ ] Test flow
@@ -1250,12 +1400,14 @@ Create UI for viewing and managing active sessions.
 
 **Subtasks:**
 - [ ] Create `components/SessionsList.tsx`
-- [ ] Fetch active sessions from Auth0
+- [ ] Fetch active sessions from Supabase (or backend session management)
 - [ ] Display session details (device, location, last active)
 - [ ] Add "Revoke" button for each session
 - [ ] Add "Revoke all others" button
 - [ ] Confirm revocation
 - [ ] Test session management
+
+**Note:** Supabase handles session management automatically. You may need to track sessions in your backend or use Supabase's session management features.
 
 **Acceptance Criteria:**
 - Active sessions displayed
@@ -1568,7 +1720,7 @@ Create mobile page for QR code scanning and biometric authentication.
 - [ ] Call biometric authentication
 - [ ] Store temporary JWT in sessionStorage
 - [ ] Redirect to upload camera page
-- [ ] Handle fallback to Auth0 login
+- [ ] Handle fallback to Supabase login
 - [ ] Add error states
 - [ ] Test on mobile devices
 
@@ -1577,7 +1729,7 @@ Create mobile page for QR code scanning and biometric authentication.
 - Biometric prompt shown
 - Authentication successful
 - Temporary JWT stored
-- Fallback to Auth0 works
+- Fallback to Supabase login works
 - Mobile-responsive
 
 **Files to Create:**
@@ -2018,7 +2170,7 @@ Write integration tests for authentication flows.
 **Subtasks:**
 - [ ] Test complete signup flow
 - [ ] Test complete login flow
-- [ ] Test Auth0 webhook handling
+- [ ] Test Supabase webhook handling
 - [ ] Test protected endpoint access
 - [ ] Test permission denials
 - [ ] Test error responses
@@ -2160,7 +2312,7 @@ Document authentication system for developers.
 - [ ] Document permission decorators
 - [ ] Document frontend hooks
 - [ ] Document environment variables
-- [ ] Document Auth0 configuration
+- [ ] Document Supabase configuration
 - [ ] Add code examples
 - [ ] Create troubleshooting guide
 - [ ] Update README
@@ -2188,9 +2340,9 @@ Create and verify production deployment checklist.
 
 **Subtasks:**
 - [ ] Verify all environment variables set
-- [ ] Verify Auth0 production tenant configured
+- [ ] Verify Supabase production project configured
 - [ ] Verify social OAuth apps in production mode
-- [ ] Verify callback URLs correct
+- [ ] Verify callback URLs correct (including production redirect URLs)
 - [ ] Verify webhook URLs correct
 - [ ] Verify rate limits appropriate
 - [ ] Run database migrations
@@ -2229,8 +2381,8 @@ Create and verify production deployment checklist.
 ### Dependencies
 
 Critical path:
-1. Phase 1 (Auth0 Setup) → Phase 2 (Frontend Auth)
-2. Phase 1 (Auth0 Setup) → Phase 3 (Backend Auth)
+1. Phase 1 (Supabase Setup) → Phase 2 (Frontend Auth)
+2. Phase 1 (Supabase Setup) → Phase 3 (Backend Auth)
 3. Phase 2 + Phase 3 → Phase 4 (User Management)
 4. Phase 2 + Phase 3 → Phase 5 (Cross-Device & Biometric)
 5. Phase 4 + Phase 5 → Phase 6 (Authorization)
@@ -2244,13 +2396,13 @@ Critical path:
 - OR 1 Full-stack developer (will take longer)
 
 **External Services:**
-- Auth0 account (free tier)
-- Email service (Auth0 included, or SendGrid/SES for custom)
+- Supabase account (free tier: 50,000 MAU)
+- Email service (Supabase included, or custom SMTP)
 - Testing tools (Jest, Pytest, Playwright)
 
 ---
 
 **Document Status:** ✅ Ready for Implementation  
 **Last Updated:** October 21, 2025  
-**Next Step:** Begin Phase 1 - Auth0 Setup
+**Next Step:** Begin Phase 1 - Supabase Setup
 
