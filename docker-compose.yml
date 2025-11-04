@@ -35,6 +35,7 @@ services:
       - backend-venv:/app/.venv
     environment:
       - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     networks:
@@ -64,6 +65,7 @@ services:
       - celery-venv:/app/.venv
     environment:
       - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
     networks:

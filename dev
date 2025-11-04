@@ -16,7 +16,7 @@ case "$1" in
   "stop")
     echo "🛑 Stopping all development services..."
     cd "$SCRIPT_DIR"
-    docker-compose down 2>/dev/null || true
+    docker compose down 2>/dev/null || true
     echo "✅ All services stopped!"
     ;;
   "--no-logs")

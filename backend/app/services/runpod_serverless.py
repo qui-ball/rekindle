@@ -52,18 +52,31 @@ class RunPodServerlessService:
         if not self.network_volume_id:
             raise ValueError("RUNPOD_NETWORK_VOLUME_ID is required")
         if not self.s3_access_key or not self.s3_secret_key:
-            raise ValueError("RUNPOD_S3_ACCESS_KEY and RUNPOD_S3_SECRET_KEY are required")
+            raise ValueError(
+                "RUNPOD_S3_ACCESS_KEY and RUNPOD_S3_SECRET_KEY are required"
+            )
 
         # Initialize RunPod API
         runpod.api_key = self.api_key
 
         # Initialize S3 client for network volume access
+        logger.debug(f"Initializing S3 client with:")
+        logger.debug(f"  endpoint_url: {self.s3_endpoint}")
+        logger.debug(f"  region_name: {self.s3_region}")
+        logger.debug(f"  volume_id (bucket): {self.network_volume_id}")
+
+        # Configure boto3 for RunPod's S3-compatible API
+        from botocore.config import Config
+
+        s3_config = Config(signature_version="s3v4", s3={"addressing_style": "path"})
+
         self.s3_client = boto3.client(
             "s3",
             endpoint_url=self.s3_endpoint,
             aws_access_key_id=self.s3_access_key,
             aws_secret_access_key=self.s3_secret_key,
             region_name=self.s3_region,
+            config=s3_config,
         )
 
         logger.info(
@@ -122,7 +135,10 @@ class RunPodServerlessService:
             Exception: If job submission fails
         """
         try:
-            logger.info(f"Submitting job {job_id} to RunPod serverless endpoint {self.endpoint_id}")
+            logger.info(
+                f"Submitting job {job_id} to RunPod serverless endpoint {self.endpoint_id}"
+            )
+            logger.info(f"Webhook URL: {webhook_url}")
 
             # Initialize endpoint
             endpoint = runpod.Endpoint(self.endpoint_id)

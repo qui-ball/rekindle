@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional
 from uuid import UUID
 from loguru import logger
+from sqlalchemy import cast, String, text
 
 from app.core.database import SessionLocal
 from app.models.jobs import Job, RestoreAttempt
@@ -18,6 +19,7 @@ router = APIRouter()
 
 class RunPodWebhookPayload(BaseModel):
     """RunPod webhook payload structure"""
+
     id: str  # RunPod job ID
     status: str  # COMPLETED, FAILED, etc.
     delayTime: Optional[int] = None
@@ -43,14 +45,20 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
         }
     }
     """
-    logger.info(f"Received RunPod webhook: job_id={payload.id}, status={payload.status}")
+    logger.info(
+        f"Received RunPod webhook: job_id={payload.id}, status={payload.status}"
+    )
 
     db = SessionLocal()
     try:
         # Find RestoreAttempt by RunPod job ID
-        restore = db.query(RestoreAttempt).filter(
-            RestoreAttempt.params.contains({"runpod_job_id": payload.id})
-        ).first()
+        # Use PostgreSQL's ->> operator to extract JSON field as text
+        restore = (
+            db.query(RestoreAttempt)
+            .filter(text("params->>'runpod_job_id' = :job_id"))
+            .params(job_id=payload.id)
+            .first()
+        )
 
         if not restore:
             logger.warning(f"No RestoreAttempt found for RunPod job {payload.id}")
@@ -76,11 +84,18 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
 
             # Download first output file from network volume
             # Path format: /workspace/outputs/filename.jpg → outputs/filename.jpg
-            output_path = output_files[0].replace("/workspace/", "")
+            # Or: /runpod-volume/outputs/filename.jpg → outputs/filename.jpg
+            output_path = (
+                output_files[0]
+                .replace("/workspace/", "")
+                .replace("/runpod-volume/", "")
+            )
 
             try:
-                restored_image_data = runpod_serverless_service.download_output_from_volume(
-                    output_path=output_path
+                restored_image_data = (
+                    runpod_serverless_service.download_output_from_volume(
+                        output_path=output_path
+                    )
                 )
             except Exception as download_error:
                 logger.error(f"Failed to download output from volume: {download_error}")
@@ -109,7 +124,7 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
                     thumbnail_url = s3_service.upload_job_thumbnail(
                         image_content=restored_image_data,
                         job_id=job_id,
-                        extension="jpg"
+                        extension="jpg",
                     )
                     job.thumbnail_s3_key = f"thumbnails/{job_id}.jpg"
                     logger.info(f"Generated thumbnail for job {job_id}")
@@ -172,7 +187,7 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing webhook: {str(e)}"
+            detail=f"Error processing webhook: {str(e)}",
         )
 
     finally:

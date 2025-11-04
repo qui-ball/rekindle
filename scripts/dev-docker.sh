@@ -77,11 +77,11 @@ fi
 
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."
-docker-compose down 2>/dev/null || true
+docker compose down 2>/dev/null || true
 
 # Build and start containers with fallback logic
 echo "🔨 Building and starting containers..."
-if docker-compose up --build -d; then
+if docker compose up --build -d; then
     echo "✅ Containers started successfully"
 else
     echo "❌ Container startup failed"
@@ -92,18 +92,18 @@ else
         rm -rf backend/.venv
         echo "🔄 Retrying container startup..."
         
-        if docker-compose up --build -d; then
+        if docker compose up --build -d; then
             echo "✅ Containers started successfully after removing .venv"
         else
             echo "❌ Container startup failed even after removing .venv"
-            echo "   Please check docker-compose logs for details:"
-            echo "   docker-compose logs"
+            echo "   Please check docker compose logs for details:"
+            echo "   docker compose logs"
             exit 1
         fi
     else
         echo "❌ Container startup failed (no .venv to remove)"
-        echo "   Please check docker-compose logs for details:"
-        echo "   docker-compose logs"
+        echo "   Please check docker compose logs for details:"
+        echo "   docker compose logs"
         exit 1
     fi
 fi
@@ -126,9 +126,9 @@ for i in {1..30}; do
 done
 
 # Setup database tables (only if a local postgres service exists)
-if docker-compose ps postgres >/dev/null 2>&1; then
+if docker compose ps postgres >/dev/null 2>&1; then
     echo "🗄️  Setting up database tables..."
-    docker-compose exec -T postgres psql -U rekindle -d rekindle -c "
+    docker compose exec -T postgres psql -U rekindle -d rekindle -c "
 CREATE TABLE IF NOT EXISTS jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL,
@@ -188,20 +188,20 @@ fi
 
 echo ""
 echo "🔧 Development Commands:"
-echo "   View all logs:     docker-compose logs -f"
-echo "   View frontend:     docker-compose logs -f frontend"
-echo "   View backend:      docker-compose logs -f backend"
-echo "   View celery:       docker-compose logs -f celery"
-echo "   View flower:       docker-compose logs -f flower"
-echo "   Stop:              docker-compose down"
-echo "   Restart:           docker-compose restart"
-echo "   Frontend shell:    docker-compose exec frontend sh"
-echo "   Backend shell:     docker-compose exec backend sh"
-echo "   Celery shell:      docker-compose exec celery sh"
+echo "   View all logs:     docker compose logs -f"
+echo "   View frontend:     docker compose logs -f frontend"
+echo "   View backend:      docker compose logs -f backend"
+echo "   View celery:       docker compose logs -f celery"
+echo "   View flower:       docker compose logs -f flower"
+echo "   Stop:              docker compose down"
+echo "   Restart:           docker compose restart"
+echo "   Frontend shell:    docker compose exec frontend sh"
+echo "   Backend shell:     docker compose exec backend sh"
+echo "   Celery shell:      docker compose exec celery sh"
 echo ""
 
 # Show logs if requested
 if [ "$SHOW_LOGS" = true ]; then
     echo "📋 Container logs (Ctrl+C to exit):"
-    docker-compose logs -f frontend backend celery
+    docker compose logs -f frontend backend celery
 fi
