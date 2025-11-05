@@ -13,6 +13,7 @@ from app.core.database import SessionLocal
 from app.models.jobs import Job, RestoreAttempt
 from app.services.s3 import s3_service
 from app.services.runpod_serverless import runpod_serverless_service
+from app.api.v1.events import job_events
 
 router = APIRouter()
 
@@ -145,6 +146,17 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
                 db.commit()
 
                 logger.success(f"Completed serverless restoration for job {job_id}")
+
+                # Notify SSE listeners
+                await job_events.notify(
+                    job_id=job_id,
+                    event_type="completed",
+                    data={
+                        "job_id": job_id,
+                        "restore_id": str(restore.id),
+                        "status": "completed",
+                    }
+                )
 
                 return {
                     "status": "success",

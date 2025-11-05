@@ -12,6 +12,7 @@ import { photoManagementService, processingJobService } from '../../services/pho
 import { PhotoGallery } from './PhotoGallery';
 import { PhotoDetailDrawer } from './PhotoDetailDrawer';
 import { ErrorBoundary } from './ErrorBoundary';
+import { useJobEvents } from '../../hooks/useJobEvents';
 
 /**
  * PhotoManagementContainer
@@ -34,6 +35,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   // Credit balance is now handled globally
   
   // Loading and error states
@@ -50,6 +52,36 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   const abortControllerRef = useRef<AbortController | null>(null);
   // Prevent duplicate initial load (e.g., React StrictMode in dev)
   const didInitRef = useRef<boolean>(false);
+
+  // Listen for SSE job completion events
+  useJobEvents(activeJobId, {
+    onCompleted: async (data) => {
+      console.log('Job completed, refreshing photo data...', data);
+      
+      // Update photo status
+      setPhotos(prev => prev.map(p => 
+        p.id === data.job_id 
+          ? { ...p, status: 'completed' as const }
+          : p
+      ));
+      
+      // Refresh the specific photo to get updated restore attempts
+      try {
+        const updatedPhotos = await photoManagementService.getPhotos(userId, {
+          page: 1,
+          limit: 100,
+          sortBy: 'createdAt',
+          sortOrder: 'desc'
+        });
+        setPhotos(updatedPhotos);
+      } catch (err) {
+        console.error('Error refreshing photos after job completion:', err);
+      }
+      
+      // Clear active job
+      setActiveJobId(null);
+    }
+  });
 
   // Error handling
   const handleError = useCallback((error: Error, context: string) => {
@@ -275,6 +307,9 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       
       // Skip credit deduction for now (mock data)
       console.log(`Mock: Deducted ${restoreCost} credits from user ${userId}`);
+      
+      // Start listening for SSE events on this job
+      setActiveJobId(selectedPhoto.id);
       
       // Update photo status
       setPhotos(prev => prev.map(p => 
