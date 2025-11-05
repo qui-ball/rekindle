@@ -17,6 +17,12 @@ services:
       - WATCHPACK_POLLING=true
       - NODE_ENV=development
       - HOST_IP=${HOST_IP:-}  # Host IP for mobile access (set by dev-docker.sh)
+      # Supabase env vars (can be overridden by env_file or dev-docker.sh exports)
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    env_file:
+      # Load frontend env vars from .env file
+      - ./frontend/.env
     networks:
       - rekindle-network
     command: ${DOCKER_COMMAND:-npm run dev}

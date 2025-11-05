@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { DevMenu } from '@/components/DevMenu';
 import { AppInitializationProvider } from '@/components/AppInitializationProvider';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/Navigation';
 import { GlobalCreditBalanceBar } from '@/components/GlobalCreditBalanceBar';
 
@@ -54,12 +55,14 @@ export default function RootLayout({
         <meta name="permissions-policy" content="camera=*, microphone=*, geolocation=*" />
       </head>
       <body className={inter.className}>
-        <AppInitializationProvider>
-          <Navigation />
-          <GlobalCreditBalanceBar />
-          {children}
-          <DevMenu />
-        </AppInitializationProvider>
+        <AuthProvider>
+          <AppInitializationProvider>
+            <Navigation />
+            <GlobalCreditBalanceBar />
+            {children}
+            <DevMenu />
+          </AppInitializationProvider>
+        </AuthProvider>
       </body>
     </html>
   );

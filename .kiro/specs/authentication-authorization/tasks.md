@@ -283,24 +283,45 @@ Set up Google OAuth for "Continue with Google" functionality. Facebook and Apple
 
 **Important Notes:**
 - Supabase Callback URL: `https://[project-id].supabase.co/auth/v1/callback`
-- Configure in Supabase Dashboard → Authentication → Providers
 - Much simpler setup than Auth0 - no need for separate apps
+- **Configuration Location:** Supabase.com cloud dashboard (not available in local Studio UI)
+
+**Where to Configure:**
+- **Cloud Dashboard:** https://app.supabase.com (required for production)
+- **Local Studio:** Not available - OAuth providers must be configured in cloud dashboard
 
 **Subtasks:**
-- [ ] Enable Google OAuth in Supabase
-  - [ ] Navigate to Authentication → Providers in Supabase Dashboard
-  - [ ] Select "Google" provider
-  - [ ] Option A: Use Supabase's built-in Google OAuth (quick setup)
-  - [ ] Option B: Create Google Cloud Project and configure OAuth app:
-    - [ ] Create Google Cloud Project
-    - [ ] Configure OAuth consent screen
-    - [ ] Create OAuth Client ID and Secret
-    - [ ] Add callback URL: `https://[project-id].supabase.co/auth/v1/callback`
-    - [ ] Enter Client ID and Secret in Supabase
-  - [ ] Save configuration
-  - [ ] Test connection with test login
-  - [ ] Verify email retrieved successfully
+- [ ] Create Google Cloud Project and OAuth credentials (if not using Supabase's built-in option)
+  - [ ] Go to https://console.cloud.google.com/
+  - [ ] Create a new project or select existing project
+  - [ ] Navigate to APIs & Services → Credentials
+  - [ ] Click "Create Credentials" → "OAuth client ID"
+  - [ ] Configure OAuth consent screen (if not already done)
+  - [ ] Select "Web application" as application type
+  - [ ] Add authorized redirect URI: `https://[project-id].supabase.co/auth/v1/callback`
+  - [ ] Copy the Client ID and Client Secret (you'll need these)
+
+- [ ] Configure Google OAuth in Supabase Cloud Dashboard
+  - [ ] Go to https://app.supabase.com
+  - [ ] Select your Rekindle project
+  - [ ] Navigate to Authentication → Providers
+  - [ ] Find and click on "Google" provider
+  - [ ] Toggle the "Enable Google provider" switch to ON
+  - [ ] Enter your Google OAuth credentials:
+    - **Client ID (for Google OAuth):** Paste your Google Client ID
+    - **Client Secret (for Google OAuth):** Paste your Google Client Secret
+  - [ ] Click "Save" to save the configuration
+  - [ ] Verify the provider shows "Enabled" status
+
+- [ ] Test Google OAuth connection
+  - [ ] Use the test login button in Supabase dashboard (if available)
+  - [ ] Or wait until frontend auth is implemented (Task 2.1+) to test end-to-end
+  - [ ] Verify email is retrieved successfully from Google account
+
 - [ ] Document credentials and setup
+  - [ ] Note the Supabase callback URL format
+  - [ ] Document Google OAuth Client ID (can be stored in environment variables)
+  - [ ] Store Google Client Secret securely (never commit to git)
 
 **Acceptance Criteria:**
 - ✅ Google OAuth configured and active in Supabase Dashboard
@@ -329,22 +350,55 @@ Customize Supabase email templates for verification and password reset.
 
 **Note:** Supabase allows testing email templates directly in the dashboard without requiring an external email provider (unlike Auth0).
 
+**Where to Configure:**
+- **Cloud Dashboard:** https://app.supabase.com (required - email templates not configurable in local Studio)
+- **Local Studio:** Not available - email templates are only configurable in cloud dashboard
+
 **Subtasks:**
-- [ ] Navigate to Authentication → Email Templates in Supabase Dashboard
+- [ ] Navigate to Email Templates in Supabase Cloud Dashboard
+  - [ ] Go to https://app.supabase.com
+  - [ ] Select your Rekindle project
+  - [ ] Navigate to Authentication → Email Templates
+
 - [ ] Customize "Confirm signup" template
-  - Update subject line
-  - Update email body
-  - Add Rekindle branding
-  - Test email template directly in dashboard
+  - [ ] Click on "Confirm signup" template
+  - [ ] Update subject line (e.g., "Confirm your Rekindle account")
+  - [ ] Update email body with Rekindle branding
+  - [ ] Include the confirmation link: `{{ .ConfirmationURL }}`
+  - [ ] Click "Save" to save changes
+  - [ ] Use "Send test email" button to test the template (if available)
+
 - [ ] Customize "Reset password" template
-  - Update subject line
-  - Update email body
-  - Add Rekindle branding
-  - Test email template directly in dashboard
+  - [ ] Click on "Reset password" template
+  - [ ] Update subject line (e.g., "Reset your Rekindle password")
+  - [ ] Update email body with Rekindle branding
+  - [ ] Include the password reset link: `{{ .ConfirmationURL }}`
+  - [ ] Click "Save" to save changes
+  - [ ] Use "Send test email" button to test the template (if available)
+
 - [ ] Customize "Magic Link" template (optional)
+  - [ ] Click on "Magic Link" template
+  - [ ] Update subject line and body with Rekindle branding
+  - [ ] Include the magic link: `{{ .ConfirmationURL }}`
+  - [ ] Click "Save" to save changes
+
 - [ ] Configure "From" email address
+  - [ ] Navigate to Authentication → Settings
+  - [ ] Find "SMTP Settings" section
+  - [ ] Configure "From" email address (e.g., `noreply@rekindle.app`)
+  - [ ] Note: Default emails use Supabase's email service (limited to 3 emails/hour on free tier)
+
 - [ ] Test email delivery with real email address
+  - [ ] Use the test email functionality in the dashboard
+  - [ ] Send test emails to your own email address
+  - [ ] Verify emails are received and formatted correctly
+
 - [ ] (Optional for production) Set up custom SMTP provider
+  - [ ] Navigate to Authentication → Settings → SMTP Settings
+  - [ ] Configure custom SMTP provider (Gmail, SendGrid, etc.)
+  - [ ] Enter SMTP host, port, username, and password
+  - [ ] Test SMTP connection
+  - [ ] Note: This is required for production to avoid email limits
 
 **Acceptance Criteria:**
 - ✅ Email templates branded with Rekindle look and feel
@@ -365,18 +419,43 @@ Configure allowed redirect URLs for Supabase authentication.
 
 **Note:** Supabase doesn't require a hosted login page like Auth0. We'll build our own login UI, but need to configure allowed redirect URLs.
 
+**Where to Configure:**
+- **Cloud Dashboard:** https://app.supabase.com (required for production)
+- **Local Studio:** Not available - URL configuration is only in cloud dashboard
+- **Note:** For local development, you can use `http://localhost:3000` without configuring in cloud (it's allowed by default), but you should configure it for consistency and testing.
+
 **Subtasks:**
-- [x] Navigate to Authentication → URL Configuration in Supabase Dashboard
-- [x] Add Site URL:
-  - Development: `http://localhost:3000`
-  - Production: `https://rekindle.app` (TODO: Add when ready)
-- [x] Add Redirect URLs:
-  - Development: `http://localhost:3000/auth/callback`
-  - Production: `https://rekindle.app/auth/callback` (TODO: Add when ready)
-  - Development: `http://localhost:3000/**`
-  - Production: `https://rekindle.app/**` (TODO: Add when ready)
-- [x] Save configuration (Development URLs only)
+- [ ] Navigate to URL Configuration in Supabase Cloud Dashboard
+  - [ ] Go to https://app.supabase.com
+  - [ ] Select your Rekindle project
+  - [ ] Navigate to Authentication → URL Configuration
+
+- [ ] Configure Site URL
+  - [ ] Find the "Site URL" field
+  - [ ] For development, set to: `http://localhost:3000`
+  - [ ] For production (later), set to: `https://rekindle.app`
+  - [ ] Click "Save" after each change
+
+- [ ] Add Redirect URLs
+  - [ ] Find the "Redirect URLs" section
+  - [ ] Click "Add URL" or use the multi-line text field
+  - [ ] Add the following URLs (one per line):
+    - Development: `http://localhost:3000/auth/callback`
+    - Development: `http://localhost:3000/**` (wildcard for all localhost routes)
+    - Production (later): `https://rekindle.app/auth/callback`
+    - Production (later): `https://rekindle.app/**` (wildcard for all production routes)
+  - [ ] Click "Save" to save the configuration
+  - [ ] Note: You can add multiple URLs, one per line
+
+- [ ] Verify configuration
+  - [ ] Confirm Site URL is set correctly
+  - [ ] Confirm all Redirect URLs are listed
+  - [ ] Verify configuration is saved (no unsaved changes warning)
+
 - [ ] Add Production URLs when ready for production deployment
+  - [ ] Follow the same steps above with production URLs
+  - [ ] Ensure production URLs are added before deploying frontend
+
 - [ ] Test redirect flow (see Testing Instructions below)
 
 **Testing Instructions for Redirect Flow:**
@@ -427,37 +506,50 @@ Configure JWT token and session settings for Supabase authentication.
 - Your backend needs to verify this token is valid before allowing access to protected routes
 - Supabase automatically generates JWTs - we just need to configure token expiration and session settings
 
+**Where to Configure:**
+- **Cloud Dashboard:** https://app.supabase.com (required - JWT settings are in cloud dashboard)
+- **Local Studio:** Limited settings available, but JWT configuration is primarily in cloud dashboard
+- **Note:** For local development, JWT settings from cloud are used. Local Studio has limited JWT configuration options.
+
 **Step-by-Step Instructions:**
 
 **Step 1: Navigate to Authentication Settings**
-1. Log into your Supabase Dashboard: https://app.supabase.com
+1. Go to https://app.supabase.com
 2. Select your Rekindle project
 3. Navigate to Authentication → Settings
+4. You'll see several sections: General, JWT Settings, Session Settings, Security, etc.
 
 **Step 2: Configure JWT Settings**
-1. Scroll down to "JWT Settings" section
+1. Scroll down to find the "JWT Settings" section
 2. Configure the following:
 
 **JWT Expiration:**
+- Find the "JWT expiry" or "JWT expiration" field
 - Set to `3600` seconds (1 hour)
 - **Why 1 hour?** Tokens expire for security - if someone steals a token, it won't work forever. 1 hour is a good balance between security and user experience.
+- Click "Save" if there's a save button, or changes may auto-save
 
 **JWT Secret:**
 - Supabase automatically generates a JWT secret
-- **Important:** Never share this secret publicly
+- You can view it (but be careful - it's sensitive)
+- **Important:** Never share this secret publicly or commit it to git
 - This is used to sign and verify JWT tokens
+- The secret is shown in the JWT Settings section (usually masked)
 
 **Step 3: Configure Session Settings**
-1. Scroll to "Session Settings" section
+1. Scroll to find the "Session Settings" or "Session Management" section
 2. Configure the following:
 
 **Session Duration:**
-- Default: `3600` seconds (1 hour)
-- This matches JWT expiration for consistency
+- Find the "Session duration" or "Session expiry" field
+- Set to `3600` seconds (1 hour) to match JWT expiration
+- This controls how long a user session lasts before requiring re-authentication
 
 **Refresh Token Rotation:**
+- Find the "Refresh token rotation" toggle or checkbox
 - Enable refresh token rotation (recommended for security)
-- This automatically rotates refresh tokens when used
+- This automatically rotates refresh tokens when used, preventing token reuse attacks
+- Click "Save" to save changes
 
 **Step 4: Document Important Values**
 Create a note with these values (you'll need them later):
@@ -506,18 +598,57 @@ Supabase Configuration:
 **Description:**
 Configure Supabase webhooks to sync user events to backend.
 
+**Where to Configure:**
+- **Cloud Dashboard:** https://app.supabase.com (required - webhooks are only available in cloud)
+- **Local Studio:** Not available - webhooks are cloud-only feature
+- **Note:** Webhooks are for production use. For local development, you can use Supabase Realtime or direct database connections instead.
+
 **Subtasks:**
-- [x] Navigate to Database > Webhooks in Supabase Dashboard
-- [x] Click "Create a new webhook"
-- [x] Set endpoint: `https://api.rekindle.app/api/webhooks/supabase`
-- [x] Select table: `auth.users`
-- [x] Select events to subscribe:
-  - INSERT (user.created)
-  - UPDATE (user.updated)
-  - DELETE (user.deleted)
+- [ ] Navigate to Webhooks in Supabase Cloud Dashboard
+  - [ ] Go to https://app.supabase.com
+  - [ ] Select your Rekindle project
+  - [ ] Navigate to Database → Webhooks (or Project Settings → Webhooks)
+
+- [ ] Create a new webhook
+  - [ ] Click "Create a new webhook" or "Add webhook" button
+  - [ ] You'll see a form to configure the webhook
+
+- [ ] Configure webhook settings
+  - [ ] **Name:** Enter a descriptive name (e.g., "User Events Webhook")
+  - [ ] **Endpoint URL:** Set to `https://api.rekindle.app/api/webhooks/supabase`
+    - Note: For local testing, you may need to use a tunneling service like ngrok
+  - [ ] **HTTP Method:** Select "POST" (default)
+  - [ ] **Table:** Select `auth.users` from the dropdown
+    - Note: You may need to select "auth" schema first, then "users" table
+
+- [ ] Configure webhook events
+  - [ ] Select events to subscribe to:
+    - [ ] Check "INSERT" (fires when user.created)
+    - [ ] Check "UPDATE" (fires when user.updated)
+    - [ ] Check "DELETE" (fires when user.deleted)
+  - [ ] You can select multiple events
+
 - [ ] Generate webhook secret
+  - [ ] Find the "Webhook Secret" or "Signing Secret" field
+  - [ ] Click "Generate" or "Generate new secret" button
+  - [ ] Copy the secret immediately (you won't be able to see it again)
+  - [ ] Store this secret securely (you'll need it for backend verification)
+
+- [ ] Save webhook configuration
+  - [ ] Review all settings
+  - [ ] Click "Save" or "Create webhook" button
+  - [ ] Verify webhook appears in the list with "Active" status
+
 - [ ] Save webhook secret to environment variables
+  - [ ] Add `SUPABASE_WEBHOOK_SECRET` to your backend `.env` file
+  - [ ] Set the value to the secret you generated
+  - [ ] Never commit this secret to git
+
 - [ ] Test webhook delivery (once backend is ready)
+  - [ ] Create a test user in Supabase
+  - [ ] Verify webhook is called (check backend logs)
+  - [ ] Verify webhook payload is correct
+  - [ ] Test UPDATE and DELETE events as well
 
 **Acceptance Criteria:**
 - ✅ Webhook configured in Supabase
@@ -533,23 +664,56 @@ Configure Supabase webhooks to sync user events to backend.
 **Estimated Time:** 30 minutes
 
 **Description:**
-Configure security settings including rate limiting and MFA.
+Configure security settings including rate limiting, MFA, and password requirements.
+
+**Where to Configure:**
+- **Cloud Dashboard:** https://app.supabase.com (required - security settings are in cloud dashboard)
+- **Local Studio:** Limited settings available, but security configuration is primarily in cloud dashboard
 
 **Subtasks:**
-- [ ] Navigate to Authentication → Settings in Supabase Dashboard
-- [ ] Review Security Settings section
-- [x] Configure Rate Limiting:
-  - Enable rate limiting (default is usually sufficient)
-  - Set max attempts: 5 per minute (or use defaults)
-- [x] Configure MFA (optional for MVP):
-  - Enable TOTP (Time-based One-Time Password)
-  - Can be enabled later if needed
-- [ ] Review Session Settings:
-  - Session duration: 3600 seconds (1 hour) - already configured
-  - Refresh token rotation: Enabled - already configured
-- [ ] Review Password Settings:
-  - Password minimum length: 8 characters (default)
-  - Password requirements: Enable complexity rules
+- [ ] Navigate to Security Settings in Supabase Cloud Dashboard
+  - [ ] Go to https://app.supabase.com
+  - [ ] Select your Rekindle project
+  - [ ] Navigate to Authentication → Settings
+  - [ ] Scroll to find "Security" or "Rate Limiting" section
+
+- [ ] Configure Rate Limiting
+  - [ ] Find the "Rate Limiting" section
+  - [ ] Review the default rate limiting settings:
+    - Maximum attempts per IP: Usually 5 per minute (default)
+    - Lockout duration: Usually 60 seconds (default)
+  - [ ] Adjust if needed (defaults are usually sufficient)
+  - [ ] Ensure rate limiting is enabled (should be enabled by default)
+  - [ ] Click "Save" if there's a save button
+
+- [ ] Configure MFA (optional for MVP)
+  - [ ] Find the "Multi-Factor Authentication" or "MFA" section
+  - [ ] Review MFA options:
+    - TOTP (Time-based One-Time Password) - recommended
+    - SMS (may require additional setup)
+  - [ ] For MVP: Leave MFA disabled (can be enabled later if needed)
+  - [ ] If enabling: Toggle "Enable TOTP" to ON
+  - [ ] Save changes
+
+- [ ] Review Session Settings (already configured in Task 1.5)
+  - [ ] Verify Session duration: 3600 seconds (1 hour)
+  - [ ] Verify Refresh token rotation: Enabled
+  - [ ] These should already be configured from Task 1.5
+
+- [ ] Review Password Settings
+  - [ ] Find the "Password" or "Password Requirements" section
+  - [ ] Review password minimum length: 8 characters (default, usually sufficient)
+  - [ ] Configure password complexity rules:
+    - [ ] Enable "Require uppercase letter" (optional but recommended)
+    - [ ] Enable "Require lowercase letter" (optional but recommended)
+    - [ ] Enable "Require number" (optional but recommended)
+    - [ ] Enable "Require special character" (optional but recommended)
+  - [ ] Click "Save" to save password requirements
+  - [ ] Note: More complex requirements improve security but may reduce user adoption
+
+- [ ] Verify all security settings are saved
+  - [ ] Review all sections to ensure no unsaved changes
+  - [ ] Test that settings persist after page refresh
 
 **Acceptance Criteria:**
 - ✅ Rate limiting configured
@@ -578,13 +742,13 @@ Configure security settings including rate limiting and MFA.
 Install and configure Supabase JavaScript client in frontend.
 
 **Subtasks:**
-- [ ] Install package: `npm install @supabase/supabase-js @supabase/auth-helpers-nextjs`
-- [ ] Create `.env.local` with Supabase credentials
-- [ ] Add environment variables:
+- [x] Install package: `npm install @supabase/supabase-js @supabase/auth-helpers-nextjs`
+- [x] Create `.env.local` with Supabase credentials
+- [x] Add environment variables:
   - NEXT_PUBLIC_SUPABASE_URL
   - NEXT_PUBLIC_SUPABASE_ANON_KEY
-- [ ] Create `lib/supabase.ts` to initialize Supabase client
-- [ ] Create `app/api/auth/callback/route.ts` for callback handling
+- [x] Create `lib/supabase.ts` to initialize Supabase client
+- [x] Create `app/api/auth/callback/route.ts` for callback handling
 
 **Acceptance Criteria:**
 - Package installed successfully
@@ -602,19 +766,20 @@ Install and configure Supabase JavaScript client in frontend.
 ### Task 2.2: Set Up Supabase Auth Context
 **Type:** Frontend  
 **Priority:** P0  
-**Estimated Time:** 1 hour
+**Estimated Time:** 1 hour  
+**Status:** ✅ Completed
 
 **Description:**
 Create and configure Supabase authentication context provider.
 
 **Subtasks:**
-- [ ] Create `contexts/AuthContext.tsx`
-- [ ] Use Supabase `createClientComponentClient()` for auth
-- [ ] Create `AuthProvider` component
-- [ ] Update `app/layout.tsx` to wrap with `<AuthProvider>`
-- [ ] Test user context accessibility
-- [ ] Handle loading states
-- [ ] Handle error states
+- [x] Create `contexts/AuthContext.tsx`
+- [x] Use Supabase `createBrowserClient()` for auth (from @supabase/ssr)
+- [x] Create `AuthProvider` component
+- [x] Update `app/layout.tsx` to wrap with `<AuthProvider>`
+- [x] Test user context accessibility
+- [x] Handle loading states
+- [x] Handle error states
 
 **Acceptance Criteria:**
 - AuthProvider wraps entire app
@@ -638,16 +803,17 @@ Create and configure Supabase authentication context provider.
 Create branded sign-in page with social login options.
 
 **Subtasks:**
-- [ ] Create `app/sign-in/page.tsx`
-- [ ] Add "Sign In" heading
-- [ ] Add email/password form (uses Supabase auth)
-- [ ] Add social login buttons (Google, Facebook, Apple) using Supabase OAuth
-- [ ] Add "Don't have an account?" link to sign-up
-- [ ] Add "Forgot password?" link
-- [ ] Style to match Rekindle brand
-- [ ] Make mobile responsive
-- [ ] Add loading states
+- [x] Create `app/sign-in/page.tsx`
+- [x] Add "Sign In" heading
+- [x] Add email/password form (uses Supabase auth)
+- [x] Add social login buttons (Google, Facebook, Apple) using Supabase OAuth
+- [x] Add "Don't have an account?" link to sign-up
+- [x] Add "Forgot password?" link
+- [x] Style to match Rekindle brand
+- [x] Make mobile responsive
+- [x] Add loading states
 - [ ] Test all login methods
+- [ ] `Implement Forgot Password page`
 
 **Acceptance Criteria:**
 - Sign-in page branded and styled
@@ -670,16 +836,18 @@ Create branded sign-in page with social login options.
 Create branded sign-up page with social registration options.
 
 **Subtasks:**
-- [ ] Create `app/sign-up/page.tsx`
-- [ ] Add "Get Started Free" heading
-- [ ] Add "3 free credits" value proposition
-- [ ] Add email/password form (uses Supabase auth)
-- [ ] Add social signup buttons (using Supabase OAuth)
-- [ ] Add "Already have an account?" link
-- [ ] Add terms of service checkbox
-- [ ] Style to match Rekindle brand
-- [ ] Make mobile responsive
+- [x] Create `app/sign-up/page.tsx`
+- [x] Add "Get Started Free" heading
+- [x] Add "3 free credits" value proposition
+- [x] Add email/password form (uses Supabase auth)
+- [x] Add social signup buttons (using Supabase OAuth)
+- [x] Add "Already have an account?" link
+- [x] Add terms of service checkbox
+- [x] Style to match Rekindle brand
+- [x] Make mobile responsive
 - [ ] Test all signup methods
+- [ ] `Implement Terms of Service page`
+- [ ] `Implement Privacy Policy page`
 
 **Acceptance Criteria:**
 - Sign-up page branded and styled
@@ -702,17 +870,17 @@ Create branded sign-up page with social registration options.
 Create middleware to protect authenticated routes.
 
 **Subtasks:**
-- [ ] Create `middleware.ts`
-- [ ] Use Supabase `createMiddlewareClient()` for auth checks
-- [ ] Define protected route patterns:
+- [x] Create `middleware.ts`
+- [x] Use Supabase `createMiddlewareClient()` for auth checks
+- [x] Define protected route patterns:
   - /dashboard/*
   - /photos/*
   - /settings/*
-- [ ] Check user session using Supabase auth
-- [ ] Add redirect to /sign-in if unauthenticated
-- [ ] Test protection on all routes
-- [ ] Handle loading states
-- [ ] Add public routes exception
+- [x] Check user session using Supabase auth
+- [x] Add redirect to /sign-in if unauthenticated
+- [x] Test protection on all routes
+- [x] Handle loading states
+- [x] Add public routes exception
 
 **Acceptance Criteria:**
 - Unauthenticated users redirected to sign-in

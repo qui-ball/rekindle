@@ -136,11 +136,13 @@ else
 fi
 
 # Export Supabase environment variables for use in Docker containers
+# These will override values in env_file if the script successfully extracted them
 export SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
 export SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY"
 
 # Also set frontend environment variables (containers access via host.docker.internal)
+# Note: These can be set in frontend/.env or frontend/.env.local, but script exports take precedence
 export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
@@ -148,9 +150,14 @@ if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
     echo "✅ Supabase environment variables configured"
     echo "   API URL: $SUPABASE_URL"
     echo "   Studio URL: http://localhost:54323"
+    echo ""
+    echo "📝 Note: Frontend env vars are loaded from frontend/.env or frontend/.env.local"
+    echo "   Script exports (above) will override file values if present"
 else
     echo "⚠️  Could not extract Supabase keys automatically"
-    echo "   You may need to set them manually in your .env files"
+    echo "   You may need to set them manually in your .env files:"
+    echo "   - backend/.env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY"
+    echo "   - frontend/.env or frontend/.env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY"
     echo "   Run 'supabase status' to see the keys"
 fi
 
