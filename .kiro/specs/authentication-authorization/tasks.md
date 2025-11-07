@@ -291,37 +291,37 @@ Set up Google OAuth for "Continue with Google" functionality. Facebook and Apple
 - **Local Studio:** Not available - OAuth providers must be configured in cloud dashboard
 
 **Subtasks:**
-- [ ] Create Google Cloud Project and OAuth credentials (if not using Supabase's built-in option)
-  - [ ] Go to https://console.cloud.google.com/
-  - [ ] Create a new project or select existing project
-  - [ ] Navigate to APIs & Services → Credentials
-  - [ ] Click "Create Credentials" → "OAuth client ID"
-  - [ ] Configure OAuth consent screen (if not already done)
-  - [ ] Select "Web application" as application type
-  - [ ] Add authorized redirect URI: `https://[project-id].supabase.co/auth/v1/callback`
-  - [ ] Copy the Client ID and Client Secret (you'll need these)
+- [x] Create Google Cloud Project and OAuth credentials (if not using Supabase's built-in option)
+  - [x] Go to https://console.cloud.google.com/
+  - [x] Create a new project or select existing project
+  - [x] Navigate to APIs & Services → Credentials
+  - [x] Click "Create Credentials" → "OAuth client ID"
+  - [x] Configure OAuth consent screen (if not already done)
+  - [x] Select "Web application" as application type
+  - [x] Add authorized redirect URI: `https://[project-id].supabase.co/auth/v1/callback`
+  - [x] Copy the Client ID and Client Secret (you'll need these)
 
-- [ ] Configure Google OAuth in Supabase Cloud Dashboard
-  - [ ] Go to https://app.supabase.com
-  - [ ] Select your Rekindle project
-  - [ ] Navigate to Authentication → Providers
-  - [ ] Find and click on "Google" provider
-  - [ ] Toggle the "Enable Google provider" switch to ON
-  - [ ] Enter your Google OAuth credentials:
+- [x] Configure Google OAuth in Supabase Cloud Dashboard
+  - [x] Go to https://app.supabase.com
+  - [x] Select your Rekindle project
+  - [x] Navigate to Authentication → Providers
+  - [x] Find and click on "Google" provider
+  - [x] Toggle the "Enable Google provider" switch to ON
+  - [x] Enter your Google OAuth credentials:
     - **Client ID (for Google OAuth):** Paste your Google Client ID
     - **Client Secret (for Google OAuth):** Paste your Google Client Secret
-  - [ ] Click "Save" to save the configuration
-  - [ ] Verify the provider shows "Enabled" status
+  - [x] Click "Save" to save the configuration
+  - [x] Verify the provider shows "Enabled" status
 
 - [ ] Test Google OAuth connection
   - [ ] Use the test login button in Supabase dashboard (if available)
   - [ ] Or wait until frontend auth is implemented (Task 2.1+) to test end-to-end
   - [ ] Verify email is retrieved successfully from Google account
 
-- [ ] Document credentials and setup
-  - [ ] Note the Supabase callback URL format
-  - [ ] Document Google OAuth Client ID (can be stored in environment variables)
-  - [ ] Store Google Client Secret securely (never commit to git)
+- [x] Document credentials and setup
+  - [x] Note the Supabase callback URL format
+  - [x] Document Google OAuth Client ID (can be stored in environment variables)
+  - [x] Store Google Client Secret securely (never commit to git)
 
 **Acceptance Criteria:**
 - ✅ Google OAuth configured and active in Supabase Dashboard
@@ -355,32 +355,32 @@ Customize Supabase email templates for verification and password reset.
 - **Local Studio:** Not available - email templates are only configurable in cloud dashboard
 
 **Subtasks:**
-- [ ] Navigate to Email Templates in Supabase Cloud Dashboard
-  - [ ] Go to https://app.supabase.com
-  - [ ] Select your Rekindle project
-  - [ ] Navigate to Authentication → Email Templates
+- [x] Navigate to Email Templates in Supabase Cloud Dashboard
+  - [x] Go to https://app.supabase.com
+  - [x] Select your Rekindle project
+  - [x] Navigate to Authentication → Email Templates
 
-- [ ] Customize "Confirm signup" template
-  - [ ] Click on "Confirm signup" template
-  - [ ] Update subject line (e.g., "Confirm your Rekindle account")
-  - [ ] Update email body with Rekindle branding
-  - [ ] Include the confirmation link: `{{ .ConfirmationURL }}`
-  - [ ] Click "Save" to save changes
-  - [ ] Use "Send test email" button to test the template (if available)
+- [x] Customize "Confirm signup" template
+  - [x] Click on "Confirm signup" template
+  - [x] Update subject line (e.g., "Confirm your Rekindle account")
+  - [x] Update email body with Rekindle branding
+  - [x] Include the confirmation link: `{{ .ConfirmationURL }}`
+  - [x] Click "Save" to save changes
+  - [x] Use "Send test email" button to test the template (if available)
 
-- [ ] Customize "Reset password" template
-  - [ ] Click on "Reset password" template
-  - [ ] Update subject line (e.g., "Reset your Rekindle password")
-  - [ ] Update email body with Rekindle branding
-  - [ ] Include the password reset link: `{{ .ConfirmationURL }}`
-  - [ ] Click "Save" to save changes
-  - [ ] Use "Send test email" button to test the template (if available)
+- [x] Customize "Reset password" template
+  - [x] Click on "Reset password" template
+  - [x] Update subject line (e.g., "Reset your Rekindle password")
+  - [x] Update email body with Rekindle branding
+  - [x] Include the password reset link: `{{ .ConfirmationURL }}`
+  - [x] Click "Save" to save changes
+  - [x] Use "Send test email" button to test the template (if available)
 
-- [ ] Customize "Magic Link" template (optional)
-  - [ ] Click on "Magic Link" template
-  - [ ] Update subject line and body with Rekindle branding
-  - [ ] Include the magic link: `{{ .ConfirmationURL }}`
-  - [ ] Click "Save" to save changes
+- [x] Customize "Magic Link" template (optional)
+  - [x] Click on "Magic Link" template
+  - [x] Update subject line and body with Rekindle branding
+  - [x] Include the magic link: `{{ .ConfirmationURL }}`
+  - [x] Click "Save" to save changes
 
 - [ ] Configure "From" email address
   - [ ] Navigate to Authentication → Settings
@@ -425,32 +425,32 @@ Configure allowed redirect URLs for Supabase authentication.
 - **Note:** For local development, you can use `http://localhost:3000` without configuring in cloud (it's allowed by default), but you should configure it for consistency and testing.
 
 **Subtasks:**
-- [ ] Navigate to URL Configuration in Supabase Cloud Dashboard
-  - [ ] Go to https://app.supabase.com
-  - [ ] Select your Rekindle project
-  - [ ] Navigate to Authentication → URL Configuration
+- [x] Navigate to URL Configuration in Supabase Cloud Dashboard
+  - [x] Go to https://app.supabase.com
+  - [x] Select your Rekindle project
+  - [x] Navigate to Authentication → URL Configuration
 
 - [ ] Configure Site URL
-  - [ ] Find the "Site URL" field
-  - [ ] For development, set to: `http://localhost:3000`
+  - [x] Find the "Site URL" field
+  - [x] For development, set to: `http://localhost:3000`
   - [ ] For production (later), set to: `https://rekindle.app`
-  - [ ] Click "Save" after each change
+  - [x] Click "Save" after each change
 
 - [ ] Add Redirect URLs
-  - [ ] Find the "Redirect URLs" section
-  - [ ] Click "Add URL" or use the multi-line text field
-  - [ ] Add the following URLs (one per line):
+  - [x] Find the "Redirect URLs" section
+  - [x] Click "Add URL" or use the multi-line text field
+  - [-] Add the following URLs (one per line):
     - Development: `http://localhost:3000/auth/callback`
     - Development: `http://localhost:3000/**` (wildcard for all localhost routes)
     - Production (later): `https://rekindle.app/auth/callback`
     - Production (later): `https://rekindle.app/**` (wildcard for all production routes)
-  - [ ] Click "Save" to save the configuration
-  - [ ] Note: You can add multiple URLs, one per line
+  - [x] Click "Save" to save the configuration
+  - [x] Note: You can add multiple URLs, one per line
 
-- [ ] Verify configuration
-  - [ ] Confirm Site URL is set correctly
-  - [ ] Confirm all Redirect URLs are listed
-  - [ ] Verify configuration is saved (no unsaved changes warning)
+- [x] Verify configuration
+  - [x] Confirm Site URL is set correctly
+  - [x] Confirm all Redirect URLs are listed
+  - [x] Verify configuration is saved (no unsaved changes warning)
 
 - [ ] Add Production URLs when ready for production deployment
   - [ ] Follow the same steps above with production URLs
@@ -571,14 +571,14 @@ Supabase Configuration:
 - We'll configure the backend to verify tokens in Task 3.4
 
 **Subtasks:**
-- [ ] Navigate to Authentication → Settings in Supabase Dashboard
-- [ ] Review JWT Settings (default is usually correct)
-- [ ] Set JWT Expiration to 3600 seconds (1 hour)
-- [ ] Review Session Settings
-- [ ] Enable refresh token rotation
-- [ ] Document JWKS URL (format: `https://[project-id].supabase.co/.well-known/jwks.json`)
-- [ ] Document Project URL
-- [ ] Verify all settings saved
+- [x] Navigate to Authentication → Settings in Supabase Dashboard
+- [x] Review JWT Settings (default is usually correct)
+- [x] Set JWT Expiration to 3600 seconds (1 hour)
+- [x] Review Session Settings
+- [x] Enable refresh token rotation
+- [x] Document JWKS URL (format: `https://[project-id].supabase.co/.well-known/jwks.json`)
+- [x] Document Project URL
+- [x] Verify all settings saved
 
 **Acceptance Criteria:**
 - ✅ JWT expiration set to 3600 seconds (1 hour)
@@ -604,29 +604,29 @@ Configure Supabase webhooks to sync user events to backend.
 - **Note:** Webhooks are for production use. For local development, you can use Supabase Realtime or direct database connections instead.
 
 **Subtasks:**
-- [ ] Navigate to Webhooks in Supabase Cloud Dashboard
-  - [ ] Go to https://app.supabase.com
-  - [ ] Select your Rekindle project
-  - [ ] Navigate to Database → Webhooks (or Project Settings → Webhooks)
+- [x] Navigate to Webhooks in Supabase Cloud Dashboard
+  - [x] Go to https://app.supabase.com
+  - [x] Select your Rekindle project
+  - [x] Navigate to Database → Webhooks (or Project Settings → Webhooks)
 
-- [ ] Create a new webhook
-  - [ ] Click "Create a new webhook" or "Add webhook" button
-  - [ ] You'll see a form to configure the webhook
+- [x] Create a new webhook
+  - [x] Click "Create a new webhook" or "Add webhook" button
+  - [x] You'll see a form to configure the webhook
 
-- [ ] Configure webhook settings
-  - [ ] **Name:** Enter a descriptive name (e.g., "User Events Webhook")
-  - [ ] **Endpoint URL:** Set to `https://api.rekindle.app/api/webhooks/supabase`
+- [x] Configure webhook settings
+  - [x] **Name:** Enter a descriptive name (e.g., "User Events Webhook")
+  - [x] **Endpoint URL:** Set to `https://api.rekindle.app/api/webhooks/supabase`
     - Note: For local testing, you may need to use a tunneling service like ngrok
-  - [ ] **HTTP Method:** Select "POST" (default)
-  - [ ] **Table:** Select `auth.users` from the dropdown
+  - [x] **HTTP Method:** Select "POST" (default)
+  - [x] **Table:** Select `auth.users` from the dropdown
     - Note: You may need to select "auth" schema first, then "users" table
 
-- [ ] Configure webhook events
-  - [ ] Select events to subscribe to:
-    - [ ] Check "INSERT" (fires when user.created)
-    - [ ] Check "UPDATE" (fires when user.updated)
-    - [ ] Check "DELETE" (fires when user.deleted)
-  - [ ] You can select multiple events
+- [x] Configure webhook events
+  - [x] Select events to subscribe to:
+    - [x] Check "INSERT" (fires when user.created)
+    - [x] Check "UPDATE" (fires when user.updated)
+    - [x] Check "DELETE" (fires when user.deleted)
+  - [x] You can select multiple events
 
 - [ ] Generate webhook secret
   - [ ] Find the "Webhook Secret" or "Signing Secret" field
@@ -634,10 +634,10 @@ Configure Supabase webhooks to sync user events to backend.
   - [ ] Copy the secret immediately (you won't be able to see it again)
   - [ ] Store this secret securely (you'll need it for backend verification)
 
-- [ ] Save webhook configuration
-  - [ ] Review all settings
-  - [ ] Click "Save" or "Create webhook" button
-  - [ ] Verify webhook appears in the list with "Active" status
+- [x] Save webhook configuration
+  - [x] Review all settings
+  - [x] Click "Save" or "Create webhook" button
+  - [x] Verify webhook appears in the list with "Active" status
 
 - [ ] Save webhook secret to environment variables
   - [ ] Add `SUPABASE_WEBHOOK_SECRET` to your backend `.env` file

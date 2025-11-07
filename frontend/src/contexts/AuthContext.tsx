@@ -24,32 +24,74 @@ export interface AuthContextType {
   loading: boolean;
   error: AuthError | null;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   signInWithOAuth: (provider: 'google' | 'facebook' | 'apple') => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   refreshSession: () => Promise<void>;
+  acceptTerms: () => Promise<{ error: AuthError | null }>;
 }
 
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Supabase client instance
+// Supabase client instance and normalized URL
 let supabaseClient: ReturnType<typeof createBrowserClient> | null = null;
+let currentNormalizedUrl: string | null = null;
 
-const getSupabaseClient = () => {
-  if (!supabaseClient) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error(
-        'Missing Supabase environment variables. Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
-      );
-    }
-
-    supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+/**
+ * Normalize Supabase URL for client-side use
+ * 
+ * In Docker development, the URL may be set to `http://host.docker.internal:54321`
+ * for server-side code, but browsers can't resolve `host.docker.internal`.
+ * This function replaces it with the appropriate hostname for browser use:
+ * - If accessed via IP address (mobile), use the same IP
+ * - Otherwise, use localhost
+ * 
+ * Note: This is a client-side module ('use client'), so we always normalize the URL.
+ */
+function normalizeSupabaseUrl(url: string): string {
+  // Check if we're accessing via IP address (mobile device)
+  const isIPAddress = typeof window !== 'undefined' && 
+    /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
+  
+  if (isIPAddress) {
+    // Replace host.docker.internal with the current hostname (IP address)
+    // This allows mobile devices to access Supabase
+    const hostname = window.location.hostname;
+    return url.replace(/host\.docker\.internal/g, hostname);
   }
+  
+  // Replace host.docker.internal with localhost for browser access
+  // Browsers can't resolve host.docker.internal, so we use localhost instead
+  return url.replace(/host\.docker\.internal/g, 'localhost');
+}
+
+// Export getSupabaseClient so it can be used in other components (like OAuth callback)
+// This ensures the same client instance and URL normalization is used throughout
+// Note: The client is recreated if the hostname changes (e.g., localhost vs IP address)
+export const getSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      'Missing Supabase environment variables. Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
+    );
+  }
+
+  // Normalize URL for browser use - this is critical for PKCE
+  // The cookie key is based on the hostname in the URL
+  // Both OAuth initiation and callback must use the exact same normalized URL
+  const normalizedUrl = normalizeSupabaseUrl(supabaseUrl);
+  
+  // Recreate client if URL changed (e.g., switching from localhost to IP or vice versa)
+  // This is important for mobile access where the hostname is different
+  if (!supabaseClient || currentNormalizedUrl !== normalizedUrl) {
+    supabaseClient = createBrowserClient(normalizedUrl, supabaseAnonKey);
+    currentNormalizedUrl = normalizedUrl;
+  }
+  
   return supabaseClient;
 };
 
@@ -143,7 +185,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [supabase]);
 
   // Sign up with email and password
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, metadata?: Record<string, any>) => {
     try {
       setLoading(true);
       setError(null);
@@ -151,6 +193,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: metadata || {},
+        },
       });
 
       if (signUpError) {
@@ -175,16 +220,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const { error: signOutError } = await supabase.auth.signOut();
+      // Sign out from Supabase - this clears the session and cookies
+      // Using 'local' scope to only sign out this session (not all devices)
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
 
       if (signOutError) {
         setError(signOutError);
         return { error: signOutError };
       }
 
-      // Session will be cleared via onAuthStateChange
+      // Clear local state immediately
       setUser(null);
       setSession(null);
+
+      // Clear any OAuth-related sessionStorage items
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('oauth_original_hostname');
+        sessionStorage.removeItem('oauth_original_origin');
+      }
+
+      // Session cookies will be cleared by Supabase automatically
+      // onAuthStateChange will also fire with SIGNED_OUT event
       return { error: null };
     } catch (err) {
       const authError = err as AuthError;
@@ -201,21 +257,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      // Get the redirect URL - use client-side page route for OAuth callbacks
+      // Client-side routes are more reliable for OAuth redirects in Next.js
+      // Use the same protocol (HTTP or HTTPS) as the current page
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port || '3000';
+      let redirectUrl = `${protocol}//${hostname}:${port}/auth/callback`;
+      
+      // For localhost, ensure we use the correct protocol
+      // If running in HTTPS mode, use HTTPS; otherwise use HTTP
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        // Use the same protocol as the current page
+        redirectUrl = `${protocol}//${hostname}:${port}/auth/callback`;
+      }
+
+      // Log the redirect URL for debugging (remove in production)
+      console.log('OAuth redirect URL:', redirectUrl);
+      console.log('Current origin:', window.location.origin);
+      console.log('Current hostname:', window.location.hostname);
+      console.log('Current port:', window.location.port);
+
+      // Store the original hostname in sessionStorage so we can use it in the callback
+      // This is needed because Supabase might redirect to site_url (127.0.0.1) instead of redirectTo
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('oauth_original_hostname', window.location.hostname);
+        sessionStorage.setItem('oauth_original_origin', window.location.origin);
+      }
+
+      const { error: oauthError, data } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
+          // Explicitly set query params to ensure redirectTo is used
+          queryParams: {
+            redirect_to: redirectUrl,
+            // Force Google to show account selection screen
+            // This allows users to choose a different account even if they've signed in before
+            prompt: 'select_account',
+          },
         },
       });
 
       if (oauthError) {
+        console.error('OAuth error:', oauthError);
+        console.error('OAuth error details:', JSON.stringify(oauthError, null, 2));
         setError(oauthError);
         return { error: oauthError };
+      }
+
+      // Log OAuth data for debugging
+      if (data) {
+        console.log('OAuth data:', data);
+        console.log('OAuth URL:', data.url);
+        // If we have a URL, the redirect should happen automatically
+        // If we don't have a URL, there might be an issue
+        if (!data.url) {
+          console.error('OAuth data missing URL - this might indicate a configuration issue');
+          console.error('Check if Google OAuth credentials are configured in Supabase');
+        }
+      } else {
+        console.error('OAuth data is null - this might indicate a configuration issue');
+        console.error('Check if Google OAuth credentials are configured in Supabase');
       }
 
       // User will be redirected to OAuth provider, then back to callback
       return { error: null };
     } catch (err) {
+      console.error('OAuth exception:', err);
       const authError = err as AuthError;
       setError(authError);
       return { error: authError };
@@ -230,8 +339,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
 
+      // Get the redirect URL - normalize to HTTP for localhost in development
+      let redirectUrl = `${window.location.origin}/auth/reset-password`;
+      
+      // For localhost, always use HTTP (not HTTPS) to match Supabase configuration
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        redirectUrl = `http://${window.location.hostname}:${window.location.port || '3000'}/auth/reset-password`;
+      }
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: redirectUrl,
       });
 
       if (resetError) {
@@ -268,6 +385,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [supabase]);
 
+  // Accept terms of service
+  const acceptTerms = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !currentUser) {
+        setError({ message: 'User not authenticated' });
+        setLoading(false);
+        return { error: { message: 'User not authenticated' } };
+      }
+
+      // Update user metadata with terms acceptance
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          ...(currentUser.user_metadata || {}),
+          accepted_terms: true,
+          terms_accepted_at: new Date().toISOString(),
+        },
+      });
+
+      if (updateError) {
+        setError(updateError);
+        setLoading(false);
+        return { error: updateError };
+      }
+
+      // Refresh session to get updated user data
+      await refreshSession();
+      setLoading(false);
+      return { error: null };
+    } catch (err) {
+      const authError = err as AuthError;
+      setError(authError);
+      setLoading(false);
+      return { error: authError };
+    }
+  }, [supabase, refreshSession]);
+
   // Context value
   const value: AuthContextType = {
     user,
@@ -280,6 +438,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signInWithOAuth,
     resetPassword,
     refreshSession,
+    acceptTerms,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -11,13 +11,16 @@
  * - /settings/*
  * 
  * Public Routes (always accessible):
- * - / (home page)
+ * - / (landing page)
  * - /sign-in
  * - /sign-up
  * - /auth/callback
  * - /api/*
- * - /gallery (public gallery)
  * - /subscription (public subscription page)
+ * 
+ * Protected Routes (require authentication):
+ * - /upload (photo upload page)
+ * - /gallery (user's photo gallery)
  */
 
 import { createMiddlewareClient } from '@supabase/ssr';
@@ -33,12 +36,13 @@ export async function middleware(request: NextRequest) {
     '/sign-in',
     '/sign-up',
     '/auth/callback',
-    '/gallery',
     '/subscription',
   ];
 
   // Define protected route patterns
   const protectedRoutePatterns = [
+    /^\/upload(\/.*)?$/,      // /upload and /upload/*
+    /^\/gallery(\/.*)?$/,     // /gallery and /gallery/*
     /^\/dashboard(\/.*)?$/,   // /dashboard and /dashboard/*
     /^\/photos(\/.*)?$/,      // /photos and /photos/*
     /^\/settings(\/.*)?$/,     // /settings and /settings/*

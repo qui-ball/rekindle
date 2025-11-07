@@ -161,6 +161,20 @@ else
     echo "   Run 'supabase status' to see the keys"
 fi
 
+# Ensure frontend .env files exist (Docker Compose requires them)
+# Priority: .env.local > .env
+if [ ! -f "frontend/.env.local" ] && [ -f "frontend/.env" ]; then
+    echo "📝 Copying frontend/.env to frontend/.env.local..."
+    cp frontend/.env frontend/.env.local
+elif [ ! -f "frontend/.env.local" ] && [ ! -f "frontend/.env" ]; then
+    echo "⚠️  No frontend/.env or frontend/.env.local found - creating empty .env.local"
+    touch frontend/.env.local
+fi
+# Ensure .env exists (even if empty) for Docker Compose compatibility
+if [ ! -f "frontend/.env" ]; then
+    touch frontend/.env
+fi
+
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."
 docker compose down >/dev/null 2>&1 || true

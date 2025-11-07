@@ -116,4 +116,4 @@ dmypy.json
 .kiro/cache/
 
 # Screenshots and design files
-screenshots/
+screenshots/supabase/.env

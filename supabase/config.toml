@@ -122,7 +122,24 @@ enabled = true
 # in emails.
 site_url = "http://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Include both HTTP and HTTPS URLs to support both development modes
+# Also include IP addresses for mobile device access (e.g., 192.168.2.121:3000)
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "http://127.0.0.1:3000/auth/callback",
+  "https://localhost:3000/auth/callback",
+  "https://127.0.0.1:3000/auth/callback",
+  "http://localhost:3000/api/auth/callback",
+  "http://127.0.0.1:3000/api/auth/callback",
+  "https://localhost:3000/api/auth/callback",
+  "https://127.0.0.1:3000/api/auth/callback",
+  # IP addresses for mobile access - add your local network IP here
+  # You can add multiple IP addresses if needed
+  "http://192.168.2.121:3000/auth/callback",
+  "https://192.168.2.121:3000/auth/callback",
+  "http://192.168.2.121:3000/api/auth/callback",
+  "https://192.168.2.121:3000/api/auth/callback"
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # Path to JWT signing key. DO NOT commit your signing keys file to git.
@@ -173,7 +190,8 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# Set to true for local testing with Mailpit (localhost:54324)
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -275,6 +293,24 @@ redirect_uri = ""
 url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
+# If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+# Configure Google OAuth for local development
+[auth.external.google]
+enabled = true
+# Get these from Google Cloud Console: https://console.cloud.google.com/
+# Navigate to APIs & Services → Credentials → OAuth 2.0 Client ID
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# Overrides the default auth redirectUrl.
+redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+url = ""
+# If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
+skip_nonce_check = true
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 

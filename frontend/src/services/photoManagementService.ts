@@ -15,6 +15,7 @@ import {
   ProcessingOptions,
   JobStatus
 } from '../types/photo-management';
+import { apiClient } from './apiClient';
 
 // Backend API response types
 interface BackendJob {
@@ -60,19 +61,8 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         // Don't include email parameter to get ALL jobs
       });
 
-      const response = await fetch(`${this.baseUrl}/v1/jobs?${params}`, {
-        headers: {
-          'Content-Type': 'application/json'
-          // TODO: Add auth token when auth is implemented
-          // 'Authorization': `Bearer ${await this.getAuthToken()}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch photos: ${response.statusText}`);
-      }
-
-      const jobs = await response.json();
+      // Use authenticated API client
+      const jobs = await apiClient.get<BackendJob[]>(`/v1/jobs?${params}`);
       
       // Transform backend Job data to frontend Photo format with presigned URLs
       const photos = await Promise.all(
@@ -149,17 +139,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async getPhotoDetails(photoId: string): Promise<PhotoDetails> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch photo details: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.get<PhotoDetails>(`/v1/photos/${photoId}`);
     } catch (error) {
       console.error('Error fetching photo details:', error);
       throw error;
@@ -168,16 +148,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async deletePhoto(photoId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete photo: ${response.statusText}`);
-      }
+      await apiClient.delete(`/v1/photos/${photoId}`);
     } catch (error) {
       console.error('Error deleting photo:', error);
       throw error;
@@ -186,16 +157,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async deletePhotoResult(photoId: string, resultId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}/results/${resultId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete photo result: ${response.statusText}`);
-      }
+      await apiClient.delete(`/v1/photos/${photoId}/results/${resultId}`);
     } catch (error) {
       console.error('Error deleting photo result:', error);
       throw error;
@@ -204,21 +166,11 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async downloadPhoto(photoId: string, resultId?: string): Promise<Blob> {
     try {
-      const url = resultId 
-        ? `${this.baseUrl}/v1/photos/${photoId}/results/${resultId}/download`
-        : `${this.baseUrl}/v1/photos/${photoId}/download`;
+      const path = resultId 
+        ? `/v1/photos/${photoId}/results/${resultId}/download`
+        : `/v1/photos/${photoId}/download`;
 
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to download photo: ${response.statusText}`);
-      }
-
-      return await response.blob();
+      return await apiClient.getBlob(path);
     } catch (error) {
       console.error('Error downloading photo:', error);
       throw error;
@@ -227,17 +179,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async getPhotoMetadata(photoId: string): Promise<PhotoMetadata> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}/metadata`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch photo metadata: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.get<PhotoMetadata>(`/v1/photos/${photoId}/metadata`);
     } catch (error) {
       console.error('Error fetching photo metadata:', error);
       throw error;
@@ -259,19 +201,7 @@ export class CreditManagementServiceImpl implements CreditManagementService {
 
   async getCreditBalance(userId: string): Promise<CreditBalance> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/credits/balance?userId=${userId}`, {
-        headers: {
-          'Content-Type': 'application/json'
-          // TODO: Add auth token when auth is implemented
-          // 'Authorization': `Bearer ${await this.getAuthToken()}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch credit balance: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.get<CreditBalance>(`/v1/credits/balance?userId=${userId}`);
     } catch (error) {
       console.error('Error fetching credit balance from API:', error);
       // Throw error instead of returning mock data - let UI handle the error state
@@ -281,19 +211,7 @@ export class CreditManagementServiceImpl implements CreditManagementService {
 
   async calculateProcessingCost(options: ProcessingOptions): Promise<CostBreakdown> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/credits/calculate-cost`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(options)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to calculate processing cost: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.post<CostBreakdown>(`/v1/credits/calculate-cost`, options);
     } catch (error) {
       console.error('Error calculating processing cost:', error);
       throw error;
@@ -312,19 +230,7 @@ export class CreditManagementServiceImpl implements CreditManagementService {
 
   async deductCredits(userId: string, amount: number): Promise<CreditDeductionResult> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/credits/deduct`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ amount })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to deduct credits: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.post<CreditDeductionResult>(`/v1/credits/deduct`, { amount });
     } catch (error) {
       console.error('Error deducting credits:', error);
       throw error;
@@ -333,19 +239,7 @@ export class CreditManagementServiceImpl implements CreditManagementService {
 
   async getCreditUsageBreakdown(userId: string, cost: number): Promise<CreditUsageBreakdown> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/credits/usage-breakdown`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ cost })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get credit usage breakdown: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.post<CreditUsageBreakdown>(`/v1/credits/usage-breakdown`, { cost });
     } catch (error) {
       console.error('Error getting credit usage breakdown:', error);
       throw error;
@@ -369,25 +263,13 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     try {
       // For now, only handle restore option
       if (options.restore) {
-        const response = await fetch(`${this.baseUrl}/v1/jobs/${photoId}/restore`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'comfyui_default',
-            params: {
-              denoise: 0.8,
-              megapixels: options.quality === 'hd' ? 2.0 : 1.0
-            }
-          })
+        const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/jobs/${photoId}/restore`, {
+          model: 'comfyui_default',
+          params: {
+            denoise: 0.8,
+            megapixels: options.quality === 'hd' ? 2.0 : 1.0
+          }
         });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create restore job: ${response.statusText}`);
-        }
-
-        const restoreAttempt = await response.json();
         
         // Transform to PhotoProcessingJob format
         return {
@@ -412,17 +294,7 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
 
   async getJobStatus(jobId: string): Promise<JobStatus> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/processing/jobs/${jobId}/status`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get job status: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.get<JobStatus>(`/v1/processing/jobs/${jobId}/status`);
     } catch (error) {
       console.error('Error getting job status:', error);
       throw error;
@@ -431,16 +303,7 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
 
   async cancelJob(jobId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/processing/jobs/${jobId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cancel job: ${response.statusText}`);
-      }
+      await apiClient.post(`/v1/processing/jobs/${jobId}/cancel`);
     } catch (error) {
       console.error('Error cancelling job:', error);
       throw error;
@@ -449,16 +312,7 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
 
   async retryJob(jobId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/processing/jobs/${jobId}/retry`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to retry job: ${response.statusText}`);
-      }
+      await apiClient.post(`/v1/processing/jobs/${jobId}/retry`);
     } catch (error) {
       console.error('Error retrying job:', error);
       throw error;
@@ -467,17 +321,7 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
 
   async getProcessingHistory(photoId: string): Promise<PhotoProcessingJob[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/v1/photos/${photoId}/processing-history`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get processing history: ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await apiClient.get<PhotoProcessingJob[]>(`/v1/photos/${photoId}/processing-history`);
     } catch (error) {
       console.error('Error getting processing history:', error);
       throw error;

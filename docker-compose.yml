@@ -21,7 +21,10 @@ services:
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
     env_file:
-      # Load frontend env vars from .env file
+      # Load frontend env vars from .env files
+      # Priority: .env.local (if exists) > .env (if exists)
+      # Note: Docker Compose will skip missing files, but we prefer .env.local
+      - ./frontend/.env.local
       - ./frontend/.env
     networks:
       - rekindle-network

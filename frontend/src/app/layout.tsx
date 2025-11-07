@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Rekindle - Restore Your Memories',
-  description: 'Transform old, damaged, or faded family photos into vibrant, restored memories with professional-grade AI.',
+  description: "Transform old, damaged, or faded family photos into vibrant, restored memories with professional-grade AI.",
   manifest: '/manifest.json',
   icons: {
     icon: '/favicon.ico',

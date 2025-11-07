@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "@supabase/ssr": "^0.1.0",
+    "@supabase/ssr": "^0.5.2",
     "browser-image-compression": "^2.0.2",
     "heic2any": "^0.0.4",
     "jscanify": "^1.4.0",
