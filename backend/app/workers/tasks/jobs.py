@@ -77,19 +77,30 @@ def process_restoration(
                 image_data=image_data, job_id=job_id, extension="jpg"
             )
 
-            # Load and modify workflow
-            # Path: /app/app/workers/tasks/jobs.py -> /app/app/workflows/restore.json
+            # ===== FULL RESTORE WORKFLOW (Uncomment this section when ready) =====
+            # workflow_path = (
+            #     Path(__file__).parent.parent.parent / "workflows" / "restore.json"
+            # )
+            # with open(workflow_path, "r") as f:
+            #     workflow = json.load(f)
+            # # Update workflow parameters
+            # workflow["78"]["inputs"]["image"] = f"job_{job_id}.jpg"  # Filename only
+            # workflow["93"]["inputs"]["megapixels"] = megapixels
+            # workflow["3"]["inputs"]["denoise"] = denoise
+            # workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
+            # ===== END FULL RESTORE WORKFLOW =====
+
+            # ===== DUMMY WORKFLOW FOR TESTING (Comment out when using restore) =====
             workflow_path = (
-                Path(__file__).parent.parent.parent / "workflows" / "restore.json"
+                Path(__file__).parent.parent.parent
+                / "workflows"
+                / "dummy_workflow.json"
             )
             with open(workflow_path, "r") as f:
                 workflow = json.load(f)
-
-            # Update workflow parameters
-            workflow["78"]["inputs"]["image"] = f"job_{job_id}.jpg"  # Filename only
-            workflow["93"]["inputs"]["megapixels"] = megapixels
-            workflow["3"]["inputs"]["denoise"] = denoise
-            workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
+            # Update input image path for dummy workflow (node 1 = LoadImage)
+            workflow["1"]["inputs"]["image"] = f"job_{job_id}.jpg"
+            # ===== END DUMMY WORKFLOW =====
 
             # Submit job with webhook
             webhook_url = (

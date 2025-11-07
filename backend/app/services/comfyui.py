@@ -20,7 +20,11 @@ class ComfyUIService:
 
             base_url = settings.COMFYUI_URL
         self.base_url = base_url
-        self.workflow_path = Path(__file__).parent.parent / "workflows" / "restore.json"
+        # Toggle between these two:
+        self.workflow_path = (
+            Path(__file__).parent.parent / "workflows" / "dummy_workflow.json"
+        )  # DUMMY
+        # self.workflow_path = Path(__file__).parent.parent / "workflows" / "restore.json"  # RESTORE
 
     def queue_prompt(self, prompt: Dict[str, Any]) -> Dict[str, Any]:
         """Queue a prompt for processing"""
@@ -130,15 +134,20 @@ class ComfyUIService:
         with open(self.workflow_path, "r") as f:
             workflow = json.load(f)
 
-        # Update workflow parameters
-        workflow["78"]["inputs"]["image"] = uploaded_filename
-        workflow["93"]["inputs"]["megapixels"] = megapixels
-        workflow["3"]["inputs"]["denoise"] = denoise
+        # ===== FULL RESTORE WORKFLOW (Comment this section out when using dummy) =====
+        # # Update workflow parameters
+        # workflow["78"]["inputs"]["image"] = uploaded_filename
+        # workflow["93"]["inputs"]["megapixels"] = megapixels
+        # workflow["3"]["inputs"]["denoise"] = denoise
+        # # Generate random seed
+        # import random
+        # workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
+        # ===== END FULL RESTORE WORKFLOW =====
 
-        # Generate random seed
-        import random
-
-        workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
+        # ===== DUMMY WORKFLOW (Comment this section out when using restore) =====
+        # Update input image path for dummy workflow
+        workflow["1"]["inputs"]["image"] = uploaded_filename
+        # ===== END DUMMY WORKFLOW =====
 
         # Queue the prompt
         logger.info("Starting restoration of {}", uploaded_filename)
