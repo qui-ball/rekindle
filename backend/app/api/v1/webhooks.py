@@ -3,7 +3,7 @@ Webhook endpoints for external service notifications
 """
 
 from fastapi import APIRouter, HTTPException, status, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, Any, Optional
 from uuid import UUID
 from loguru import logger
@@ -13,14 +13,17 @@ from app.core.database import SessionLocal
 from app.models.jobs import Job, RestoreAttempt
 from app.services.s3 import s3_service
 from app.services.runpod_serverless import runpod_serverless_service
-
-# from app.api.v1.events import job_events  # Temporarily disabled for debugging
+from app.api.v1.events import job_events
 
 router = APIRouter()
 
 
 class RunPodWebhookPayload(BaseModel):
     """RunPod webhook payload structure"""
+
+    model_config = ConfigDict(
+        extra="allow"
+    )  # Pydantic v2: Allow extra fields like 'input', 'webhook', etc.
 
     id: str  # RunPod job ID
     status: str  # COMPLETED, FAILED, etc.
@@ -29,7 +32,7 @@ class RunPodWebhookPayload(BaseModel):
     output: Optional[Dict[str, Any]] = None
 
 
-@router.post("/runpod-completion")
+@router.post("/runpod-completion", status_code=200)
 async def handle_runpod_completion(request: Request):
     """
     Handle RunPod serverless job completion webhook
@@ -57,7 +60,7 @@ async def handle_runpod_completion(request: Request):
 
     # Validate with Pydantic
     try:
-        payload = RunPodWebhookPayload(**payload_dict)
+        payload = RunPodWebhookPayload.model_validate(payload_dict)
         logger.info(
             f"✅ Validated webhook: job_id={payload.id}, status={payload.status}"
         )
@@ -165,16 +168,15 @@ async def handle_runpod_completion(request: Request):
                 logger.success(f"Completed serverless restoration for job {job_id}")
 
                 # Notify SSE listeners
-                # TODO: Re-enable after debugging webhook 400 errors
-                # await job_events.notify(
-                #     job_id=job_id,
-                #     event_type="completed",
-                #     data={
-                #         "job_id": job_id,
-                #         "restore_id": str(restore.id),
-                #         "status": "completed",
-                #     }
-                # )
+                await job_events.notify(
+                    job_id=job_id,
+                    event_type="completed",
+                    data={
+                        "job_id": job_id,
+                        "restore_id": str(restore.id),
+                        "status": "completed",
+                    },
+                )
 
                 return {
                     "status": "success",

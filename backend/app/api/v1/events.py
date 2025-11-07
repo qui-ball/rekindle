@@ -3,7 +3,7 @@ SSE (Server-Sent Events) endpoint for real-time job updates
 """
 
 from fastapi import APIRouter
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 import asyncio
 import json
 from typing import Dict, Any
@@ -31,7 +31,10 @@ class JobEventManager:
             self.subscribers[job_id] = []
         self.subscribers[job_id].append(queue)
 
-        logger.info(f"SSE client connected for job {job_id}")
+        logger.info(f"📡 [JobEventManager] New subscriber for job: {job_id}")
+        logger.info(
+            f"📡 [JobEventManager] Current subscribers count: {len(self.subscribers[job_id])}"
+        )
 
         try:
             while True:
@@ -43,26 +46,30 @@ class JobEventManager:
             self.subscribers[job_id].remove(queue)
             if not self.subscribers[job_id]:
                 del self.subscribers[job_id]
-            logger.info(f"SSE client disconnected for job {job_id}")
+            logger.info(
+                f"🔌 [JobEventManager] Subscriber disconnected for job: {job_id}"
+            )
 
     async def notify(self, job_id: str, event_type: str, data: Dict[str, Any]):
         """
         Send event to all subscribers listening to this job
         """
         if job_id in self.subscribers:
-            logger.info(f"Notifying {len(self.subscribers[job_id])} SSE clients for job {job_id}")
-            
-            event = {
-                "event": event_type,
-                "data": json.dumps(data)
-            }
+            subscriber_count = len(self.subscribers[job_id])
+            logger.info(
+                f"✅ [JobEventManager] Notifying {subscriber_count} subscribers for job: {job_id}"
+            )
+
+            # Format: SSE events using ServerSentEvent class
+            event_data = json.dumps(data)
+            event = ServerSentEvent(data=event_data, event=event_type)
 
             # Send to all subscribers
             for queue in self.subscribers[job_id]:
                 try:
                     await queue.put(event)
                 except Exception as e:
-                    logger.error(f"Error sending SSE event: {e}")
+                    logger.error(f"❌ [JobEventManager] Error sending SSE event: {e}")
 
 
 # Global instance
@@ -73,7 +80,7 @@ job_events = JobEventManager()
 async def job_event_stream(job_id: str):
     """
     SSE endpoint for job updates
-    
+
     Usage from frontend:
         const eventSource = new EventSource('/api/v1/events/{job_id}');
         eventSource.addEventListener('completed', (e) => {
@@ -82,4 +89,3 @@ async def job_event_stream(job_id: str):
         });
     """
     return EventSourceResponse(job_events.subscribe(job_id))
-

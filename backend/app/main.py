@@ -3,10 +3,8 @@ Rekindle - Photo Restoration Service
 Main FastAPI application entry point
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from loguru import logger
 
 from app.core.config import settings
 from app.api.routes import api_router
@@ -30,32 +28,15 @@ app.add_middleware(
 )
 
 # Add trusted host middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS,
-)
-
-# Debug middleware to log all webhook requests
-@app.middleware("http")
-async def log_webhook_requests(request: Request, call_next):
-    if "/webhooks/runpod-completion" in request.url.path:
-        body = await request.body()
-        logger.info(f"🔍 MIDDLEWARE: Webhook request to {request.url.path}")
-        logger.info(f"🔍 MIDDLEWARE: Body: {body.decode('utf-8')}")
-        
-        # Important: need to recreate request with body since we consumed it
-        from starlette.datastructures import Headers
-        async def receive():
-            return {"type": "http.request", "body": body}
-        
-        request = Request(request.scope, receive)
-        
-    response = await call_next(request)
-    
-    if "/webhooks/runpod-completion" in request.url.path:
-        logger.info(f"🔍 MIDDLEWARE: Response status: {response.status_code}")
-    
-    return response
+# NOTE: TrustedHostMiddleware temporarily disabled for local development with ngrok webhooks
+# Starlette's TrustedHostMiddleware doesn't support wildcard patterns (*.ngrok-free.app)
+# and ngrok free tier generates random subdomains on each restart.
+#
+# TODO: Re-enable in production with proper domain configuration:
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=settings.ALLOWED_HOSTS,
+# )
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

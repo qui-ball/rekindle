@@ -25,16 +25,21 @@ export function useJobEvents(jobId: string | null, options: UseJobEventsOptions 
   }, [options.onCompleted]);
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId) {
+      return;
+    }
 
-    // Connect to SSE endpoint
-    const eventSource = new EventSource(`/api/v1/events/${jobId}`);
+    // Connect to SSE endpoint - MUST use direct backend URL for SSE to work
+    // Next.js proxy doesn't handle SSE streaming properly
+    // TODO: Use environment variable for production: process.env.NEXT_PUBLIC_BACKEND_URL
+    const sseUrl = `http://localhost:8000/api/v1/events/${jobId}`;
+    const eventSource = new EventSource(sseUrl);
     eventSourceRef.current = eventSource;
 
     // Listen for 'completed' events
     eventSource.addEventListener('completed', (event) => {
       const data: JobCompletedEvent = JSON.parse(event.data);
-      console.log('✅ Job completed via SSE:', data);
+      console.log('Job completed via SSE:', data);
 
       // Trigger callback if provided
       if (callbackRef.current) {
@@ -44,16 +49,12 @@ export function useJobEvents(jobId: string | null, options: UseJobEventsOptions 
 
     // Handle connection errors (auto-reconnects)
     eventSource.onerror = (error) => {
-      console.log('SSE connection error (will auto-reconnect)', error);
-    };
-
-    eventSource.onopen = () => {
-      console.log(`📡 SSE connected for job ${jobId}`);
+      console.error('SSE connection error:', error);
+      console.error('EventSource readyState:', eventSource.readyState);
     };
 
     // Cleanup on unmount or job change
     return () => {
-      console.log(`🔌 SSE disconnected for job ${jobId}`);
       eventSource.close();
     };
   }, [jobId]); // Only depend on jobId, not the callback

@@ -56,8 +56,6 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   // Listen for SSE job completion events
   useJobEvents(activeJobId, {
     onCompleted: async (data) => {
-      console.log('Job completed, refreshing photo data...', data);
-      
       // Update photo status
       setPhotos(prev => prev.map(p => 
         p.id === data.job_id 
@@ -74,6 +72,14 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
           sortOrder: 'desc'
         });
         setPhotos(updatedPhotos);
+        
+        // Update the selected photo in the drawer to show the new restoration
+        if (selectedPhoto && selectedPhoto.id === data.job_id) {
+          const updatedSelectedPhoto = updatedPhotos.find(p => p.id === data.job_id);
+          if (updatedSelectedPhoto) {
+            setSelectedPhoto(updatedSelectedPhoto);
+          }
+        }
       } catch (err) {
         console.error('Error refreshing photos after job completion:', err);
       }
@@ -327,13 +333,12 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
         thumbnailUrl: ''
       });
       
-      // Close drawer
-      handleDrawerClose();
+      // Keep drawer open to show the updated photo when SSE completes
       
     } catch (err) {
       handleError(err as Error, 'Failed to start processing');
     }
-  }, [selectedPhoto, userId, onProcessingComplete, handleDrawerClose, handleError]);
+  }, [selectedPhoto, userId, onProcessingComplete, handleError]);
 
   // Credit purchase and subscription are now handled globally
 
