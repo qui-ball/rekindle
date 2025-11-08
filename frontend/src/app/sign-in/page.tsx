@@ -25,14 +25,23 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Check for error from query params (e.g., from OAuth callback)
+  // Check for error or info from query params (e.g., from OAuth callback or email confirmation)
   useEffect(() => {
     const errorParam = searchParams?.get('error');
+    const infoParam = searchParams?.get('info');
+    
     if (errorParam) {
       setError(decodeURIComponent(errorParam));
       // Clear the error from URL
+      router.replace('/sign-in', { scroll: false });
+    }
+    
+    if (infoParam) {
+      setInfo(decodeURIComponent(infoParam));
+      // Clear the info from URL
       router.replace('/sign-in', { scroll: false });
     }
   }, [searchParams, router]);
@@ -97,6 +106,28 @@ export default function SignInPage() {
 
         {/* Sign-In Card */}
         <div className="bg-white rounded-lg shadow-lg p-8">
+          {/* Info Message */}
+          {info && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <svg
+                  className="w-5 h-5 text-blue-500 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p className="text-sm text-blue-700">{info}</p>
+              </div>
+            </div>
+          )}
+          
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">

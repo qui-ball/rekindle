@@ -120,7 +120,8 @@ file_size_limit = "50MiB"
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# Note: Use HTTPS when running in HTTPS mode (dev:https), HTTP when running in standard mode (dev)
+site_url = "https://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 # Include both HTTP and HTTPS URLs to support both development modes
 # Also include IP addresses for mobile device access (e.g., 192.168.2.121:3000)

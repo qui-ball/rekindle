@@ -1,4 +1,5 @@
 const { createServer } = require('https');
+const http = require('http');
 const { parse } = require('url');
 const next = require('next');
 const fs = require('fs');
@@ -75,7 +76,8 @@ function loadCertificates() {
 const httpsOptions = loadCertificates();
 
 app.prepare().then(() => {
-  createServer(httpsOptions, async (req, res) => {
+  // Create HTTPS server
+  const httpsServer = createServer(httpsOptions, async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
       // API requests are handled by Next.js API routes in src/app/api/[...path]/route.ts
@@ -99,4 +101,5 @@ app.prepare().then(() => {
     .listen(port, hostname, () => {
       // Quiet startup - main info shown by dev-docker.sh
     });
+
 });

@@ -61,25 +61,6 @@ Transform old, damaged, or faded family photos into vibrant, restored memories u
    
    For other Linux distributions, see [mkcert documentation](https://github.com/FiloSottile/mkcert#linux).
 
-4. **(Optional) Install ngrok for mobile OAuth testing:**
-   
-   If you need to test OAuth (Google, Facebook, Apple) on mobile devices:
-   
-   **macOS:**
-   ```bash
-   brew install ngrok
-   ```
-   
-   **Linux:**
-   ```bash
-   snap install ngrok
-   # Or download from https://ngrok.com/download
-   ```
-   
-   See `docs/authentication/NGROK_SETUP.md` for detailed setup instructions.
-   
-   **Note:** You can skip this if you only need email/password authentication on mobile or will test OAuth on desktop.
-
 ### Running the Application
 
 **Start the development environment:**
@@ -164,8 +145,7 @@ docker-compose restart frontend
 
 ### OAuth Testing
 - **Desktop**: OAuth works with `localhost` - no special setup needed
-- **Mobile**: OAuth requires ngrok or a real domain (see `docs/authentication/NGROK_SETUP.md`)
-- **Alternative**: Use email/password authentication on mobile, test OAuth on desktop
+- **Mobile**: Use email/password authentication on mobile - use `https://YOUR_IP:3000` (shown in terminal output)
 - **Production**: OAuth works automatically with your production domain
 
 ## 🔐 Environment Variables
