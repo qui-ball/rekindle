@@ -22,10 +22,10 @@
 | Phase 4: User Management | Week 3-4 | 11 tasks | Not Started |
 | Phase 5: Cross-Device & Biometric | Week 4 | 9 tasks | Not Started |
 | Phase 6: Authorization | Week 5 | 9 tasks | Not Started |
-| Phase 7: Testing & Security | Week 6-7 | 8 tasks | Not Started |
+| Phase 7: Testing & Security | Week 6-7 | 15 tasks | Not Started |
 
-**Total Tasks:** 72 (3 cleanup + 69 implementation)  
-**Frontend Tasks:** 28  
+**Total Tasks:** 79 (3 cleanup + 76 implementation)  
+**Frontend Tasks:** 35  
 **Backend Tasks:** 30  
 **Infrastructure Tasks:** 14 (3 cleanup + 11 setup)
 
@@ -2385,6 +2385,358 @@ Write unit tests for frontend authentication components.
 
 ---
 
+### Task 7.3a: Write AuthContext Unit Tests
+**Type:** Frontend  
+**Priority:** P0  
+**Estimated Time:** 4 hours
+
+**Description:**
+Write comprehensive unit tests for AuthContext authentication logic.
+
+**Subtasks:**
+- [ ] Test initial state (loading, no user)
+- [ ] Test sign in with email/password (success)
+- [ ] Test sign in with email/password (invalid credentials)
+- [ ] Test sign in with email/password (network error)
+- [ ] Test sign up with email/password (success)
+- [ ] Test sign up with email/password (weak password)
+- [ ] Test sign up with email/password (email already exists)
+- [ ] Test sign up with email/password (includes metadata)
+- [ ] Test sign out (clears session)
+- [ ] Test sign out (clears sessionStorage)
+- [ ] Test sign out (clears cookies via Supabase)
+- [ ] Test sign out uses `scope: 'local'`
+- [ ] Test OAuth sign in (Google) - initiates flow
+- [ ] Test OAuth sign in (Facebook) - initiates flow
+- [ ] Test OAuth sign in (Apple) - initiates flow
+- [ ] Test OAuth sign in includes `prompt: 'select_account'`
+- [ ] Test OAuth sign in stores original hostname in sessionStorage
+- [ ] Test OAuth redirect URL uses same protocol (HTTP/HTTPS)
+- [ ] Test accept terms (updates user metadata)
+- [ ] Test accept terms (redirects after acceptance)
+- [ ] Test session refresh
+- [ ] Test auth state change listener (SIGNED_IN)
+- [ ] Test auth state change listener (SIGNED_OUT)
+- [ ] Test auth state change listener (TOKEN_REFRESHED)
+- [ ] Test error handling and state management
+- [ ] Test loading states during auth operations
+- [ ] Mock Supabase client properly
+- [ ] Mock Next.js router
+- [ ] Aim for 90%+ coverage
+
+**Acceptance Criteria:**
+- 90%+ code coverage for AuthContext
+- All authentication methods tested
+- Success and error paths tested
+- OAuth flow initiation tested
+- Session management tested
+- Tests pass consistently
+- No flaky tests
+
+**Files to Create:**
+- `frontend/src/contexts/__tests__/AuthContext.test.tsx`
+
+**Test Patterns:**
+- Use `renderHook` from `@testing-library/react` for context testing
+- Mock Supabase client with `jest.mock('@supabase/ssr')`
+- Mock Next.js router with `jest.mock('next/navigation')`
+- Test both success and error scenarios
+- Verify sessionStorage and cookie clearing
+
+---
+
+### Task 7.3b: Write Sign-In Page Unit Tests
+**Type:** Frontend  
+**Priority:** P0  
+**Estimated Time:** 3 hours
+
+**Description:**
+Write unit tests for the sign-in page component.
+
+**Subtasks:**
+- [ ] Test renders sign-in form
+- [ ] Test shows email and password fields
+- [ ] Test shows "Forgot Password" link
+- [ ] Test shows OAuth buttons (Google, Facebook, Apple)
+- [ ] Test OAuth buttons appear after email/password form
+- [ ] Test email/password form submission (valid)
+- [ ] Test email/password form submission (invalid email)
+- [ ] Test email/password form submission (missing password)
+- [ ] Test displays error messages
+- [ ] Test shows loading state during sign-in
+- [ ] Test redirects to intended destination after sign-in
+- [ ] Test redirects to /upload if no next parameter
+- [ ] Test handles OAuth button clicks
+- [ ] Test OAuth redirects to correct URL
+- [ ] Test form validation (email format)
+- [ ] Test form validation (password required)
+- [ ] Test error message display and clearing
+- [ ] Test link to sign-up page works
+- [ ] Test error from query params (OAuth callback errors)
+- [ ] Test responsive design (mobile/desktop)
+- [ ] Mock AuthContext properly
+- [ ] Mock Next.js router
+- [ ] Use `@testing-library/user-event` for interactions
+- [ ] Aim for 85%+ coverage
+
+**Acceptance Criteria:**
+- 85%+ code coverage for sign-in page
+- All form interactions tested
+- OAuth button clicks tested
+- Error handling tested
+- Redirect behavior tested
+- Tests pass consistently
+
+**Files to Create:**
+- `frontend/src/app/sign-in/__tests__/page.test.tsx`
+
+**Test Patterns:**
+- Use `render` and `screen` from `@testing-library/react`
+- Use `userEvent` for form interactions
+- Mock `useAuth` hook from AuthContext
+- Test form submission with `fireEvent.submit`
+- Verify redirects with mocked router
+
+---
+
+### Task 7.3c: Write Sign-Up Page Unit Tests
+**Type:** Frontend  
+**Priority:** P0  
+**Estimated Time:** 3 hours
+
+**Description:**
+Write unit tests for the sign-up page component.
+
+**Subtasks:**
+- [ ] Test renders sign-up form
+- [ ] Test shows email, password, and confirm password fields
+- [ ] Test shows terms of service checkbox
+- [ ] Test terms checkbox appears before OAuth buttons
+- [ ] Test terms checkbox is required for email/password sign-up
+- [ ] Test OAuth buttons are not disabled by terms checkbox
+- [ ] Test shows notice about terms for OAuth sign-up
+- [ ] Test email/password form submission (valid)
+- [ ] Test email/password form submission (password mismatch)
+- [ ] Test email/password form submission (weak password)
+- [ ] Test email/password form submission (email already exists)
+- [ ] Test email/password form submission (terms not accepted)
+- [ ] Test displays error messages
+- [ ] Test shows loading state during sign-up
+- [ ] Test redirects to success page after sign-up
+- [ ] Test handles OAuth button clicks
+- [ ] Test OAuth redirects to correct URL
+- [ ] Test form validation (email format)
+- [ ] Test form validation (password match)
+- [ ] Test form validation (password strength)
+- [ ] Test form validation (terms required)
+- [ ] Test error message display and clearing
+- [ ] Test link to sign-in page works
+- [ ] Test error from query params (OAuth callback errors)
+- [ ] Test responsive design (mobile/desktop)
+- [ ] Mock AuthContext properly
+- [ ] Mock Next.js router
+- [ ] Use `@testing-library/user-event` for interactions
+- [ ] Aim for 85%+ coverage
+
+**Acceptance Criteria:**
+- 85%+ code coverage for sign-up page
+- All form interactions tested
+- Terms checkbox behavior tested
+- OAuth button clicks tested
+- Error handling tested
+- Redirect behavior tested
+- Tests pass consistently
+
+**Files to Create:**
+- `frontend/src/app/sign-up/__tests__/page.test.tsx`
+
+**Test Patterns:**
+- Use `render` and `screen` from `@testing-library/react`
+- Use `userEvent` for form interactions
+- Mock `useAuth` hook from AuthContext
+- Test form validation logic
+- Verify terms checkbox requirement
+
+---
+
+### Task 7.3d: Write OAuth Callback Page Unit Tests
+**Type:** Frontend  
+**Priority:** P0  
+**Estimated Time:** 3 hours
+
+**Description:**
+Write unit tests for the OAuth callback page component.
+
+**Subtasks:**
+- [ ] Test renders loading state initially
+- [ ] Test handles OAuth callback with code
+- [ ] Test handles OAuth callback with error
+- [ ] Test exchanges code for session
+- [ ] Test redirects to accept-terms if user hasn't accepted
+- [ ] Test redirects to intended destination if terms accepted
+- [ ] Test handles redirect from 127.0.0.1 to original hostname (mobile)
+- [ ] Test uses sessionStorage to restore original hostname
+- [ ] Test handles existing session (doesn't re-exchange code)
+- [ ] Test handles missing code parameter
+- [ ] Test handles exchange errors
+- [ ] Test preserves next parameter in redirect
+- [ ] Test shows appropriate error messages
+- [ ] Test handles PKCE code verifier from cookies
+- [ ] Test uses getSupabaseClient from AuthContext
+- [ ] Test Suspense boundary works correctly
+- [ ] Mock Supabase client properly
+- [ ] Mock Next.js router and searchParams
+- [ ] Mock window.location and sessionStorage
+- [ ] Aim for 80%+ coverage
+
+**Acceptance Criteria:**
+- 80%+ code coverage for OAuth callback page
+- All callback scenarios tested
+- Mobile redirect handling tested
+- Terms check redirect tested
+- Error handling tested
+- Tests pass consistently
+
+**Files to Create:**
+- `frontend/src/app/auth/callback/__tests__/page.test.tsx`
+
+**Test Patterns:**
+- Use `render` and `waitFor` from `@testing-library/react`
+- Mock `useSearchParams` from Next.js
+- Mock `getSupabaseClient` from AuthContext
+- Test code exchange with mocked Supabase
+- Verify redirects with mocked router
+- Test sessionStorage interactions
+
+---
+
+### Task 7.3e: Write Accept Terms Page Unit Tests
+**Type:** Frontend  
+**Priority:** P1  
+**Estimated Time:** 2 hours
+
+**Description:**
+Write unit tests for the accept terms page component.
+
+**Subtasks:**
+- [ ] Test renders terms acceptance form
+- [ ] Test shows terms and privacy policy links
+- [ ] Test requires checkbox to be checked
+- [ ] Test accepts terms and updates user metadata
+- [ ] Test redirects to intended destination after acceptance
+- [ ] Test redirects unauthenticated users to sign-in
+- [ ] Test redirects users who already accepted terms
+- [ ] Test shows loading state during acceptance
+- [ ] Test displays error messages
+- [ ] Test preserves next parameter in redirect
+- [ ] Test checkbox interaction
+- [ ] Mock AuthContext properly
+- [ ] Mock Next.js router
+- [ ] Use `@testing-library/user-event` for interactions
+- [ ] Aim for 80%+ coverage
+
+**Acceptance Criteria:**
+- 80%+ code coverage for accept terms page
+- All user interactions tested
+- Redirect behavior tested
+- Error handling tested
+- Tests pass consistently
+
+**Files to Create:**
+- `frontend/src/app/auth/accept-terms/__tests__/page.test.tsx`
+
+**Test Patterns:**
+- Use `render` and `screen` from `@testing-library/react`
+- Use `userEvent` for checkbox interactions
+- Mock `useAuth` hook from AuthContext
+- Test redirects with mocked router
+- Verify terms acceptance updates user metadata
+
+---
+
+### Task 7.3f: Write RequireAuth Component Unit Tests
+**Type:** Frontend  
+**Priority:** P0  
+**Estimated Time:** 2 hours
+
+**Description:**
+Write unit tests for the RequireAuth component that protects routes.
+
+**Subtasks:**
+- [ ] Test renders children when user is authenticated
+- [ ] Test redirects to sign-in when user is not authenticated
+- [ ] Test preserves intended destination in next parameter
+- [ ] Test shows loading state while checking auth
+- [ ] Test handles auth loading state
+- [ ] Test works with different protected routes
+- [ ] Test preserves pathname in redirect
+- [ ] Mock AuthContext properly
+- [ ] Mock Next.js router
+- [ ] Test with different user states (authenticated, unauthenticated, loading)
+- [ ] Aim for 90%+ coverage
+
+**Acceptance Criteria:**
+- 90%+ code coverage for RequireAuth component
+- All authentication states tested
+- Redirect behavior tested
+- Loading states tested
+- Tests pass consistently
+
+**Files to Create:**
+- `frontend/src/components/__tests__/RequireAuth.test.tsx`
+
+**Test Patterns:**
+- Use `render` from `@testing-library/react`
+- Mock `useAuth` hook from AuthContext
+- Test with different user states
+- Verify redirects with mocked router
+- Test loading state rendering
+
+---
+
+### Task 7.3g: Write UserMenu Component Unit Tests
+**Type:** Frontend  
+**Priority:** P1  
+**Estimated Time:** 2 hours
+
+**Description:**
+Write unit tests for the UserMenu component.
+
+**Subtasks:**
+- [ ] Test renders user menu when authenticated
+- [ ] Test shows user name and email
+- [ ] Test shows profile picture
+- [ ] Test opens dropdown on click
+- [ ] Test closes dropdown on outside click
+- [ ] Test sign out button triggers signOut
+- [ ] Test sign out redirects to landing page
+- [ ] Test handles sign out errors gracefully
+- [ ] Test doesn't render when not authenticated
+- [ ] Test doesn't render when loading
+- [ ] Mock AuthContext properly
+- [ ] Mock Next.js router
+- [ ] Use `@testing-library/user-event` for interactions
+- [ ] Aim for 85%+ coverage
+
+**Acceptance Criteria:**
+- 85%+ code coverage for UserMenu component
+- All user interactions tested
+- Sign out functionality tested
+- Conditional rendering tested
+- Tests pass consistently
+
+**Files to Create:**
+- `frontend/src/components/__tests__/UserMenu.test.tsx`
+
+**Test Patterns:**
+- Use `render` and `screen` from `@testing-library/react`
+- Use `userEvent` for click interactions
+- Mock `useAuth` hook from AuthContext
+- Test dropdown open/close behavior
+- Verify sign out calls and redirects
+
+---
+
 ### Task 7.4: Perform Security Audit
 **Type:** Backend + Frontend  
 **Priority:** P0  
@@ -2531,12 +2883,12 @@ Create and verify production deployment checklist.
 ### Task Distribution
 
 **By Type:**
-- Frontend: 28 tasks (42%)
-- Backend: 30 tasks (45%)
-- Infrastructure: 9 tasks (13%)
+- Frontend: 35 tasks (44%)
+- Backend: 30 tasks (38%)
+- Infrastructure: 14 tasks (18%)
 
 **By Priority:**
-- P0 (Critical): 41 tasks
+- P0 (Critical): 48 tasks
 - P1 (High): 22 tasks
 - P2 (Medium): 4 tasks
 
