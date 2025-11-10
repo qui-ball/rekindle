@@ -197,5 +197,20 @@ class RunPodServerlessService:
             raise Exception(f"S3 download failed: {e}")
 
 
-# Global service instance
-runpod_serverless_service = RunPodServerlessService()
+# Global service instance (lazy initialization)
+_runpod_serverless_service: Optional[RunPodServerlessService] = None
+
+def get_runpod_serverless_service() -> RunPodServerlessService:
+    """Get or create the RunPod serverless service instance (lazy initialization)"""
+    global _runpod_serverless_service
+    if _runpod_serverless_service is None:
+        _runpod_serverless_service = RunPodServerlessService()
+    return _runpod_serverless_service
+
+# For backward compatibility, create a property-like accessor
+class _RunPodServiceProxy:
+    """Proxy class to maintain backward compatibility with direct attribute access"""
+    def __getattr__(self, name):
+        return getattr(get_runpod_serverless_service(), name)
+
+runpod_serverless_service = _RunPodServiceProxy()
