@@ -124,7 +124,7 @@ This document outlines the technical architecture standards and recommendations 
 │                          FastAPI (Python) Backend                              │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                │
 │  │ Upload API      │  │ Processing API  │  │ User API        │                │
-│  │ • Presigned URLs│  │ • Job Status    │  │ • Auth (Auth0)  │                │
+│  │ • Presigned URLs│  │ • Job Status    │  │ • Auth (Supabase)│                │
 │  │ • File Metadata │  │ • Queue Mgmt    │  │ • Subscriptions │                │
 │  │ • Validation    │  │ • Cost Tracking │  │ • Credits       │                │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘                │
@@ -164,7 +164,7 @@ This document outlines the technical architecture standards and recommendations 
 │                           EXTERNAL SERVICES LAYER                              │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                │
-│  │ Auth0           │  │ Stripe          │  │ Basic Logging   │                │
+│  │ Supabase Auth   │  │ Stripe          │  │ Basic Logging   │                │
 │  │ • Social Login  │  │ • Subscriptions │  │ • Error Track   │                │
 │  │ • User Mgmt     │  │ • Credits       │  │ • Cost Monitor  │                │
 │  │ • Password Reset│  │ • Annual Billing│  │ • Manual Review │                │
@@ -217,7 +217,7 @@ to Upload & Processing Flow (MVP)
 │  │ → Quality Check → Store Results → Update Database                       │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                   ▼                                             │
-│  📧 Notification (Auth0 handles)                                              │
+│  📧 Notification (Supabase handles)                                              │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
 │  │ Job Complete → Update UI → User Views Results → Download Available      │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
@@ -293,7 +293,7 @@ class RunPodService:
 - **Database:** PostgreSQL - reliable, supports complex queries
 - **Queue System:** Redis with job queues - simple, reliable processing
 - **File Storage:** AWS S3 + CloudFront CDN
-- **Authentication:** Auth0 (free tier covers MVP)
+- **Authentication:** Supabase Auth (free tier covers MVP - 50K users)
 - **Payments:** Stripe (subscription + credits)
 
 **Scalability Pattern:**
@@ -450,7 +450,7 @@ backend/
 - **Upload Security:** Presigned S3 URLs, file type validation
 - **Processing Security:** Isolated RunPod workers, no data persistence
 - **Storage Security:** Encrypted at rest, signed URLs for access
-- **Auth Security:** Auth0 handles password security and resets
+- **Auth Security:** Supabase Auth handles password security and resets
 - **Privacy Compliance:** GDPR/CCPA ready for US/Canada launch
 
 ### Content Moderation
@@ -533,4 +533,4 @@ containerDefinitions:
 - **Global Expansion:** Multi-region deployment and localization
 - **Enterprise Features:** Bulk processing, API access, white-label solutions
 
-This architecture provides a solid foundation for rapid MVP development while maintaining flexibility for future scaling and feature expansion. The focus on RunPod, Auth0, and minimal observability keeps costs low during validation while providing professional-grade functionality.
+This architecture provides a solid foundation for rapid MVP development while maintaining flexibility for future scaling and feature expansion. The focus on RunPod, Supabase Auth, and minimal observability keeps costs low during validation while providing professional-grade functionality.

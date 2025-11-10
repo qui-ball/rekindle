@@ -76,7 +76,7 @@ Transform old, damaged, or faded family photos into vibrant, restored memories. 
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤
 │ CDN (CloudFront)        │ $0.085/GB      │ First 10TB                   │
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤
-│ Authentication (Auth0)  │ $0 - $105       │ Free up to 7.5K MAUs         │
+│ Authentication (Supabase)│ $0 - $187.50   │ Free up to 50K MAUs           │
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤
 │ Monitoring & Analytics  │ $0 - $25        │ Basic logging (MVP)          │
 ├─────────────────────────┼─────────────────┼──────────────────────────────┤

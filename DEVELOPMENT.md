@@ -80,6 +80,12 @@ docker-compose up --build            # Rebuild containers
 - **Manual**: Run `./dev tunnel` if you started with `--no-tunnel`
 - **Required**: For camera access on mobile browsers
 
+### OAuth Testing
+- **Desktop**: OAuth works with `localhost` - no special setup needed
+- **Mobile**: OAuth requires ngrok or a real domain (see `NGROK_SETUP.md`)
+- **Alternative**: Use email/password authentication on mobile, test OAuth on desktop
+- **Production**: OAuth works automatically with your production domain
+
 ## 🔥 Hot Reload
 
 Hot reload is enabled and should work for:

@@ -8,7 +8,7 @@ from uuid import UUID
 from typing import List, Optional
 from loguru import logger
 
-from app.api.deps import get_db
+from app.core.database import get_db
 from app.core.config import settings
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.schemas.jobs import (
@@ -293,7 +293,7 @@ async def get_job(
             "id": animation.id,
             "job_id": animation.job_id,
             "restore_id": animation.restore_id,
-            "preview_s3_key": animation.preview_s3_key,
+            "preview_s3_key": animation.preview_s3_key or "",
             "result_s3_key": animation.result_s3_key,
             "thumb_s3_key": animation.thumb_s3_key,
             "model": animation.model,
@@ -412,7 +412,7 @@ async def list_jobs(
                 "id": animation.id,
                 "job_id": animation.job_id,
                 "restore_id": animation.restore_id,
-                "preview_s3_key": animation.preview_s3_key,
+                "preview_s3_key": animation.preview_s3_key or "",
                 "result_s3_key": animation.result_s3_key,
                 "thumb_s3_key": animation.thumb_s3_key,
                 "model": animation.model,

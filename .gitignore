@@ -96,6 +96,7 @@ out/
 .nuxt/
 .cache/
 .parcel-cache/
+*.tsbuildinfo
 
 # PWA generated files
 frontend/public/sw.js
@@ -115,4 +116,4 @@ dmypy.json
 .kiro/cache/
 
 # Screenshots and design files
-screenshots/
+screenshots/supabase/.env

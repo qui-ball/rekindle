@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreditBalance } from '../types/photo-management';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * GlobalCreditBalanceBar Component
@@ -13,11 +14,13 @@ import { useRouter } from 'next/navigation';
  * - Compact display of unified credit balance
  * - Plus icon for purchasing additional credits
  * - Clean, minimal design that doesn't distract from content
+ * - Only visible when user is signed in
  */
 export const GlobalCreditBalanceBar: React.FC = () => {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   // Mock user ID - in real app, get from auth context
   const userId = 'user-123';
@@ -56,8 +59,8 @@ export const GlobalCreditBalanceBar: React.FC = () => {
     router.push('/subscription');
   };
 
-  // Don't render if loading or no balance
-  if (isLoading || !creditBalance) {
+  // Don't render if not signed in, loading, or no balance
+  if (authLoading || !user || isLoading || !creditBalance) {
     return null;
   }
 

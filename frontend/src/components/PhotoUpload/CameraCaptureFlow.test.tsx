@@ -112,7 +112,7 @@ describe('CameraCaptureFlow', () => {
       // Should move directly to cropping state
       await waitFor(() => {
         // The QuadrilateralCropper component should be rendered
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
     });
 
@@ -125,7 +125,7 @@ describe('CameraCaptureFlow', () => {
       
       // Should show cropping image
       await waitFor(() => {
-        const cropImage = screen.getByAltText('Captured photo preview');
+        const cropImage = screen.getByAltText('Crop preview');
         expect(cropImage).toBeInTheDocument();
         expect(cropImage).toHaveAttribute('src', expect.stringContaining('data:image/jpeg;base64'));
       });
@@ -141,14 +141,14 @@ describe('CameraCaptureFlow', () => {
       fireEvent.click(captureButton);
       
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
     });
 
     it('should show cropping interface after capture', async () => {
       // The cropping interface should be visible after capture
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
       
       // Should not call onCapture yet (only after crop is accepted)
@@ -159,10 +159,10 @@ describe('CameraCaptureFlow', () => {
     it('should cancel crop and return to capture', async () => {
       // Wait for cropping interface to appear
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
       
-      const cancelButton = screen.getByText('↶'); // Retake button
+      const cancelButton = screen.getByLabelText('Close preview'); // Close button
       fireEvent.click(cancelButton);
       
       // Should return to capture state
@@ -275,7 +275,7 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Change to landscape
@@ -295,7 +295,7 @@ describe('CameraCaptureFlow', () => {
       });
 
       // Should still show cropping interface
-      expect(screen.getByText('✓')).toBeInTheDocument();
+      expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
     });
   });
 
@@ -310,7 +310,7 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
     });
 
@@ -334,10 +334,10 @@ describe('CameraCaptureFlow', () => {
 
       // Crop area should be visible (buttons should be accessible)
       expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('↶')).toBeInTheDocument(); // Retake button
+      expect(screen.getByLabelText('Close preview')).toBeInTheDocument(); // Close button
       
       // Buttons should be positioned within screen bounds
-      const cropButton = screen.getByText('✓');
+      const cropButton = screen.getByLabelText('Apply crop');
       expect(cropButton).toBeVisible();
     });
 
@@ -361,10 +361,10 @@ describe('CameraCaptureFlow', () => {
 
       // Crop area should be visible and interactive
       expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('↶')).toBeInTheDocument(); // Retake button
+      expect(screen.getByLabelText('Close preview')).toBeInTheDocument(); // Close button
       
       // Should be able to see crop controls (button may be disabled until quad area is set)
-      const cropButton = screen.getByText('✓');
+      const cropButton = screen.getByLabelText('Apply crop');
       expect(cropButton).toBeInTheDocument();
     });
 
@@ -388,14 +388,14 @@ describe('CameraCaptureFlow', () => {
 
       // Crop controls should remain accessible
       expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('↶')).toBeInTheDocument(); // Retake button
+      expect(screen.getByLabelText('Close preview')).toBeInTheDocument(); // Close button
     });
 
     it('should reserve space for UI elements in full-screen mode', () => {
       // The cropper should account for button space and safe areas
       // This is tested by ensuring buttons remain visible and clickable
-      const cropButton = screen.getByText('✓');
-      const cancelButton = screen.getByText('↶'); // Retake button
+      const cropButton = screen.getByLabelText('Apply crop');
+      const cancelButton = screen.getByLabelText('Close preview'); // Close button
       
       expect(cropButton).toBeVisible();
       expect(cancelButton).toBeVisible();
@@ -510,11 +510,11 @@ describe('CameraCaptureFlow', () => {
 
       // Should transition to cropping with full-screen image
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Image should maintain full-screen appearance
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       expect(cropImage).toHaveClass('object-contain');
     });
@@ -550,17 +550,17 @@ describe('CameraCaptureFlow', () => {
 
       // State 2: Should show complete captured image with cropping overlay
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Critical test: Image should show complete captured content (object-contain behavior)
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       expect(cropImage).toHaveClass('object-contain'); // Ensures complete image is visible
       
       // Crop controls should be visible and accessible
       expect(screen.getByText('✓')).toBeInTheDocument();
-      expect(screen.getByText('↶')).toBeInTheDocument(); // Retake button
+      expect(screen.getByLabelText('Close preview')).toBeInTheDocument(); // Close button
     });
 
     it('should ensure crop area is accessible with object-contain behavior', async () => {
@@ -575,17 +575,17 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Image should use object-contain to show complete captured content
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       expect(cropImage).toHaveClass('object-contain');
       
       // Crop controls should be accessible
-      const cropButton = screen.getByText('✓');
-      const cancelButton = screen.getByText('↶'); // Retake button
+      const cropButton = screen.getByLabelText('Apply crop');
+      const cancelButton = screen.getByLabelText('Close preview'); // Close button
       
       expect(cropButton).toBeVisible();
       expect(cancelButton).toBeVisible();
@@ -617,16 +617,16 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // All crop corners should be within screen bounds
       // This is tested by ensuring the crop interface is functional
-      const cropButton = screen.getByText('✓');
+      const cropButton = screen.getByLabelText('Apply crop');
       expect(cropButton).toBeVisible();
       
       // The cropping interface should be present and accessible
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
     });
 
@@ -652,18 +652,18 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Crop area should be visible and interactive on mobile
-      const cropButton = screen.getByText('✓');
-      const cancelButton = screen.getByText('↶'); // Retake button
+      const cropButton = screen.getByLabelText('Apply crop');
+      const cancelButton = screen.getByLabelText('Close preview'); // Close button
       
       expect(cropButton).toBeVisible();
       expect(cancelButton).toBeVisible();
       
       // Image should use object-contain for complete visibility
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       expect(cropImage).toHaveClass('object-contain');
     });
@@ -680,16 +680,16 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // With object-contain, the entire image is visible, so crop area is always accessible
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       expect(cropImage).toHaveClass('object-contain');
       
       // Crop controls should be functional
-      const cropButton = screen.getByText('✓');
+      const cropButton = screen.getByLabelText('Apply crop');
       expect(cropButton).toBeInTheDocument();
       
       // This test ensures that crop corners won't extend beyond visible bounds
@@ -708,16 +708,16 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // The crop area should be centered on the image
       // This is verified by ensuring the cropping interface is functional
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       
       // Crop button should be enabled (indicating valid crop area)
-      const cropButton = screen.getByText('✓');
+      const cropButton = screen.getByLabelText('Apply crop');
       expect(cropButton).toBeInTheDocument();
       
       // The crop area should be properly initialized and centered
@@ -736,17 +736,17 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Image should use object-contain but maximize available space
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
       expect(cropImage).toHaveClass('object-contain');
       
       // Should still have accessible crop controls
-      expect(screen.getByText('✓')).toBeVisible();
-      expect(screen.getByText('↶')).toBeVisible(); // Retake button
+      expect(screen.getByLabelText('Apply crop')).toBeVisible();
+      expect(screen.getByLabelText('Close preview')).toBeVisible(); // Close button
     });
 
     it('should show cropping overlay without shrinking the image', async () => {
@@ -759,15 +759,15 @@ describe('CameraCaptureFlow', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('✓')).toBeInTheDocument();
+        expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
       });
 
       // Should have crop controls visible
-      expect(screen.getByText('↶')).toBeInTheDocument(); // Retake button
+      expect(screen.getByLabelText('Close preview')).toBeInTheDocument(); // Close button
       expect(screen.getByText('✓')).toBeInTheDocument();
       
       // Image should be present and properly sized
-      const cropImage = screen.getByAltText('Captured photo preview');
+      const cropImage = screen.getByAltText('Crop preview');
       expect(cropImage).toBeInTheDocument();
     });
   });

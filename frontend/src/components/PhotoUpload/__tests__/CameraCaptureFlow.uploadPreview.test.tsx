@@ -93,11 +93,11 @@ describe('CameraCaptureFlow - Upload Preview Integration', () => {
 
     // Step 2: Wait for smart detection and crop interface
     await waitFor(() => {
-      expect(screen.getByText('✓ Crop')).toBeInTheDocument();
+      expect(screen.getByLabelText('Apply crop')).toBeInTheDocument();
     });
 
     // Step 3: Click crop button to proceed to upload preview
-    const cropButton = screen.getByText('✓ Crop');
+    const cropButton = screen.getByLabelText('Apply crop');
     fireEvent.click(cropButton);
 
     // Step 4: Wait for perspective correction processing
@@ -138,8 +138,8 @@ describe('CameraCaptureFlow - Upload Preview Integration', () => {
 
     // Capture and proceed to upload preview
     fireEvent.click(screen.getByText('Mock Capture'));
-    await waitFor(() => screen.getByText('✓ Crop'));
-    fireEvent.click(screen.getByText('✓ Crop'));
+    await waitFor(() => screen.getByLabelText('Apply crop'));
+    fireEvent.click(screen.getByLabelText('Apply crop'));
     await waitFor(() => screen.getByText('Retake'));
 
     // Click retake button
@@ -174,8 +174,8 @@ describe('CameraCaptureFlow - Upload Preview Integration', () => {
 
     // Capture and proceed through flow
     fireEvent.click(screen.getByText('Mock Capture'));
-    await waitFor(() => screen.getByText('✓ Crop'));
-    fireEvent.click(screen.getByText('✓ Crop'));
+    await waitFor(() => screen.getByLabelText('Apply crop'));
+    fireEvent.click(screen.getByLabelText('Apply crop'));
 
     // Wait for fallback warning
     await waitFor(() => {
@@ -256,8 +256,8 @@ describe('CameraCaptureFlow - Upload Preview Integration', () => {
     );
 
     fireEvent.click(screen.getByText('Mock Capture'));
-    await waitFor(() => screen.getByText('✓ Crop'));
-    fireEvent.click(screen.getByText('✓ Crop'));
+    await waitFor(() => screen.getByLabelText('Apply crop'));
+    fireEvent.click(screen.getByLabelText('Apply crop'));
 
     // Should show fallback after timeout
     await waitFor(() => {
@@ -289,8 +289,8 @@ describe('CameraCaptureFlow - Upload Preview Integration', () => {
     );
 
     fireEvent.click(screen.getByText('Mock Capture'));
-    await waitFor(() => screen.getByText('✓ Crop'));
-    fireEvent.click(screen.getByText('✓ Crop'));
+    await waitFor(() => screen.getByLabelText('Apply crop'));
+    fireEvent.click(screen.getByLabelText('Apply crop'));
 
     await waitFor(() => {
       expect(perspectiveCorrectionService.correctPerspective).toHaveBeenCalledWith(
@@ -322,8 +322,8 @@ describe('CameraCaptureFlow - Upload Preview Integration', () => {
     );
 
     fireEvent.click(screen.getByText('Mock Capture'));
-    await waitFor(() => screen.getByText('✓ Crop'));
-    fireEvent.click(screen.getByText('✓ Crop'));
+    await waitFor(() => screen.getByLabelText('Apply crop'));
+    fireEvent.click(screen.getByLabelText('Apply crop'));
     await waitFor(() => screen.getByText('Retake'));
 
     // Press escape
