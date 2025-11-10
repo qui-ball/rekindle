@@ -63,85 +63,90 @@ class S3Service:
         key = f"uploaded/{job_id}.{extension}"
         ct = self._get_content_type(extension, content_type)
         return self.upload_file(image_content, key, ct)
-    
+
     def generate_thumbnail(
         self,
         image_content: bytes,
         max_size: Tuple[int, int] = (400, 400),
-        quality: int = 85
+        quality: int = 85,
     ) -> bytes:
         """
         Generate a thumbnail from image content
-        
+
         Args:
             image_content: Original image bytes
             max_size: Maximum dimensions (width, height) for thumbnail
             quality: JPEG quality (1-100)
-        
+
         Returns:
             Thumbnail image bytes
         """
         try:
             # Open image from bytes
             image = Image.open(io.BytesIO(image_content))
-            
+
             # Convert RGBA to RGB if necessary
-            if image.mode in ('RGBA', 'LA', 'P'):
+            if image.mode in ("RGBA", "LA", "P"):
                 # Create white background
-                background = Image.new('RGB', image.size, (255, 255, 255))
-                if image.mode == 'P':
-                    image = image.convert('RGBA')
-                background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+                background = Image.new("RGB", image.size, (255, 255, 255))
+                if image.mode == "P":
+                    image = image.convert("RGBA")
+                background.paste(
+                    image,
+                    mask=image.split()[-1] if image.mode in ("RGBA", "LA") else None,
+                )
                 image = background
-            elif image.mode != 'RGB':
-                image = image.convert('RGB')
-            
+            elif image.mode != "RGB":
+                image = image.convert("RGB")
+
             # Generate thumbnail (maintains aspect ratio)
             image.thumbnail(max_size, Image.Resampling.LANCZOS)
-            
+
             # Save to bytes
             output = io.BytesIO()
-            image.save(output, format='JPEG', quality=quality, optimize=True)
+            image.save(output, format="JPEG", quality=quality, optimize=True)
             output.seek(0)
-            
+
             thumbnail_bytes = output.getvalue()
-            logger.info(f"Generated thumbnail: original {len(image_content)} bytes -> thumbnail {len(thumbnail_bytes)} bytes")
-            
+            logger.info(
+                f"Generated thumbnail: original {len(image_content)} bytes -> thumbnail {len(thumbnail_bytes)} bytes"
+            )
+
             return thumbnail_bytes
-            
+
         except Exception as e:
             logger.error(f"Error generating thumbnail: {e}")
             raise
-    
+
     def upload_job_thumbnail(
         self,
         image_content: bytes,
         job_id: str,
         extension: str = "jpg",
         max_size: Tuple[int, int] = (400, 400),
-        quality: int = 85
+        quality: int = 85,
     ) -> str:
         """
         Generate and upload a thumbnail for a job's uploaded image
-        
+
         Args:
             image_content: Original image bytes
             job_id: Job ID
             extension: File extension
             max_size: Maximum thumbnail dimensions
             quality: JPEG quality
-        
+
         Returns:
             S3 URL of uploaded thumbnail
         """
         try:
             # Generate thumbnail
             thumbnail_bytes = self.generate_thumbnail(image_content, max_size, quality)
-            
+
             # Upload thumbnail to S3
             key = f"thumbnails/{job_id}.jpg"  # Always use jpg for thumbnails
             return self.upload_file(thumbnail_bytes, key, "image/jpeg")
-            
+
         except Exception as e:
             logger.error(f"Error uploading thumbnail for job {job_id}: {e}")
             raise
@@ -203,7 +208,9 @@ class S3Service:
         key = f"meta/{job_id}.json"
         return self.upload_file(meta_content, key, content_type)
 
-    def _get_content_type(self, extension: str, content_type: Optional[str] = None) -> str:
+    def _get_content_type(
+        self, extension: str, content_type: Optional[str] = None
+    ) -> str:
         """
         Normalize content type based on extension
         """

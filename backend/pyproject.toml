@@ -25,6 +25,8 @@ dependencies = [
     "email-validator>=2.3.0",
     "flower>=2.0.1",
     "runpod>=1.7.13",
+    "click>=8.3.0",
+    "sse-starlette>=3.0.3",
 ]
 
 [dependency-groups]

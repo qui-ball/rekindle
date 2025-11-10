@@ -220,6 +220,7 @@ done
 
 # Setup database tables (only if a local postgres service exists)
 if docker compose ps postgres >/dev/null 2>&1; then
+    echo "🗄️  Setting up database tables..."
     docker compose exec -T postgres psql -U rekindle -d rekindle -c "
 CREATE TABLE IF NOT EXISTS jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -264,9 +265,17 @@ echo "🔐 Supabase Services:"
 echo "   API URL:    http://localhost:54321"
 echo "   Studio URL: http://localhost:54323"
 echo ""
-echo "💡 Quick commands:"
-echo "   Logs:    docker compose logs -f [service]"
-echo "   Stop:    ./dev stop"
+echo "🔧 Development Commands:"
+echo "   View all logs:     docker compose logs -f"
+echo "   View frontend:     docker compose logs -f frontend"
+echo "   View backend:      docker compose logs -f backend"
+echo "   View celery:       docker compose logs -f celery"
+echo "   View flower:       docker compose logs -f flower"
+echo "   Stop:              ./dev stop"
+echo "   Restart:           docker compose restart"
+echo "   Frontend shell:   docker compose exec frontend sh"
+echo "   Backend shell:     docker compose exec backend sh"
+echo "   Celery shell:      docker compose exec celery sh"
 echo ""
 
 # Show logs if requested

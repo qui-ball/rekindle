@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # API
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = Field(..., description="Secret key for JWT")
+    BACKEND_BASE_URL: str = Field(
+        ..., description="Backend base URL for webhooks (e.g., https://api.example.com)"
+    )
 
     # Database
     DATABASE_URL: str = Field(..., description="PostgreSQL database URL")
@@ -35,8 +38,27 @@ class Settings(BaseSettings):
 
     # RunPod
     RUNPOD_API_KEY: str = Field(..., description="RunPod API key")
-    RUNPOD_S3_ACCESS_KEY: str = Field(default="", description="RunPod network volume S3 access key")
-    RUNPOD_S3_SECRET_KEY: str = Field(default="", description="RunPod network volume S3 secret key")
+    RUNPOD_S3_ACCESS_KEY: str = Field(
+        default="", description="RunPod network volume S3 access key"
+    )
+    RUNPOD_S3_SECRET_KEY: str = Field(
+        default="", description="RunPod network volume S3 secret key"
+    )
+
+    # RunPod Serverless
+    RUNPOD_ENDPOINT_ID: str = Field(
+        default="", description="RunPod serverless endpoint ID"
+    )
+    RUNPOD_NETWORK_VOLUME_ID: str = Field(
+        default="366etpkt4g", description="RunPod network volume ID"
+    )
+    RUNPOD_S3_ENDPOINT: str = Field(
+        default="https://s3api-eu-cz-1.runpod.io/",
+        description="RunPod S3 API endpoint URL",
+    )
+    RUNPOD_S3_REGION: str = Field(
+        default="eu-cz-1", description="RunPod network volume region"
+    )
 
     # AWS
     AWS_ACCESS_KEY_ID: str = Field(..., description="AWS access key")
@@ -47,18 +69,35 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: List[str] = Field(
         default=[
-            "http://localhost:3000", 
+            "http://localhost:3000",
             "http://127.0.0.1:3000",
             "https://localhost:3000",
             "https://127.0.0.1:3000",
             "https://192.168.2.11:3000",  # Mobile device access
-            "http://192.168.2.11:3000"   # Mobile device access (HTTP fallback)
+            "http://192.168.2.11:3000",  # Mobile device access (HTTP fallback)
         ]
     )
-    ALLOWED_HOSTS: List[str] = Field(default=["localhost", "127.0.0.1", "test", "192.168.2.11", "backend", "frontend"])
+    ALLOWED_HOSTS: List[str] = Field(
+        default=[
+            "localhost",
+            "127.0.0.1",
+            "test",
+            "192.168.2.11",
+            "backend",
+            "frontend",
+            "*.ngrok-free.app",  # Allow ngrok tunnels for webhook development
+            ".ngrok-free.app",  # Alternative pattern
+        ]
+    )
 
     # ComfyUI
-    COMFYUI_URL: str = Field(default="http://127.0.0.1:8188", description="ComfyUI server URL")
+    COMFYUI_URL: str = Field(
+        default="http://127.0.0.1:8188", description="ComfyUI server URL"
+    )
+    COMFYUI_MODE: str = Field(
+        default="serverless",
+        description="ComfyUI execution mode: 'serverless' or 'pod'",
+    )
 
     # File upload
     MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024)  # 50MB

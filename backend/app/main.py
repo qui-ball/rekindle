@@ -5,7 +5,6 @@ Main FastAPI application entry point
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.core.config import settings
 from app.api.routes import api_router
@@ -29,10 +28,15 @@ app.add_middleware(
 )
 
 # Add trusted host middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS,
-)
+# NOTE: TrustedHostMiddleware temporarily disabled for local development with ngrok webhooks
+# Starlette's TrustedHostMiddleware doesn't support wildcard patterns (*.ngrok-free.app)
+# and ngrok free tier generates random subdomains on each restart.
+#
+# TODO: Re-enable in production with proper domain configuration:
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=settings.ALLOWED_HOSTS,
+# )
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

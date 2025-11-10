@@ -1,0 +1,21 @@
+rekindle_models:
+  base_path: /runpod-volume/models
+  checkpoints: checkpoints
+  loras: loras
+  vae: vae
+  vae_approx: vae_approx
+  controlnet: controlnet
+  embeddings: embeddings
+  clip: clip
+  clip_vision: clip_vision
+  text_encoders: text_encoders
+  unet: unet
+  upscale_models: upscale_models
+  style_models: style_models
+  model_patches: model_patches
+  gligen: gligen
+  photomaker: photomaker
+  audio_encoders: audio_encoders
+  diffusion_models: diffusion_models
+  diffusers: diffusers
+  configs: configs
