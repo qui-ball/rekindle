@@ -5,7 +5,7 @@ This document provides specific service recommendations for our MVP photo restor
 
 **MVP Services Stack:**
 - **Payments:** Stripe (subscriptions + credits)
-- **Authentication:** Auth0 (free tier)
+- **Authentication:** Supabase Auth (free tier)
 - **AI Processing:** RunPod (Qwen 3 Image Edit)
 - **Storage:** AWS S3 + CloudFront
 - **Database:** PostgreSQL
@@ -53,44 +53,62 @@ const purchaseCredits = async (creditPackId: string) => {
 - Forever: $39.99/month (150 credits)
 - Top-ups: $4.99-$39.99 (10-100 credits)
 
-## Authentication - Auth0
+## Authentication - Supabase Auth
 
-**Why Auth0:**
-- Free up to 7,500 monthly active users
-- Handles all authentication emails (password reset, verification)
+**Why Supabase Auth:**
+- Free up to 50,000 monthly active users
+- Built-in email template testing (no external provider needed)
 - Social login support (Google, Facebook, Apple)
-- Enterprise security without complexity
+- Modern developer experience with clean dashboard
+- Lower cost at scale ($187.50/mo at 100K users vs $3,500/mo for alternatives)
 
-**Cost:** Free for MVP (up to 7,500 users)
+**Cost:** Free for MVP (up to 50,000 users), then $25/mo base + $0.00325/user
 
 **Implementation:**
 ```typescript
-import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
+import { createClient } from '@supabase/supabase-js';
 
-const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <Auth0Provider
-      domain={process.env.NEXT_PUBLIC_AUTH0_DOMAIN!}
-      clientId={process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID!}
-      redirectUri={window.location.origin}
-      scope="openid profile email"
-    >
-      {children}
-    </Auth0Provider>
-  );
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-// Social login
+// Auth context hook
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const signInWithGoogle = async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+    });
+    return { data, error };
+  };
+
+  return { user, signInWithGoogle };
+}
+
+// Social login component
 const SocialLogin: React.FC = () => {
-  const { loginWithRedirect } = useAuth0();
+  const { signInWithGoogle } = useAuth();
 
   return (
     <div>
-      <button onClick={() => loginWithRedirect({ connection: 'google-oauth2' })}>
+      <button onClick={signInWithGoogle}>
         Continue with Google
-      </button>
-      <button onClick={() => loginWithRedirect({ connection: 'facebook' })}>
-        Continue with Facebook
       </button>
     </div>
   );
@@ -133,7 +151,7 @@ const getCDNUrl = (fileKey: string, contentType: 'processed' | 'thumbnail') => {
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    auth0_id VARCHAR(255) UNIQUE NOT NULL,
+    supabase_id VARCHAR(255) UNIQUE NOT NULL,
     tier VARCHAR(20) DEFAULT 'free',
     monthly_credits INTEGER DEFAULT 0,
     topup_credits INTEGER DEFAULT 0,

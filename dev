@@ -17,6 +17,14 @@ case "$1" in
     echo "🛑 Stopping all development services..."
     cd "$SCRIPT_DIR"
     docker compose down 2>/dev/null || true
+    
+    # Stop Supabase if running
+    if command -v supabase &> /dev/null && supabase status >/dev/null 2>&1; then
+      echo "🛑 Stopping Supabase..."
+      supabase stop >/dev/null 2>&1 || true
+      echo "✅ Supabase stopped"
+    fi
+    
     echo "✅ All services stopped!"
     ;;
   "--no-logs")
@@ -44,6 +52,8 @@ case "$1" in
     echo "   Database: PostgreSQL on localhost:5432 (with tables auto-created)"
     echo "   Celery:   Background workers for AI processing"
     echo "   Flower:   Celery monitoring on http://localhost:5555"
+    echo "   Supabase: Auth & API on http://localhost:54321"
+    echo "   Studio:   Supabase Studio on http://localhost:54323"
     echo ""
     echo "📱 For mobile camera testing:"
     echo "   Use '$0 https' to enable HTTPS with local certificates"

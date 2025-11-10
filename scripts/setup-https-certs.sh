@@ -5,10 +5,22 @@
 
 set -e  # Exit on any error
 
-echo "🔒 Setting up HTTPS certificates for Docker development..."
-
 # Create certs directory if it doesn't exist
 mkdir -p certs
+
+# Check if we have write permissions to the certs directory
+if [ ! -w "certs" ]; then
+    echo "❌ Permission error: Cannot write to certs directory!"
+    echo ""
+    echo "The certs directory exists but is owned by another user (likely root)."
+    echo "Please fix the ownership by running:"
+    echo "  sudo chown -R $USER:$USER certs"
+    echo ""
+    echo "Or remove the directory and let the script recreate it:"
+    echo "  sudo rm -rf certs"
+    echo ""
+    exit 1
+fi
 
 # Get the local IP address (works on macOS and Linux)
 get_local_ip() {
@@ -24,7 +36,6 @@ get_local_ip() {
 }
 
 LOCAL_IP=$(get_local_ip)
-echo "📍 Detected local IP: $LOCAL_IP"
 
 # Check if mkcert is installed
 if ! command -v mkcert &> /dev/null; then
@@ -38,22 +49,19 @@ if ! command -v mkcert &> /dev/null; then
     exit 1
 fi
 
-# Install the local CA if not already installed
-echo "🔐 Installing local CA..."
-mkcert -install
+# Install the local CA if not already installed (quiet unless error)
+mkcert -install >/dev/null 2>&1 || mkcert -install
 
 # Generate certificates for all required domains
-echo "📜 Generating certificates..."
 cd certs
 
 # Create certificates for localhost, local IP, and common Docker networking
-mkcert \
-    localhost \
-    127.0.0.1 \
-    ::1 \
-    $LOCAL_IP \
-    host.docker.internal \
-    0.0.0.0
+# Quiet unless there's an error
+if ! mkcert localhost 127.0.0.1 ::1 $LOCAL_IP host.docker.internal 0.0.0.0 >/dev/null 2>&1; then
+    echo "❌ Certificate generation failed!"
+    mkcert localhost 127.0.0.1 ::1 $LOCAL_IP host.docker.internal 0.0.0.0
+    exit 1
+fi
 
 # Rename certificates to match our HTTPS server expectations
 if [ -f "localhost+5.pem" ]; then
@@ -71,17 +79,3 @@ else
 fi
 
 cd ..
-
-echo "✅ HTTPS certificates created successfully!"
-echo ""
-echo "📋 Certificate files created:"
-echo "   certs/cert.pem"
-echo "   certs/key.pem"
-echo ""
-echo "🌐 These certificates are valid for:"
-echo "   - https://localhost:3000"
-echo "   - https://127.0.0.1:3000"
-echo "   - https://$LOCAL_IP:3000"
-echo "   - Docker internal networking"
-echo ""
-echo "📱 For mobile testing, use: https://$LOCAL_IP:3000"

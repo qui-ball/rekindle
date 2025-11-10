@@ -275,7 +275,7 @@ jobs:
 
 ## Security Standards
 - **Upload Security:** Presigned S3 URLs, file validation
-- **Auth Security:** Auth0 handles authentication
+- **Auth Security:** Supabase Auth handles authentication
 - **Data Protection:** Encrypted at rest, signed URLs
 - **Input Validation:** Pydantic models for all inputs
 

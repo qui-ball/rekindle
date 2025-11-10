@@ -4,7 +4,7 @@ Application configuration settings
 
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, ConfigDict
 
 
 class Settings(BaseSettings):
@@ -27,9 +27,10 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = Field(..., description="Redis URL for job queue")
 
-    # Auth0
-    AUTH0_DOMAIN: str = Field(..., description="Auth0 domain")
-    AUTH0_AUDIENCE: str = Field(..., description="Auth0 API audience")
+    # Supabase
+    SUPABASE_URL: str = Field(..., description="Supabase project URL")
+    SUPABASE_ANON_KEY: str = Field(..., description="Supabase anonymous key")
+    SUPABASE_SERVICE_KEY: str = Field(..., description="Supabase service role key")
 
     # Stripe
     STRIPE_SECRET_KEY: str = Field(..., description="Stripe secret key")
@@ -104,7 +105,11 @@ class Settings(BaseSettings):
         default=["image/jpeg", "image/png", "image/heic", "image/webp"]
     )
 
-    model_config = {"env_file": ".env", "case_sensitive": True}
+    model_config = ConfigDict(
+        env_file=".env", 
+        case_sensitive=True,
+        extra="ignore"  # Ignore extra fields like NEXT_PUBLIC_* that are for frontend
+    )
 
 
 # Global settings instance

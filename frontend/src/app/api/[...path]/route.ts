@@ -5,6 +5,16 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   const path = params.path.join('/');
+  
+  // Skip proxying for auth/callback - it's handled by its own route
+  if (path === 'auth/callback') {
+    console.log('Catch-all route: Skipping auth/callback (handled by dedicated route)');
+    return NextResponse.json(
+      { error: 'This route should be handled by /api/auth/callback' },
+      { status: 404 }
+    );
+  }
+  
   const searchParams = request.nextUrl.searchParams.toString();
   const url = `http://backend:8000/api/${path}${searchParams ? `?${searchParams}` : ''}`;
 

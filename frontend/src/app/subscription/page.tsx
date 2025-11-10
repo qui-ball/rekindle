@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { CreditBalance } from '@/types/photo-management';
 import { CreditBalanceDisplay } from '@/components/PhotoManagement/CreditBalanceDisplay';
 import { ErrorBoundary } from '@/components/PhotoManagement/ErrorBoundary';
+import { RequireAuth } from '@/components/RequireAuth';
 
 export default function SubscriptionPage() {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
@@ -77,8 +78,10 @@ export default function SubscriptionPage() {
     // TODO: Implement subscription management flow
   };
 
+  let content: React.ReactNode;
+
   if (isLoading) {
-    return (
+    content = (
       <main className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
@@ -90,10 +93,8 @@ export default function SubscriptionPage() {
         </div>
       </main>
     );
-  }
-
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <main className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
@@ -111,86 +112,88 @@ export default function SubscriptionPage() {
         </div>
       </main>
     );
-  }
-
-  return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Subscription & Credits
-            </h1>
-            <p className="text-gray-600">
-              Manage your subscription and credit balance
-            </p>
-          </div>
-
-          {/* Credit Balance Display */}
-          {creditBalance && (
-            <ErrorBoundary>
-              <CreditBalanceDisplay
-                balance={creditBalance}
-                onPurchaseCredits={handlePurchaseCredits}
-                onViewSubscription={handleViewSubscription}
-                showWarning={creditBalance.lowCreditWarning}
-              />
-            </ErrorBoundary>
-          )}
-
-          {/* Additional Subscription Content */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Subscription Plans */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Subscription Plans
-              </h2>
-              <div className="space-y-4">
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">Remember</h3>
-                  <p className="text-sm text-gray-600">$9.99/month</p>
-                  <p className="text-sm text-gray-600">25 credits monthly</p>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">Cherish</h3>
-                  <p className="text-sm text-gray-600">$19.99/month</p>
-                  <p className="text-sm text-gray-600">60 credits monthly</p>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">Forever</h3>
-                  <p className="text-sm text-gray-600">$39.99/month</p>
-                  <p className="text-sm text-gray-600">150 credits monthly</p>
-                </div>
-              </div>
+  } else {
+    content = (
+      <main className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            {/* Page Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Subscription & Credits
+              </h1>
+              <p className="text-gray-600">
+                Manage your subscription and credit balance
+              </p>
             </div>
 
-            {/* Credit Packages */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Credit Packages
-              </h2>
-              <div className="space-y-4">
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">Starter Pack</h3>
-                  <p className="text-sm text-gray-600">$4.99</p>
-                  <p className="text-sm text-gray-600">10 credits</p>
+            {/* Credit Balance Display */}
+            {creditBalance && (
+              <ErrorBoundary>
+                <CreditBalanceDisplay
+                  balance={creditBalance}
+                  onPurchaseCredits={handlePurchaseCredits}
+                  onViewSubscription={handleViewSubscription}
+                  showWarning={creditBalance.lowCreditWarning}
+                />
+              </ErrorBoundary>
+            )}
+
+            {/* Additional Subscription Content */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Subscription Plans */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Subscription Plans
+                </h2>
+                <div className="space-y-4">
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">Remember</h3>
+                    <p className="text-sm text-gray-600">$9.99/month</p>
+                    <p className="text-sm text-gray-600">25 credits monthly</p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">Cherish</h3>
+                    <p className="text-sm text-gray-600">$19.99/month</p>
+                    <p className="text-sm text-gray-600">60 credits monthly</p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">Forever</h3>
+                    <p className="text-sm text-gray-600">$39.99/month</p>
+                    <p className="text-sm text-gray-600">150 credits monthly</p>
+                  </div>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">Family Pack</h3>
-                  <p className="text-sm text-gray-600">$12.99</p>
-                  <p className="text-sm text-gray-600">30 credits</p>
-                </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900">Heritage Pack</h3>
-                  <p className="text-sm text-gray-600">$39.99</p>
-                  <p className="text-sm text-gray-600">100 credits</p>
+              </div>
+
+              {/* Credit Packages */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Credit Packages
+                </h2>
+                <div className="space-y-4">
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">Starter Pack</h3>
+                    <p className="text-sm text-gray-600">$4.99</p>
+                    <p className="text-sm text-gray-600">10 credits</p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">Family Pack</h3>
+                    <p className="text-sm text-gray-600">$12.99</p>
+                    <p className="text-sm text-gray-600">30 credits</p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900">Heritage Pack</h3>
+                    <p className="text-sm text-gray-600">$39.99</p>
+                    <p className="text-sm text-gray-600">100 credits</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
-  );
+      </main>
+    );
+  }
+
+  return <RequireAuth>{content}</RequireAuth>;
 }
