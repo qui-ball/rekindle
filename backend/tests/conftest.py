@@ -103,19 +103,33 @@ def override_get_db(test_db_session):
 
 @pytest.fixture
 def mock_user():
-    """Mock authenticated user"""
+    """Mock authenticated user ID (legacy - returns string)"""
     return "test_user_123"
 
 
 @pytest.fixture
-def override_get_current_user(mock_user):
-    """Override authentication dependency"""
+def override_get_current_user(mock_user, test_db_session):
+    """Override authentication dependency with User object"""
+    from app.models.user import User
+    import uuid
+    
+    # Create a mock User object for testing
+    user = User(
+        id=uuid.uuid4(),
+        supabase_user_id=mock_user if isinstance(mock_user, str) else str(mock_user),
+        email="test@example.com",
+        account_status="active",
+        subscription_tier="free",
+    )
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
 
     def _get_test_user():
-        return mock_user
+        return user
 
     app.dependency_overrides[get_current_user] = _get_test_user
-    yield
+    yield user
     del app.dependency_overrides[get_current_user]
 
 
