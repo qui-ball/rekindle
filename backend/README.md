@@ -60,6 +60,11 @@ backend/
 - Links to email for tracking
 - Contains `selected_restore_id` and `latest_animation_id` references
 
+### User
+- Supabase-authenticated profile with email and metadata
+- Tracks subscription tier, credit balances, storage usage, and account status
+- Provides convenience properties (`total_credits`, `full_name`, storage metrics) for API responses
+
 ### RestoreAttempt
 - Every image restoration attempt on a job
 - Stores model, parameters, and S3 keys
@@ -69,6 +74,12 @@ backend/
 - Every animation of a restored image
 - Stores preview, result, and thumbnail S3 keys
 - Linked to Job and RestoreAttempt
+
+### Photo
+- User-owned photo metadata for raw, processed, and thumbnail assets
+- Keys are stored under `users/{owner_id}/...` prefixes for per-user isolation
+- Tracks checksum, mime type, size, status (`uploaded`, `processing`, `ready`, `archived`, `deleted`)
+- See migration `003_create_photos_table.sql` and service `app/services/photo_service.py`
 
 ## API Workflow
 
@@ -116,6 +127,12 @@ backend/
   - `animated/{job_id}/{timestamp_id}_preview.mp4` - Animation previews
   - `animated/{job_id}/{timestamp_id}_result.mp4` - HD results
   - `thumbnails/{job_id}/{timestamp_id}.jpg` - Animation thumbnails
+  - `users/{owner_id}/raw|processed|thumbs/{photo_id}/` - New per-user isolation paths for Photo model
+
+### PhotoService (`app/services/photo_service.py`)
+- Provides owner-scoped CRUD helpers for `Photo` records
+- Enforces unique original keys per user and soft-delete status changes
+- Used by future API endpoints to ensure isolation and auditing
 
 ### ComfyUIService (`app/services/comfyui.py`)
 - Communicates with ComfyUI server on port 8188

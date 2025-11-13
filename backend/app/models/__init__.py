@@ -1,3 +1,5 @@
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
+from app.models.photo import Photo
+from app.models.user import User
 
-__all__ = ["Job", "RestoreAttempt", "AnimationAttempt"]
+__all__ = ["Job", "RestoreAttempt", "AnimationAttempt", "Photo", "User"]

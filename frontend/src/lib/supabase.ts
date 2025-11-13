@@ -1,64 +1,70 @@
-/**
- * Supabase Client Configuration
- * 
- * This file initializes the Supabase client for use in client components.
- * For server components and API routes, use the createClient() functions from @supabase/ssr
- */
+import { createBrowserClient, createServerClient } from '@supabase/ssr';
 
-import { createBrowserClient } from '@supabase/ssr';
+const HOST_DOCKER_REGEX = /host\.docker\.internal/gi;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
-  );
-}
-
-/**
- * Normalize Supabase URL for client-side use
- * 
- * In Docker development, the URL may be set to `http://host.docker.internal:54321`
- * for server-side code, but browsers can't resolve `host.docker.internal`.
- * This function replaces it with the appropriate hostname for browser use:
- * - If accessed via IP address (mobile), use the same IP
- * - Otherwise, use localhost
- * 
- * Note: This is a client-side module, so we always normalize the URL.
- */
-function normalizeSupabaseUrl(url: string): string {
-  // Check if we're accessing via IP address (mobile device)
-  const isIPAddress = typeof window !== 'undefined' && 
-    /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
-  
-  if (isIPAddress) {
-    // Replace host.docker.internal with the current hostname (IP address)
-    // This allows mobile devices to access Supabase
-    const hostname = window.location.hostname;
-    return url.replace(/host\.docker\.internal/g, hostname);
-  }
-  
-  // Replace host.docker.internal with localhost for browser access
-  // Browsers can't resolve host.docker.internal, so we use localhost instead
-  return url.replace(/host\.docker\.internal/g, 'localhost');
-}
-
-/**
- * Create a Supabase client for use in client components
- * This client automatically handles cookies and session management
- * The URL is normalized dynamically based on the current hostname (localhost vs IP address)
- */
-export const createClient = () => {
-  // Normalize URL dynamically based on current hostname
-  // This allows mobile devices to use IP addresses instead of localhost
-  const normalizedUrl = normalizeSupabaseUrl(supabaseUrl);
-  return createBrowserClient(normalizedUrl, supabaseAnonKey);
+type CookieAdapter = {
+  get: (name: string) => string | undefined;
+  set: (name: string, value: string, options: any) => void;
+  remove: (name: string, options: any) => void;
 };
 
-/**
- * Default Supabase client instance
- * Use this in client components when you need a simple client instance
- */
-export const supabase = createClient();
+let cachedBrowserClient: ReturnType<typeof createBrowserClient> | null = null;
+let cachedBrowserUrl: string | null = null;
+
+function requireSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error(
+      'Missing Supabase environment variables. Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
+    );
+  }
+
+  return { url, anonKey };
+}
+
+export function normalizeSupabaseUrl(url: string, hostname?: string): string {
+  const resolvedHost =
+    hostname ?? (typeof window !== 'undefined' ? window.location.hostname : undefined);
+
+  if (resolvedHost && /^\d+\.\d+\.\d+\.\d+$/.test(resolvedHost)) {
+    return url.replace(HOST_DOCKER_REGEX, resolvedHost);
+  }
+
+  if (resolvedHost === '127.0.0.1') {
+    return url.replace(HOST_DOCKER_REGEX, '127.0.0.1');
+  }
+
+  return url.replace(HOST_DOCKER_REGEX, 'localhost');
+}
+
+export function normalizeSupabaseUrlForServer(url: string): string {
+  return url.replace(HOST_DOCKER_REGEX, '127.0.0.1');
+}
+
+export function getSupabaseClient() {
+  if (typeof window === 'undefined') {
+    throw new Error('getSupabaseClient must be called in a browser environment.');
+  }
+
+  const { url, anonKey } = requireSupabaseEnv();
+  const normalizedUrl = normalizeSupabaseUrl(url);
+
+  if (!cachedBrowserClient || cachedBrowserUrl !== normalizedUrl) {
+    cachedBrowserClient = createBrowserClient(normalizedUrl, anonKey);
+    cachedBrowserUrl = normalizedUrl;
+  }
+
+  return cachedBrowserClient;
+}
+
+export function createSupabaseServerClient(cookieAdapter: CookieAdapter) {
+  const { url, anonKey } = requireSupabaseEnv();
+  const serverUrl = normalizeSupabaseUrlForServer(url);
+
+  return createServerClient(serverUrl, anonKey, {
+    cookies: cookieAdapter,
+  });
+}
 

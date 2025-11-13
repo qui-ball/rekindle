@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CreditBalance } from '../types/photo-management';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
@@ -20,7 +20,11 @@ export const GlobalCreditBalanceBar: React.FC = () => {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
+
+  // Hide on auth pages
+  const isAuthPage = pathname === '/sign-in' || pathname === '/sign-up' || pathname?.startsWith('/auth/');
 
   // Mock user ID - in real app, get from auth context
   const userId = 'user-123';
@@ -59,8 +63,8 @@ export const GlobalCreditBalanceBar: React.FC = () => {
     router.push('/subscription');
   };
 
-  // Don't render if not signed in, loading, or no balance
-  if (authLoading || !user || isLoading || !creditBalance) {
+  // Don't render if not signed in, loading, no balance, or on auth pages
+  if (authLoading || !user || isLoading || !creditBalance || isAuthPage) {
     return null;
   }
 

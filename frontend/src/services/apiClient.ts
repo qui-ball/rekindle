@@ -5,23 +5,7 @@
  * Handles token refresh and error responses.
  */
 
-import { createBrowserClient } from '@supabase/ssr';
-
-// Get Supabase client to access session
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing Supabase environment variables. Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
-    );
-  }
-
-  // Normalize URL for browser use
-  const normalizedUrl = supabaseUrl.replace(/host\.docker\.internal/g, 'localhost');
-  return createBrowserClient(normalizedUrl, supabaseAnonKey);
-}
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * Get the current JWT access token from Supabase session
@@ -204,4 +188,5 @@ export class ApiClient {
 
 // Export a default instance
 export const apiClient = new ApiClient();
+
 

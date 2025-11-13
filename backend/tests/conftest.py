@@ -17,23 +17,23 @@ import os
 # Only override env vars if not running integration tests
 # Integration tests need to use real environment variables
 if not os.getenv("RUN_INTEGRATION_TESTS"):
-    os.environ.update(
-        {
-            "SECRET_KEY": "test_secret_key_for_testing_only",
-            # Use in-memory SQLite for tests
-            "DATABASE_URL": "sqlite:///:memory:",
-            "REDIS_URL": "redis://localhost:6379/1",
-            "AUTH0_DOMAIN": "test.auth0.com",
-            "AUTH0_AUDIENCE": "test_audience",
-            "STRIPE_SECRET_KEY": "sk_test_test_key",
-            "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
-            "RUNPOD_API_KEY": "test_runpod_key",
-            "AWS_ACCESS_KEY_ID": "test_aws_key",
-            "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
-            "AWS_REGION": "us-east-2",
-            "S3_BUCKET": "rekindle-media",
-        }
-    )
+    defaults = {
+        "SECRET_KEY": "test_secret_key_for_testing_only",
+        # Use in-memory SQLite for tests by default (unless overridden)
+        "DATABASE_URL": "sqlite:///:memory:",
+        "REDIS_URL": "redis://localhost:6379/1",
+        "AUTH0_DOMAIN": "test.auth0.com",
+        "AUTH0_AUDIENCE": "test_audience",
+        "STRIPE_SECRET_KEY": "sk_test_test_key",
+        "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
+        "RUNPOD_API_KEY": "test_runpod_key",
+        "AWS_ACCESS_KEY_ID": "test_aws_key",
+        "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
+        "AWS_REGION": "us-east-2",
+        "S3_BUCKET": "rekindle-media",
+    }
+    for key, value in defaults.items():
+        os.environ.setdefault(key, value)
 else:
     # For integration tests, we still need some test values for non-AWS settings
     # that aren't in the .env file. DATABASE_URL should come from environment.
@@ -55,6 +55,7 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.api.deps import get_current_user
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
+from app.models.photo import Photo
 
 
 # Test database setup
@@ -201,6 +202,28 @@ def animation_attempt_factory(test_db_session):
     
     return _create_animation
 
+
+# New photo factory
+@pytest.fixture
+def photo_factory(test_db_session):
+    """Factory for creating photo records"""
+
+    def _create_photo(**kwargs):
+        defaults = {
+            "owner_id": "test_user_123",
+            "original_key": "users/test_user_123/raw/test.jpg",
+            "checksum_sha256": "a" * 64,
+            "storage_bucket": "rekindle-uploads",
+            "status": "uploaded",
+        }
+        defaults.update(kwargs)
+        photo = Photo(**defaults)
+        test_db_session.add(photo)
+        test_db_session.commit()
+        test_db_session.refresh(photo)
+        return photo
+
+    return _create_photo
 
 # Legacy restoration_job_factory removed - use job_factory instead
 

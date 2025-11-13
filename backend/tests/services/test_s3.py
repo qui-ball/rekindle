@@ -27,6 +27,16 @@ class TestS3ServiceMocked:
         """S3 service instance with mocked client"""
         # Use real settings from environment
         service = S3Service()
+
+        def presigned_url(operation, Params, ExpiresIn):
+            custom = mock_s3_client.generate_presigned_url.return_value
+            if custom is not None:
+                return custom
+            key = Params["Key"]
+            return f"https://{service.bucket}.s3.{service.region}.amazonaws.com/{key}"
+
+        mock_s3_client.generate_presigned_url.return_value = None
+        mock_s3_client.generate_presigned_url.side_effect = presigned_url
         return service
 
     def test_upload_file_success(self, s3_service, mock_s3_client):

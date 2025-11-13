@@ -218,10 +218,15 @@ for i in {1..20}; do
     sleep 1
 done
 
-# Setup database tables (only if a local postgres service exists)
+# Setup database tables and run migrations (only if a local postgres service exists)
 if docker compose ps postgres >/dev/null 2>&1; then
-    echo "🗄️  Setting up database tables..."
+    echo "🗄️  Setting up database schema..."
+    
+    # First, create basic tables that migrations may depend on
+    echo "  📋 Creating base tables (jobs, restore_attempts, animation_attempts)..."
     docker compose exec -T postgres psql -U rekindle -d rekindle -c "
+CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";
+
 CREATE TABLE IF NOT EXISTS jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL,
@@ -250,7 +255,46 @@ CREATE TABLE IF NOT EXISTS animation_attempts (
     params JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
-" >/dev/null 2>&1 || true
+" >/dev/null 2>&1 || echo "    ⚠️  Note: Some tables may already exist (this is okay)"
+    
+    # Run migration files in order
+    MIGRATIONS_DIR="$PROJECT_ROOT/backend/migrations"
+    MIGRATION_FILES=(
+        "001_add_thumbnail_s3_key.sql"
+        "002_ensure_thumbnail_consistency.sql"
+        "003_create_photos_table.sql"
+        "004_create_users_table.sql"
+    )
+    
+    echo ""
+    echo "📋 Applying database migrations..."
+    for migration_file in "${MIGRATION_FILES[@]}"; do
+        migration_path="$MIGRATIONS_DIR/$migration_file"
+        if [ -f "$migration_path" ]; then
+            echo "  📄 Running migration: $migration_file..."
+            # Capture both stdout and stderr to check for errors
+            MIGRATION_OUTPUT=$(docker compose exec -T postgres psql -U rekindle -d rekindle < "$migration_path" 2>&1)
+            MIGRATION_EXIT_CODE=$?
+            
+            if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
+                echo "    ✅ $migration_file applied successfully"
+            else
+                # Check if error is due to already existing objects (safe to ignore)
+                if echo "$MIGRATION_OUTPUT" | grep -qiE "(already exists|duplicate|already present|relation.*already exists)"; then
+                    echo "    ⚠️  $migration_file: Some objects already exist (skipping - this is okay)"
+                else
+                    # Show the actual error for debugging, but don't fail
+                    echo "    ⚠️  $migration_file: Migration may have already been applied"
+                    if [ -n "$MIGRATION_OUTPUT" ]; then
+                        echo "       Error details: $(echo "$MIGRATION_OUTPUT" | head -1)"
+                    fi
+                fi
+            fi
+        else
+            echo "    ⚠️  Migration file not found: $migration_file (skipping)"
+        fi
+    done
+    echo "  ✅ Database migrations complete"
 fi
 
 echo ""

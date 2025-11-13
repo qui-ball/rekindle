@@ -8,7 +8,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseClient } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 // Type for auth errors - Supabase returns error objects with this structure
@@ -35,66 +35,6 @@ export interface AuthContextType {
 // Create the context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Supabase client instance and normalized URL
-let supabaseClient: ReturnType<typeof createBrowserClient> | null = null;
-let currentNormalizedUrl: string | null = null;
-
-/**
- * Normalize Supabase URL for client-side use
- * 
- * In Docker development, the URL may be set to `http://host.docker.internal:54321`
- * for server-side code, but browsers can't resolve `host.docker.internal`.
- * This function replaces it with the appropriate hostname for browser use:
- * - If accessed via IP address (mobile), use the same IP
- * - Otherwise, use localhost
- * 
- * Note: This is a client-side module ('use client'), so we always normalize the URL.
- */
-function normalizeSupabaseUrl(url: string): string {
-  // Check if we're accessing via IP address (mobile device)
-  const isIPAddress = typeof window !== 'undefined' && 
-    /^\d+\.\d+\.\d+\.\d+$/.test(window.location.hostname);
-  
-  if (isIPAddress) {
-    // Replace host.docker.internal with the current hostname (IP address)
-    // This allows mobile devices to access Supabase
-    const hostname = window.location.hostname;
-    return url.replace(/host\.docker\.internal/g, hostname);
-  }
-  
-  // Replace host.docker.internal with localhost for browser access
-  // Browsers can't resolve host.docker.internal, so we use localhost instead
-  return url.replace(/host\.docker\.internal/g, 'localhost');
-}
-
-// Export getSupabaseClient so it can be used in other components (like OAuth callback)
-// This ensures the same client instance and URL normalization is used throughout
-// Note: The client is recreated if the hostname changes (e.g., localhost vs IP address)
-export const getSupabaseClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing Supabase environment variables. Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.'
-    );
-  }
-
-  // Normalize URL for browser use - this is critical for PKCE
-  // The cookie key is based on the hostname in the URL
-  // Both OAuth initiation and callback must use the exact same normalized URL
-  const normalizedUrl = normalizeSupabaseUrl(supabaseUrl);
-  
-  // Recreate client if URL changed (e.g., switching from localhost to IP or vice versa)
-  // This is important for mobile access where the hostname is different
-  if (!supabaseClient || currentNormalizedUrl !== normalizedUrl) {
-    supabaseClient = createBrowserClient(normalizedUrl, supabaseAnonKey);
-    currentNormalizedUrl = normalizedUrl;
-  }
-  
-  return supabaseClient;
-};
-
 // AuthProvider component
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -105,12 +45,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<AuthError | null>(null);
+  const [supabase, setSupabase] = useState<ReturnType<typeof getSupabaseClient> | null>(null);
 
-  // Initialize Supabase client
-  const supabase = getSupabaseClient();
+  // Initialize Supabase client only in browser environment
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Clear any stale state when initializing
+      setUser(null);
+      setSession(null);
+      setSupabase(getSupabaseClient());
+    } else {
+      // In SSR, ensure we're not showing stale data
+      setUser(null);
+      setSession(null);
+      setLoading(false);
+    }
+  }, []);
 
   // Get current session and user
   const getSession = useCallback(async () => {
+    if (!supabase) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -137,8 +92,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [supabase]);
 
-  // Initialize auth state on mount
+  // Initialize auth state on mount (only when supabase client is available)
   useEffect(() => {
+    if (!supabase) {
+      // Keep loading true until client is ready, but clear stale state
+      if (typeof window !== 'undefined') {
+        // Client is still initializing, keep loading
+        setLoading(true);
+      }
+      return;
+    }
+
     getSession();
 
     // Listen for auth state changes
@@ -159,6 +123,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Sign in with email and password
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) {
+      return { error: { message: 'Authentication not available' } };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -186,6 +154,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Sign up with email and password
   const signUp = useCallback(async (email: string, password: string, metadata?: Record<string, any>) => {
+    if (!supabase) {
+      return { error: { message: 'Authentication not available' } };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -216,6 +188,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Sign out
   const signOut = useCallback(async () => {
+    if (!supabase) {
+      return { error: { message: 'Authentication not available' } };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -253,6 +229,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Sign in with OAuth provider
   const signInWithOAuth = useCallback(async (provider: 'google' | 'facebook' | 'apple') => {
+    if (!supabase || typeof window === 'undefined') {
+      return { error: { message: 'Authentication not available' } };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -335,6 +315,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Reset password
   const resetPassword = useCallback(async (email: string) => {
+    if (!supabase || typeof window === 'undefined') {
+      return { error: { message: 'Authentication not available' } };
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -368,6 +352,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Refresh session
   const refreshSession = useCallback(async () => {
+    if (!supabase) {
+      return;
+    }
+
     try {
       const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
 
@@ -387,6 +375,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Accept terms of service
   const acceptTerms = useCallback(async () => {
+    if (!supabase) {
+      return { error: { message: 'Authentication not available' } };
+    }
+
     try {
       setLoading(true);
       setError(null);

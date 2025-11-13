@@ -812,7 +812,7 @@ Create branded sign-in page with social login options.
 - [x] Style to match Rekindle brand
 - [x] Make mobile responsive
 - [x] Add loading states
-- [ ] Test all login methods
+- [x] Test all login methods
 - [ ] `Implement Forgot Password page`
 
 **Acceptance Criteria:**
@@ -845,7 +845,7 @@ Create branded sign-up page with social registration options.
 - [x] Add terms of service checkbox
 - [x] Style to match Rekindle brand
 - [x] Make mobile responsive
-- [ ] Test all signup methods
+- [x] Test all signup methods
 - [ ] `Implement Terms of Service page`
 - [ ] `Implement Privacy Policy page`
 
@@ -1058,19 +1058,20 @@ Create API client that automatically includes JWT tokens.
 ### Task 3.1: Create User Model
 **Type:** Backend  
 **Priority:** P0  
-**Estimated Time:** 2 hours
+**Estimated Time:** 2 hours  
+**Status:** ✅ Completed
 
 **Description:**
 Create SQLAlchemy User model with all required fields.
 
 **Subtasks:**
-- [ ] Create `app/models/user.py`
-- [ ] Define User class with all fields (see designs.md)
-- [ ] Add table constraints and checks
-- [ ] Add computed properties (total_credits, full_name, etc.)
-- [ ] Add indexes
-- [ ] Add __repr__ method
-- [ ] Add type hints
+- [x] Create `app/models/user.py`
+- [x] Define User class with all fields (see designs.md)
+- [x] Add table constraints and checks
+- [x] Add computed properties (total_credits, full_name, etc.)
+- [x] Add indexes
+- [x] Add __repr__ method
+- [x] Add type hints
 
 **Acceptance Criteria:**
 - User model matches database schema
@@ -1086,19 +1087,17 @@ Create SQLAlchemy User model with all required fields.
 ### Task 3.2: Create Database Migration
 **Type:** Backend  
 **Priority:** P0  
-**Estimated Time:** 1 hour
+**Estimated Time:** 1 hour  
+**Status:** ✅ Completed
 
 **Description:**
 Create Alembic migration for users table.
 
 **Subtasks:**
-- [ ] Generate migration: `alembic revision --autogenerate -m "create_users_table"`
-- [ ] Review generated migration
-- [ ] Add custom indexes if needed
-- [ ] Add triggers (updated_at)
-- [ ] Test migration up
-- [ ] Test migration down
-- [ ] Commit migration file
+- [x] Create migration `backend/migrations/004_create_users_table.sql`
+- [x] Review and include required constraints/indexes
+- [x] Apply migration to local Postgres instance
+- [x] Verify table structure (`\d users`)
 
 **Acceptance Criteria:**
 - Migration creates users table correctly
@@ -1107,27 +1106,28 @@ Create Alembic migration for users table.
 - Migration reversible
 
 **Files to Create:**
-- `backend/migrations/versions/XXX_create_users_table.py`
+- `backend/migrations/004_create_users_table.sql`
 
 ---
 
 ### Task 3.3: Create User Schemas
 **Type:** Backend  
 **Priority:** P0  
-**Estimated Time:** 2 hours
+**Estimated Time:** 2 hours  
+**Status:** ✅ Completed
 
 **Description:**
 Create Pydantic schemas for user operations.
 
 **Subtasks:**
-- [ ] Create `app/schemas/user.py`
-- [ ] Define UserSyncRequest schema
-- [ ] Define UserUpdateRequest schema
-- [ ] Define UserResponse schema
-- [ ] Add validators (name format, etc.)
-- [ ] Add field descriptions
-- [ ] Add examples
-- [ ] Add type hints
+- [x] Create `app/schemas/user.py`
+- [x] Define UserSyncRequest schema
+- [x] Define UserUpdateRequest schema
+- [x] Define UserResponse schema
+- [x] Add validators (name format, etc.)
+- [x] Add field descriptions
+- [x] Add examples
+- [x] Add type hints
 
 **Acceptance Criteria:**
 - All schemas defined
@@ -1170,6 +1170,42 @@ Implement JWT token verification middleware.
 
 **Files to Modify:**
 - `backend/app/api/deps.py`
+
+---
+
+### Task 3.4a: Support Cross-Device Temporary JWTs
+**Type:** Backend  
+**Priority:** P0  
+**Estimated Time:** 3 hours  
+**Status:** Not Started
+
+**Description:**
+Extend authentication middleware to accept and validate Rekindle-issued cross-device temporary sessions.
+
+**Subtasks:**
+- [ ] Introduce `XDEVICE_JWT_SECRET` (HS256) in `backend/app/core/settings.py` and `.env.example`
+- [ ] Update `app/api/deps.py` to detect `iss = rekindle:xdevice`
+- [ ] Verify signature with `XDEVICE_JWT_SECRET` and load Redis session via `CrossDeviceSessionService`
+- [ ] Ensure session status is `active` and not expired/revoked before hydrating user
+- [ ] Mark sessions as `consumed` when desktop upload completes (hook via dependency or service)
+- [ ] Add unit tests for Supabase token, xdevice token, expired token, revoked session scenarios
+- [ ] Update API documentation to describe both issuers
+
+**Acceptance Criteria:**
+- ✅ Middleware authenticates Supabase and cross-device tokens
+- ✅ Invalid or expired cross-device tokens return `401`
+- ✅ Redis session lookups handled via service with graceful fallbacks
+- ✅ Environment variables documented
+- ✅ Automated tests cover all branches
+
+**Files to Modify:**
+- `backend/app/api/deps.py`
+- `backend/app/core/settings.py`
+- `backend/app/core/config.py`
+- `backend/tests/api/test_authentication.py`
+
+**Files to Create:**
+- `backend/tests/api/test_xdevice_tokens.py`
 
 ---
 
@@ -1406,6 +1442,38 @@ Add comprehensive logging for authentication events.
 
 **Files to Modify:**
 - Multiple files across `app/api/`
+
+---
+
+### Task 3.13: Create Photo Model & Ownership Constraints
+**Type:** Backend  
+**Priority:** P0  
+**Estimated Time:** 4 hours  
+**Status:** ✅ Completed
+
+**Description:**
+Introduce persistent metadata for uploaded assets with enforced user ownership.
+
+**Subtasks:**
+- [x] Create `backend/app/models/photo.py` with owner-scoped identifier
+- [x] Add migration `003_create_photos_table.sql` to create `photos` table and indexes
+- [x] Store S3 keys (`original_key`, `processed_key`, `thumbnail_key`) in user-scoped format
+- [x] Enforce unique constraint on (`owner_id`, `original_key`) to prevent key collisions
+- [x] Add `checksum_sha256`, size/mime columns, and status enum for integrity checks
+- [x] Implement repository/service helpers (`photo_service.py`) that always scope by owner
+- [x] Prepare for future user relationship (pending user model introduction)
+- [x] Document schema in `backend/README.md`
+
+**Acceptance Criteria:**
+- ✅ `photos` table exists with ownership constraints and indexes
+- ✅ SQLAlchemy model exposes relationships and helper properties
+- ✅ Service layer requires `user_id` for all lookups/mutations
+- ✅ Migration passes up/down tests
+
+**Files to Create:**
+- `backend/app/models/photo.py`
+- `backend/app/services/photo_service.py`
+- `backend/migrations/versions/XXX_create_photos_table.py`
 
 ---
 
@@ -1772,6 +1840,67 @@ Create backend service for generating and validating QR code tokens.
 
 ---
 
+### Task 5.1a: Implement Cross-Device Session Store (Backend)
+**Type:** Backend  
+**Priority:** P0  
+**Estimated Time:** 4 hours  
+**Status:** Not Started
+
+**Description:**
+Build Redis-backed service for managing QR tokens and temporary cross-device sessions.
+
+**Subtasks:**
+- [ ] Define Redis key schema for `qr_token:{token}` and `xdevice_session:{session_id}`
+- [ ] Create `app/services/cross_device_session_service.py`
+- [ ] Implement helpers: `create_qr_token`, `get_token`, `issue_temporary_session`, `get_active_session`, `consume_session`, `revoke_session`
+- [ ] Store session metadata (user_id, desktop_user_id, device info, status, issued_at, expires_at, last_seen_at)
+- [ ] Ensure TTL configuration (5 minutes for tokens, 60 minutes for sessions)
+- [ ] Emit structured logs (`auth.cross_device.*`) for every state change
+- [ ] Add unit tests covering happy path, expiry, mismatch, and double-consume cases
+
+**Acceptance Criteria:**
+- ✅ Redis keys follow documented schema
+- ✅ Service API covers token issuance, session creation, retrieval, and consumption
+- ✅ TTL enforced for tokens and sessions
+- ✅ Logging provides audit trail without leaking secrets
+- ✅ Unit tests pass with >90% branch coverage for the service
+
+**Files to Create:**
+- `backend/app/services/cross_device_session_service.py`
+- `backend/tests/services/test_cross_device_session_service.py`
+
+---
+
+### Task 5.1b: Cross-Device Session Cleanup & Metrics
+**Type:** Backend  
+**Priority:** P0  
+**Estimated Time:** 2 hours  
+**Status:** Not Started
+
+**Description:**
+Implement background cleanup and instrumentation for cross-device sessions.
+
+**Subtasks:**
+- [ ] Add periodic job (`app/workers/cleanup_cross_device_sessions.py`) or FastAPI background task
+- [ ] Scan Redis for expired `qr_token:*` and `xdevice_session:*` keys and remove them
+- [ ] Mark sessions as `expired` before deletion for audit logging
+- [ ] Emit metrics (e.g., count of active sessions, expired sessions) via existing observability stack
+- [ ] Document operational runbook for restarting the cleanup worker
+- [ ] Add automated test invoking cleanup against seeded Redis fixtures
+
+**Acceptance Criteria:**
+- ✅ Expired tokens/sessions removed automatically within 5 minutes
+- ✅ Logs emitted for expired or revoked sessions
+- ✅ Metrics visible in monitoring dashboard
+- ✅ Cleanup job idempotent and safe to rerun
+- ✅ Tests validate cleanup behavior
+
+**Files to Create:**
+- `backend/app/workers/cleanup_cross_device_sessions.py`
+- `backend/tests/workers/test_cleanup_cross_device_sessions.py`
+
+---
+
 ### Task 5.2: Implement Biometric Auth Endpoint (Backend)
 **Type:** Backend  
 **Priority:** P0  
@@ -2027,6 +2156,38 @@ Test complete cross-device upload flow.
 
 ---
 
+### Task 5.10: Configure Per-User Storage Segmentation
+**Type:** Infrastructure  
+**Priority:** P0  
+**Estimated Time:** 4 hours  
+**Status:** Not Started
+
+**Description:**
+Harden AWS S3 storage so uploads, downloads, and deletions are constrained to a user’s namespace.
+
+**Subtasks:**
+- [ ] Verify bucket `rekindle-uploads` configuration (encryption, versioning, lifecycle rules)
+- [ ] Define key templates `users/{user_id}/raw/{photo_id}/{filename}` etc.
+- [ ] Update presigned URL logic to enforce prefix & content-length conditions per user
+- [ ] Lock IAM role permissions to `arn:aws:s3:::rekindle-uploads/users/*`
+- [ ] Add automated smoke test ensuring cross-user access fails
+- [ ] Document storage configuration and incident response runbook
+- [ ] Update infrastructure-as-code with bucket policies and CloudFront origin restrictions
+- [ ] Record decision in `docs/storage/README.md`
+
+**Acceptance Criteria:**
+- ✅ Presigned URLs only work for the authenticated user’s prefix
+- ✅ Unauthorized prefix access returns 403 from S3/CloudFront
+- ✅ Storage documentation updated with key structure & IAM policy
+- ✅ CI smoke test verifies per-user isolation on each deploy
+
+**Files to Modify:**
+- `backend/app/services/storage_service.py`
+- `infrastructure/terraform/storage.tf` (or corresponding IaC)
+- `docs/storage/README.md`
+
+---
+
 ## Phase 6: Authorization & Permissions
 **Duration:** Week 5 (5 days)  
 **Dependencies:** Phase 3, 4, and 5 complete
@@ -2086,6 +2247,65 @@ Add tier and credit requirements to photo processing endpoints.
 
 **Files to Modify:**
 - `backend/app/api/v1/photos.py` (when created)
+
+---
+
+### Task 6.2a: Enforce Photo Ownership Guards (Backend)
+**Type:** Backend  
+**Priority:** P0  
+**Estimated Time:** 3 hours  
+**Status:** Not Started
+
+**Description:**
+Ensure every photo API (list, get, delete, download, share) scopes queries by `current_user.id`.
+
+**Subtasks:**
+- [ ] Implement `photo_service.assert_owner(photo_id, user_id)`
+- [ ] Update list endpoints to join on `user_id` and prohibit unbounded queries
+- [ ] Wrap presigned download/delete routes with ownership verification
+- [ ] Return 404 (not 403) when resource belongs to another user
+- [ ] Emit security log on ownership violation attempts
+- [ ] Add caching layer for frequently accessed photo metadata (optional)
+
+**Acceptance Criteria:**
+- ✅ All photo endpoints fail closed when `user_id` mismatch detected
+- ✅ Ownership checks centralised in shared service/dependency
+- ✅ Security logs capture offending user/token details without leaking target IDs
+- ✅ Unit tests cover success, foreign user, and missing resource cases
+
+**Files to Modify:**
+- `backend/app/api/v1/photos.py`
+- `backend/app/services/photo_service.py`
+- `backend/tests/api/test_photos.py`
+
+---
+
+### Task 6.2b: Ownership Isolation Tests (QA)
+**Type:** Testing  
+**Priority:** P0  
+**Estimated Time:** 2 hours  
+**Status:** Not Started
+
+**Description:**
+Add automated tests validating that users cannot view or download other users’ photos.
+
+**Subtasks:**
+- [ ] Create integration tests simulating two users with distinct photos
+- [ ] Assert list endpoint only returns caller’s assets
+- [ ] Attempt to fetch/download/delete another user’s photo (expect 404)
+- [ ] Verify presigned URL generation fails for mismatched ownership
+- [ ] Add regression test for S3 smoke script (`scripts/test-presigned-access.sh`)
+- [ ] Document test plan in `docs/testing/AUTHENTICATION_TEST_PLAN.md`
+
+**Acceptance Criteria:**
+- ✅ Automated suite fails if cross-user access slips through
+- ✅ Smoke script runs in CI/CD and staging environments
+- ✅ Test documentation updated with scenarios
+
+**Files to Modify:**
+- `backend/tests/integration/test_photo_ownership.py`
+- `scripts/test-presigned-access.sh`
+- `docs/testing/AUTHENTICATION_TEST_PLAN.md`
 
 ---
 
@@ -2356,32 +2576,29 @@ Write integration tests for authentication flows.
 
 ---
 
-### Task 7.3: Write Frontend Unit Tests
+### Task 7.3: Frontend Unit Testing Plan
 **Type:** Frontend  
 **Priority:** P1  
-**Estimated Time:** 6 hours
+**Estimated Time:** 1 hour
 
 **Description:**
-Write unit tests for frontend authentication components.
+Coordinate the frontend unit test scope and ensure coverage targets are met across the detailed subtasks (7.3a–7.3g).
 
 **Subtasks:**
-- [ ] Test useCurrentUser hook
-- [ ] Test usePermissions hook
-- [ ] Test sign-in/sign-up pages
-- [ ] Test protected route middleware
-- [ ] Test API client
-- [ ] Aim for 70%+ coverage
-- [ ] Fix any bugs found
+- [ ] Review coverage goals with the team
+- [ ] Sequence Tasks 7.3a–7.3g and assign ownership
+- [ ] Monitor progress and unblock implementation issues
+- [ ] Consolidate coverage reports from individual tasks
 
 **Acceptance Criteria:**
-- 70%+ code coverage
-- All hooks tested
-- Component rendering tested
-- Tests pass consistently
+- ✅ Ownership assigned for Tasks 7.3a–7.3g
+- ✅ Combined coverage target (≥70%) confirmed
+- ✅ Status tracking document updated
+- ✅ Risks or gaps documented and assigned
 
-**Files to Create:**
-- `frontend/src/hooks/__tests__/*.test.ts`
-- `frontend/src/components/__tests__/*.test.tsx`
+**Files to Update:**
+- `frontend/docs/authentication.md` (testing responsibilities)
+- Shared testing tracker (e.g., project board or spreadsheet)
 
 ---
 

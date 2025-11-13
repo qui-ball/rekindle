@@ -6,6 +6,7 @@ import requests
 import json
 import time
 import os
+import random
 from loguru import logger
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -144,10 +145,11 @@ class ComfyUIService:
         # workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
         # ===== END FULL RESTORE WORKFLOW =====
 
-        # ===== DUMMY WORKFLOW (Comment this section out when using restore) =====
-        # Update input image path for dummy workflow
-        workflow["1"]["inputs"]["image"] = uploaded_filename
-        # ===== END DUMMY WORKFLOW =====
+        # Inject uploaded image into workflow
+        self._inject_image_into_workflow(workflow, uploaded_filename)
+
+        # Apply optional parameters when nodes exist
+        self._apply_optional_parameters(workflow, denoise, megapixels)
 
         # Queue the prompt
         logger.info("Starting restoration of {}", uploaded_filename)
@@ -175,6 +177,35 @@ class ComfyUIService:
         except Exception as e:
             logger.error("Error during restoration: {}", e)
             raise
+
+
+    def _inject_image_into_workflow(
+        self, workflow: Dict[str, Any], uploaded_filename: str
+    ) -> None:
+        """
+        Insert the uploaded image filename into the first node that accepts an image input.
+        """
+        for node in workflow.values():
+            inputs = node.get("inputs", {})
+            if "image" in inputs:
+                inputs["image"] = uploaded_filename
+                return
+        raise KeyError("Workflow does not contain an image input node.")
+
+    def _apply_optional_parameters(
+        self, workflow: Dict[str, Any], denoise: float, megapixels: float
+    ) -> None:
+        """
+        Apply optional workflow parameters if supported by nodes in the workflow.
+        """
+        for node in workflow.values():
+            inputs = node.get("inputs", {})
+            if "megapixels" in inputs:
+                inputs["megapixels"] = megapixels
+            if "denoise" in inputs:
+                inputs["denoise"] = denoise
+            if "seed" in inputs:
+                inputs["seed"] = random.randint(1, 1_000_000)
 
 
 # Global instance

@@ -257,6 +257,61 @@ class User(Base):
         return f"<User {self.email} ({self.subscription_tier})>"
 ```
 
+#### Photos Table
+
+```sql
+-- photos table - PostgreSQL
+CREATE TABLE photos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id VARCHAR(255) NOT NULL,
+    original_key TEXT NOT NULL,
+    processed_key TEXT,
+    thumbnail_key TEXT,
+    storage_bucket TEXT NOT NULL DEFAULT 'rekindle-uploads',
+    status VARCHAR(20) NOT NULL DEFAULT 'uploaded'
+        CHECK (status IN ('uploaded', 'processing', 'ready', 'archived', 'deleted')),
+    size_bytes BIGINT,
+    mime_type VARCHAR(100),
+    checksum_sha256 CHAR(64) NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_photos_owner_original_key
+    ON photos(owner_id, original_key);
+CREATE INDEX idx_photos_owner_status
+    ON photos(owner_id, status);
+```
+
+```python
+# backend/app/models/photo.py
+class Photo(Base):
+    __tablename__ = "photos"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(String(255), nullable=False, index=True)
+    original_key = Column(String, nullable=False)
+    processed_key = Column(String, nullable=True)
+    thumbnail_key = Column(String, nullable=True)
+    storage_bucket = Column(String, nullable=False, default="rekindle-uploads")
+    status = Column(String(20), nullable=False, default="uploaded", index=True)
+    size_bytes = Column(BigInteger, nullable=True)
+    mime_type = Column(String(100), nullable=True)
+    checksum_sha256 = Column(String(64), nullable=False)
+    metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("owner_id", "original_key", name="uniq_photo_original_per_owner"),
+        CheckConstraint(
+            status.in_(["uploaded", "processing", "ready", "archived", "deleted"]),
+            name="valid_photo_status",
+        ),
+    )
+```
+
 #### TypeScript Types
 
 ```typescript
@@ -583,6 +638,67 @@ async def biometric_authentication(
     }
 ```
 
+#### Cross-Device Session Store (Redis)
+
+```
+qr_token:{token} -> {
+  "desktop_user_id": "<uuid>",
+  "issued_at": "<iso8601>",
+  "expires_at": "<iso8601>",
+  "status": "pending" | "consumed" | "expired"
+}
+
+xdevice_session:{session_id} -> {
+  "user_id": "<uuid>",
+  "desktop_user_id": "<uuid>",
+  "token": "<qr_token>",
+  "temporary_jwt_id": "<uuid>",
+  "issued_at": "<iso8601>",
+  "expires_at": "<iso8601>",
+  "last_seen_at": "<iso8601>",
+  "status": "active" | "consumed" | "expired" | "revoked",
+  "mobile_device": {
+    "platform": "ios" | "android" | "web",
+    "user_agent": "<string>",
+    "biometric_method": "face_id" | "touch_id" | "fingerprint" | null
+  }
+}
+```
+
+- QR tokens live in Redis with a 5-minute TTL. They are marked `consumed` and removed once a mobile device links or a temporary session is issued.
+- Temporary cross-device sessions also live in Redis with a 60-minute TTL and are keyed by UUID (`sid`). Status transitions: `active → consumed` (after upload), `active → revoked` (manual cancel), `active → expired` (background cleanup).
+- All reads/writes go through `app/services/cross_device_session_service.py` to ensure consistent auditing, validation, and structured logging.
+- Background cleanup (`app/workers/cleanup_cross_device_sessions.py`) runs every 5 minutes to delete expired tokens/sessions and emit metrics.
+- Temporary JWTs are signed with `XDEVICE_JWT_SECRET` (32+ byte random secret, HS256). Secret is injected via environment variable and rotated alongside other credentials.
+- Temporary JWT payload:
+
+```
+{
+  "iss": "rekindle:xdevice",
+  "sub": "<user_id>",
+  "sid": "<xdevice_session_id>",
+  "scope": ["upload:mobile"],
+  "token": "<qr_token>",
+  "exp": <unix timestamp>
+}
+```
+
+- The FastAPI dependency `get_current_user` first fetches the Redis session (`xdevice_session:<sid>`) when it sees the `rekindle:xdevice` issuer. If the session is missing or no longer `active`, it returns `401` and the frontend prompts the user to re-scan.
+- All session mutations emit structured logs (`auth.cross_device.*`) for observability and security reviews.
+
+### Photo Storage Isolation
+
+- **Primary storage:** AWS S3 bucket `rekindle-uploads` (regional, versioning enabled). All assets live under a user-scoped prefix: `users/{owner_id}/raw/{photo_id}/original.{ext}`, `users/{owner_id}/processed/{photo_id}/restored.{ext}`, `users/{owner_id}/thumbs/{photo_id}.jpg`.
+- **Write path:** The backend generates presigned POST URLs restricted to the caller’s prefix via `conditions` (`["starts-with", "$key", "users/<owner_id>/raw/"]`) and `content-length-range`.
+- **Metadata store:** Every upload is recorded in the `photos` table with `owner_id` (Supabase `sub`), S3 keys, checksum, and status so later queries can enforce ownership server-side.
+- **Read path:** `GET /photos/:id` first loads the record by `id` and `owner_id` before issuing a presigned GET. Failure to match yields `404` to avoid leaking existence.
+- **List path:** `GET /photos` always filters by `owner_id` and optionally `status`, sorted by `created_at DESC`. No endpoint exposes arbitrary key access.
+- **Deletion:** Soft-delete via status `archived` then background job deletes S3 keys after retention window. All delete operations confirm `photo.owner_id == current_user_id`.
+- **IAM policy:** Service role used for presigned operations is limited to `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject` on `arn:aws:s3:::rekindle-uploads/users/*`. CloudFront/S3 static hosting enforces the same prefix pattern.
+- **Auditing:** Structured logs (`storage.photo.*`) include `photo_id`, `owner_id`, operation type, and S3 key. Duplicate checksum detection prevents cross-user uploads of identical keys.
+- **Security hooks:** FastAPI dependency `verify_photo_ownership(photo_id, current_user)` centralises the ownership check so any route (download, delete, share) calls `photo_service.assert_owner(photo_id, current_user.sub)` before continuing.
+
+
 ### Request/Response Schemas
 
 ```python
@@ -753,10 +869,16 @@ class UserResponse(BaseModel):
 4. Backend receives request
    ↓
 5. JWT Middleware (deps.py):
-   - Extract JWT from Authorization header
-   - Verify JWT signature using Supabase public keys
-   - Check JWT expiration
-   - Extract supabase_user_id from JWT payload
+   - Extract JWT from `Authorization` header (Bearer scheme)
+   - Inspect JWT `iss` claim to determine the issuer
+     - `iss = https://<project>.supabase.co`: verify signature against cached Supabase JWKS (RS256)
+     - `iss = rekindle:xdevice`: verify signature with `XDEVICE_JWT_SECRET` (HS256) and load matching cross-device session from Redis
+   - Reject tokens with unknown issuers
+   - Check JWT expiration (Supabase and cross-device)
+   - Resolve user identity:
+     - Supabase tokens → fetch by `supabase_user_id`
+     - Cross-device tokens → fetch `xdevice_session:<sid>` from Redis, ensure status `active`, read `user_id`
+   - Hydrate SQLAlchemy `User` model; if lookup fails or session expired, return `401`
    ↓
 6. Fetch user from database:
    - Query: SELECT * FROM users WHERE supabase_user_id = ?
