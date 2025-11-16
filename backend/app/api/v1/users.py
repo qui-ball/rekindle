@@ -4,7 +4,7 @@ User management API endpoints.
 
 from typing import Dict
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -12,7 +12,7 @@ from loguru import logger
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User, UserTier
-from app.schemas.user import UserSyncRequest, UserResponse
+from app.schemas.user import UserSyncRequest, UserResponse, UserUpdateRequest
 
 router = APIRouter()
 
@@ -288,4 +288,123 @@ async def get_current_user_profile(
     logger.debug(f"Fetching profile for user: id={current_user.id}, email={current_user.email}")
     
     return _user_to_response(current_user)
+
+
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    responses={
+        200: {"description": "Profile updated successfully"},
+        400: {"description": "Invalid input data"},
+        401: {"description": "Unauthorized - authentication required"},
+        403: {"description": "Forbidden - account suspended or deleted"},
+        422: {"description": "Validation error - invalid field format"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def update_current_user_profile(
+    request: UserUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update current authenticated user's profile.
+    
+    Allows updating:
+    - **first_name**: User's first name (1-100 characters, letters/spaces/hyphens/apostrophes only)
+    - **last_name**: User's last name (1-100 characters, letters/spaces/hyphens/apostrophes only)
+    - **profile_image_url**: URL to user's profile image
+    
+    All fields are optional. Only provided fields will be updated.
+    Empty strings will be converted to None (clearing the field).
+    
+    Requires authentication via JWT token.
+    
+    Returns the updated user profile.
+    """
+    # Defense-in-depth: Explicitly check account status even though get_current_user already checks
+    if current_user.account_status != "active":
+        logger.warning(
+            f"Update attempt by non-active account: id={current_user.id}, "
+            f"status={current_user.account_status}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Cannot update profile: account is {current_user.account_status}"
+        )
+    
+    logger.info(
+        f"Updating profile for user: id={current_user.id}, email={current_user.email}"
+    )
+    
+    # Get fields that were explicitly set in the request (including None values)
+    # This allows us to distinguish between "field not provided" and "field set to None"
+    request_data = request.model_dump(exclude_unset=True)
+    
+    # Track what fields are being updated for logging
+    updated_fields = []
+    
+    # Update fields if explicitly provided in request (including None values)
+    if "first_name" in request_data:
+        # Empty string after validation becomes None, which is valid
+        current_user.first_name = request_data["first_name"]
+        updated_fields.append("first_name")
+    
+    if "last_name" in request_data:
+        # Empty string after validation becomes None, which is valid
+        current_user.last_name = request_data["last_name"]
+        updated_fields.append("last_name")
+    
+    if "profile_image_url" in request_data:
+        # None is valid for profile_image_url (clears the field)
+        current_user.profile_image_url = request_data["profile_image_url"]
+        updated_fields.append("profile_image_url")
+    
+    # If no fields were provided to update, return current user
+    if not updated_fields:
+        logger.debug(f"No fields provided for update, returning current profile")
+        return _user_to_response(current_user)
+    
+    try:
+        # Save changes to database
+        db.commit()
+        db.refresh(current_user)
+        
+        logger.info(
+            f"Profile updated successfully for user: id={current_user.id}, "
+            f"updated_fields={updated_fields}"
+        )
+        
+        return _user_to_response(current_user)
+        
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(
+            f"Database integrity error updating profile for user: id={current_user.id}, error={e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid data provided - constraint violation"
+        )
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(
+            f"Database error updating profile for user: id={current_user.id}, error={e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error occurred while updating profile"
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            f"Unexpected error updating profile for user: id={current_user.id}, error={e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update user profile"
+        )
 

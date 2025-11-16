@@ -148,9 +148,11 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async deletePhoto(photoId: string): Promise<void> {
     try {
-      await apiClient.delete(`/v1/photos/${photoId}`);
+      // Photo IDs map directly to job IDs in the new backend architecture,
+      // so delete the underlying job to remove the photo from the gallery.
+      await apiClient.delete(`/v1/jobs/${photoId}`);
     } catch (error) {
-      console.error('Error deleting photo:', error);
+      console.error('Error deleting job photo:', error);
       throw error;
     }
   }

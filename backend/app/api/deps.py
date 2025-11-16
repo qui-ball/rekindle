@@ -100,7 +100,11 @@ def verify_supabase_token(token: str) -> dict:
     """
     try:
         # Fetch JWKS
-        jwks = fetch_supabase_jwks()
+        try:
+            jwks = fetch_supabase_jwks()
+        except HTTPException:
+            # Propagate HTTPException from fetch_supabase_jwks (e.g., service unavailable)
+            raise
         
         # Get unverified header to find key ID
         unverified_header = jwt.get_unverified_header(token)
@@ -143,6 +147,9 @@ def verify_supabase_token(token: str) -> dict:
         
         return payload
         
+    except HTTPException:
+        # Re-raise HTTPException as-is
+        raise
     except JWTError as e:
         logger.warning(f"JWT verification failed: {e}")
         raise HTTPException(
@@ -209,7 +216,7 @@ def verify_cross_device_token(token: str) -> dict:
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing session ID"
+                detail="Token missing session id"
             )
         
         # Load session from Redis
@@ -220,6 +227,30 @@ def verify_cross_device_token(token: str) -> dict:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired or revoked"
             )
+        
+        # Double-check session status (defense in depth)
+        session_status = session.get("status")
+        if session_status != "active":
+            logger.warning(f"Cross-device session {session_id} is not active (status: {session_status})")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired or revoked"
+            )
+        
+        # Check if session is expired (defense in depth)
+        expires_at_str = session.get("expires_at")
+        if expires_at_str:
+            try:
+                from datetime import datetime
+                expires_at = datetime.fromisoformat(expires_at_str)
+                if datetime.utcnow() > expires_at:
+                    logger.warning(f"Cross-device session {session_id} has expired")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Session expired or revoked"
+                    )
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid expires_at format for session {session_id}: {e}")
         
         # Verify user_id matches session
         user_id_from_token = payload.get("sub")
@@ -267,12 +298,26 @@ def get_current_user(
     """
     token = credentials.credentials
     
+    # Validate token is not empty
+    if not token or not token.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Empty token"
+        )
+    
     try:
         # Decode token without verification to check issuer
-        unverified_payload = jwt.decode(
-            token,
-            options={"verify_signature": False}
-        )
+        # We need to catch JWTError for malformed tokens
+        try:
+            # Use get_unverified_claims to decode without verification
+            unverified_payload = jwt.get_unverified_claims(token)
+        except JWTError as e:
+            # Token is malformed or invalid
+            logger.warning(f"Malformed JWT token: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format"
+            )
         
         iss = unverified_payload.get("iss")
         

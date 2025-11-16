@@ -1215,28 +1215,29 @@ Extend authentication middleware to accept and validate Rekindle-issued cross-de
 ### Task 3.5: Create User Sync Endpoint
 **Type:** Backend  
 **Priority:** P0  
-**Estimated Time:** 2 hours
+**Estimated Time:** 2 hours  
+**Status:** ✅ Completed
 
 **Description:**
 Create endpoint to sync users from Supabase to backend.
 
 **Subtasks:**
-- [ ] Create `app/api/v1/users.py`
-- [ ] Implement POST `/users/sync`
-- [ ] Accept UserSyncRequest
-- [ ] Check if user already exists
-- [ ] Create new user if not exists
-- [ ] Initialize with free tier (3 credits)
-- [ ] Set storage limits based on tier
-- [ ] Return user profile
-- [ ] Handle duplicate errors
-- [ ] Add logging
+- [x] Create `app/api/v1/users.py`
+- [x] Implement POST `/users/sync`
+- [x] Accept UserSyncRequest
+- [x] Check if user already exists
+- [x] Create new user if not exists
+- [x] Initialize with free tier (3 credits)
+- [x] Set storage limits based on tier
+- [x] Return user profile
+- [x] Handle duplicate errors
+- [x] Add logging
 
 **Acceptance Criteria:**
-- Endpoint creates users successfully
-- Duplicates handled gracefully
-- Free tier initialized correctly
-- Returns complete user profile
+- ✅ Endpoint creates users successfully
+- ✅ Duplicates handled gracefully
+- ✅ Free tier initialized correctly
+- ✅ Returns complete user profile
 
 **Files to Create:**
 - `backend/app/api/v1/users.py`
@@ -1246,24 +1247,25 @@ Create endpoint to sync users from Supabase to backend.
 ### Task 3.6: Create Get Current User Endpoint
 **Type:** Backend  
 **Priority:** P0  
-**Estimated Time:** 1 hour
+**Estimated Time:** 1 hour  
+**Status:** ✅ Completed
 
 **Description:**
 Create endpoint to get current authenticated user's profile.
 
 **Subtasks:**
-- [ ] Implement GET `/users/me`
-- [ ] Require authentication
-- [ ] Return UserResponse schema
-- [ ] Include computed fields (total_credits, storage_percentage)
-- [ ] Test with various user tiers
-- [ ] Add API documentation
+- [x] Implement GET `/users/me`
+- [x] Require authentication
+- [x] Return UserResponse schema
+- [x] Include computed fields (total_credits, storage_percentage)
+- [x] Test with various user tiers
+- [x] Add API documentation
 
 **Acceptance Criteria:**
-- Endpoint returns complete user profile
-- Authentication required
-- Computed fields correct
-- API docs complete
+- ✅ Endpoint returns complete user profile
+- ✅ Authentication required
+- ✅ Computed fields correct
+- ✅ API docs complete
 
 **Files to Modify:**
 - `backend/app/api/v1/users.py`
@@ -1273,26 +1275,27 @@ Create endpoint to get current authenticated user's profile.
 ### Task 3.7: Create Update User Endpoint
 **Type:** Backend  
 **Priority:** P1  
-**Estimated Time:** 2 hours
+**Estimated Time:** 2 hours  
+**Status:** ✅ Completed
 
 **Description:**
 Create endpoint to update user profile.
 
 **Subtasks:**
-- [ ] Implement PUT `/users/me`
-- [ ] Accept UserUpdateRequest
-- [ ] Validate input (name format)
-- [ ] Update user in database
-- [ ] Return updated UserResponse
-- [ ] Handle validation errors
-- [ ] Add logging
-- [ ] Test with various inputs
+- [x] Implement PUT `/users/me`
+- [x] Accept UserUpdateRequest
+- [x] Validate input (name format)
+- [x] Update user in database
+- [x] Return updated UserResponse
+- [x] Handle validation errors
+- [x] Add logging
+- [x] Test with various inputs
 
 **Acceptance Criteria:**
-- Profile updates successfully
-- Validation works correctly
-- Invalid input rejected
-- Returns updated profile
+- ✅ Profile updates successfully
+- ✅ Validation works correctly
+- ✅ Invalid input rejected
+- ✅ Returns updated profile
 
 **Files to Modify:**
 - `backend/app/api/v1/users.py`

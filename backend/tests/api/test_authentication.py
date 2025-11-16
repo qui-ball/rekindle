@@ -87,10 +87,12 @@ class TestSupabaseTokenVerification:
     """Tests for Supabase JWT token verification"""
 
     @patch("app.api.deps.fetch_supabase_jwks")
+    @patch("app.api.deps.jwt.get_unverified_header")
     @patch("app.api.deps.jwt.decode")
-    def test_verify_supabase_token_success(self, mock_decode, mock_fetch_jwks, mock_supabase_jwks):
+    def test_verify_supabase_token_success(self, mock_decode, mock_header, mock_fetch_jwks, mock_supabase_jwks):
         """Test successful Supabase token verification"""
         mock_fetch_jwks.return_value = mock_supabase_jwks
+        mock_header.return_value = {"kid": "test-key-id"}
         mock_decode.return_value = {
             "sub": "test-user-id",
             "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
@@ -115,24 +117,25 @@ class TestSupabaseTokenVerification:
                 verify_supabase_token("test-token")
             
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "key ID" in exc_info.value.detail.lower()
+            assert "key id" in exc_info.value.detail.lower()
 
     @patch("app.api.deps.fetch_supabase_jwks")
-    def test_verify_supabase_token_invalid_issuer(self, mock_fetch_jwks, mock_supabase_jwks):
+    @patch("app.api.deps.jwt.get_unverified_header")
+    @patch("app.api.deps.jwt.decode")
+    def test_verify_supabase_token_invalid_issuer(self, mock_decode, mock_header, mock_fetch_jwks, mock_supabase_jwks):
         """Test token verification fails with invalid issuer"""
         mock_fetch_jwks.return_value = mock_supabase_jwks
+        mock_header.return_value = {"kid": "test-key-id"}
+        mock_decode.return_value = {
+            "sub": "test-user-id",
+            "iss": "https://invalid-issuer.com",
+        }
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
-                "sub": "test-user-id",
-                "iss": "https://invalid-issuer.com",
-            }
-            
-            with pytest.raises(HTTPException) as exc_info:
-                verify_supabase_token("test-token")
-            
-            assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "issuer" in exc_info.value.detail.lower()
+        with pytest.raises(HTTPException) as exc_info:
+            verify_supabase_token("test-token")
+        
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "issuer" in exc_info.value.detail.lower()
 
 
 class TestCrossDeviceTokenVerification:
@@ -227,8 +230,8 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             
@@ -260,8 +263,8 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": "rekindle:xdevice"
             }
             
@@ -289,8 +292,8 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             
@@ -316,8 +319,8 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             
@@ -342,8 +345,8 @@ class TestGetCurrentUser:
         
         initial_login_time = mock_user.last_login_at
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             
@@ -357,8 +360,8 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": "https://unknown-issuer.com"
             }
             
@@ -458,19 +461,21 @@ class TestEdgeCases:
     @patch("app.api.deps.fetch_supabase_jwks")
     def test_jwks_fetch_timeout(self, mock_fetch_jwks):
         """Test JWKS fetch timeout handling"""
-        import httpx
+        # Mock fetch_supabase_jwks to raise HTTPException (as it would after catching TimeoutException)
+        # This simulates the behavior when fetch_supabase_jwks catches a timeout and raises HTTPException
+        mock_fetch_jwks.side_effect = HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable"
+        )
         
-        mock_fetch_jwks.side_effect = httpx.TimeoutException("Request timed out")
-        
-        # Should fall back to cached JWKS if available
+        # verify_supabase_token should propagate the HTTPException
         with pytest.raises(HTTPException) as exc_info:
             verify_supabase_token("test-token")
         
-        # If no cache, should return 503
-        assert exc_info.value.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_503_SERVICE_UNAVAILABLE]
+        # Should return 503 from fetch_supabase_jwks
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
-    @patch("app.api.deps.fetch_supabase_jwks")
-    def test_jwks_invalid_json_response(self, mock_fetch_jwks):
+    def test_jwks_invalid_json_response(self):
         """Test handling of invalid JSON in JWKS response"""
         import httpx
         
@@ -484,6 +489,12 @@ class TestEdgeCases:
         mock_client.get.return_value = mock_response
         
         with patch("app.api.deps.httpx.Client", return_value=mock_client):
+            # Clear cache to ensure we hit the error path
+            from app.api.deps import _jwks_cache, _jwks_cache_time
+            import app.api.deps as deps_module
+            deps_module._jwks_cache = None
+            deps_module._jwks_cache_time = None
+            
             with pytest.raises(HTTPException):
                 fetch_supabase_jwks()
 
@@ -522,7 +533,7 @@ class TestEdgeCases:
             verify_cross_device_token(token)
         
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "session ID" in exc_info.value.detail.lower()
+        assert "session id" in exc_info.value.detail.lower()
 
     @patch("app.api.deps.verify_supabase_token")
     def test_get_current_user_with_expired_token(self, mock_verify_token, test_db_session):
@@ -535,8 +546,8 @@ class TestEdgeCases:
         credentials = Mock()
         credentials.credentials = "expired-token"
         
-        with patch("app.api.deps.jwt.decode") as mock_decode:
-            mock_decode.return_value = {
+        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
+            mock_get_claims.return_value = {
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             

@@ -11,6 +11,7 @@ from pathlib import Path
 from httpx import AsyncClient
 
 
+@pytest.mark.skip(reason="Requires external RunPod/ComfyUI services")
 @pytest.mark.asyncio
 async def test_full_restoration_workflow():
     """

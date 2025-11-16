@@ -174,7 +174,7 @@ export interface PhotoDetailDrawerProps {
   isOpen: boolean;
   photo: Photo | null;
   onClose: () => void;
-  onPhotoAction: (action: PhotoAction, photo: Photo) => void;
+  onPhotoAction: (action: PhotoAction, photo: Photo) => void | Promise<void>;
   onProcessingStart: (options: ProcessingOptions) => void;
 }
 

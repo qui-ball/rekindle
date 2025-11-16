@@ -168,17 +168,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/v1/jobs/${photo.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete photo');
-      }
-
-      // Close drawer and notify parent
+      await onPhotoAction('delete', photo);
       onClose();
-      onPhotoAction('delete', photo);
     } catch (error) {
       console.error('Error deleting photo:', error);
       alert('Failed to delete photo. Please try again.');

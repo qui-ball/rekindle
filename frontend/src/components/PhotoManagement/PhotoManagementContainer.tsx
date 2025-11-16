@@ -272,7 +272,9 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
           console.warn('Unknown photo action:', action);
       }
     } catch (err) {
-      handleError(err as Error, `Failed to ${action} photo`);
+      const error = err instanceof Error ? err : new Error(String(err));
+      handleError(error, `Failed to ${action} photo`);
+      throw error;
     }
   }, [handleError]);
 

@@ -16,13 +16,18 @@ export async function GET(
   }
   
   const searchParams = request.nextUrl.searchParams.toString();
-  // Add trailing slash for collection endpoints to avoid 307 redirects from FastAPI
-  // FastAPI automatically redirects /api/v1/jobs to /api/v1/jobs/ when route is defined with "/"
-  // Only add trailing slash if path doesn't already have one and doesn't end with a UUID
-  const hasTrailingSlash = path.endsWith('/');
-  const isUuidPath = path.match(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-  const trailingSlash = (!hasTrailingSlash && !isUuidPath && path) ? '/' : '';
-  const url = `http://backend:8000/api/${path}${trailingSlash}${searchParams ? `?${searchParams}` : ''}`;
+  // Add trailing slash only for collection endpoints (e.g., /v1/jobs) to avoid FastAPI redirects.
+  // Any path with more than two segments (e.g., /v1/jobs/{id}/image-url) should not get a trailing slash.
+  const normalizedPath = path.replace(/\/+$/, '');
+  const segments = normalizedPath ? normalizedPath.split('/') : [];
+  const shouldAddTrailingSlash =
+    normalizedPath.length > 0 &&
+    !path.endsWith('/') &&
+    segments.length === 2; // e.g., v1/jobs, v1/events
+  const trailingSlash = shouldAddTrailingSlash ? '/' : '';
+  const url = `http://backend:8000/api/${normalizedPath || path}${trailingSlash}${
+    searchParams ? `?${searchParams}` : ''
+  }`;
 
   try {
     // Forward all headers, especially Authorization for JWT tokens
