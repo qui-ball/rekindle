@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = Field(..., description="Supabase project URL")
     SUPABASE_ANON_KEY: str = Field(..., description="Supabase anonymous key")
     SUPABASE_SERVICE_KEY: str = Field(..., description="Supabase service role key")
+    SUPABASE_WEBHOOK_SECRET: str = Field(
+        default="",
+        description="Supabase webhook secret for signature verification"
+    )
 
     # Cross-Device Authentication
     XDEVICE_JWT_SECRET: str = Field(

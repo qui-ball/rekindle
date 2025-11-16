@@ -41,6 +41,17 @@ const nextConfig = {
     // Force use of Babel instead of SWC
     removeConsole: false,
   },
+  // Development server configuration
+  // Increase compilation timeout to prevent serving incomplete bundles
+  ...(process.env.NODE_ENV === 'development' && {
+    // Ensure webpack compilation completes before serving
+    onDemandEntries: {
+      // Period (in ms) where the server will keep pages in the buffer
+      maxInactiveAge: 60 * 1000,
+      // Number of pages that should be kept simultaneously without being disposed
+      pagesBufferLength: 5,
+    },
+  }),
   images: {
     domains: ['localhost'],
     remotePatterns: [

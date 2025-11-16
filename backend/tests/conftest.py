@@ -35,6 +35,7 @@ if not os.getenv("RUN_INTEGRATION_TESTS"):
         "SUPABASE_URL": "https://test.supabase.co",
         "SUPABASE_ANON_KEY": "test_anon_key",
         "SUPABASE_SERVICE_KEY": "test_service_key",
+        "SUPABASE_WEBHOOK_SECRET": "test_webhook_secret",
         "BACKEND_BASE_URL": "http://localhost:8000",
     }
     for key, value in defaults.items():
@@ -54,6 +55,7 @@ else:
         "SUPABASE_URL": "https://test.supabase.co",
         "SUPABASE_ANON_KEY": "test_anon_key",
         "SUPABASE_SERVICE_KEY": "test_service_key",
+        "SUPABASE_WEBHOOK_SECRET": "test_webhook_secret",
         "BACKEND_BASE_URL": "http://localhost:8000",
     }
     # Only set test values for keys that aren't already in environment

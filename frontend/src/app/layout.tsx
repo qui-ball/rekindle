@@ -53,6 +53,46 @@ export default function RootLayout({
         
         {/* Camera permissions for PWA */}
         <meta name="permissions-policy" content="camera=*, microphone=*, geolocation=*" />
+        
+        {/* Development: Handle syntax errors from incomplete builds */}
+        {process.env.NODE_ENV === 'development' && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  // Track if we've already retried
+                  const retryKey = 'nextjs-dev-retry';
+                  const hasRetried = sessionStorage.getItem(retryKey);
+                  
+                  // Listen for syntax errors (uncaught syntax errors)
+                  window.addEventListener('error', function(e) {
+                    // Check if it's a syntax error in a Next.js bundle
+                    if (e.message && e.message.includes('SyntaxError') && 
+                        (e.filename && e.filename.includes('_next') || e.filename.includes('layout.js'))) {
+                      console.warn('Detected Next.js build syntax error, this usually means the dev server is still compiling...');
+                      
+                      // Only retry once
+                      if (!hasRetried) {
+                        sessionStorage.setItem(retryKey, 'true');
+                        console.log('Retrying page load in 2 seconds...');
+                        setTimeout(function() {
+                          window.location.reload();
+                        }, 2000);
+                      } else {
+                        console.error('Syntax error persists after retry. The dev server may need more time to compile.');
+                      }
+                    }
+                  });
+                  
+                  // Clear retry flag after successful load (after a delay)
+                  setTimeout(function() {
+                    sessionStorage.removeItem(retryKey);
+                  }, 5000);
+                })();
+              `,
+            }}
+          />
+        )}
       </head>
       <body className={inter.className}>
         <AuthProvider>

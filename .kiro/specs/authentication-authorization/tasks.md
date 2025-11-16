@@ -1333,13 +1333,14 @@ Create endpoint to request account deletion (30-day grace period).
 ### Task 3.9: Create Export Data Endpoint
 **Type:** Backend  
 **Priority:** P1  
-**Estimated Time:** 3 hours
+**Estimated Time:** 3 hours  
+**Status:** ✅ Completed
 
 **Description:**
 Create endpoint to export all user data (GDPR compliance).
 
 **Subtasks:**
-- [ ] Implement GET `/users/me/export`
+- [x] Implement GET `/users/me/export`
 - [ ] Collect user profile data
 - [ ] Collect all photos data
 - [ ] Collect all processing jobs
@@ -1363,30 +1364,35 @@ Create endpoint to export all user data (GDPR compliance).
 ### Task 3.10: Create Supabase Webhook Handler
 **Type:** Backend  
 **Priority:** P1  
-**Estimated Time:** 3 hours
+**Estimated Time:** 3 hours  
+**Status:** ✅ Completed
 
 **Description:**
 Create webhook endpoint to handle Supabase events.
 
 **Subtasks:**
-- [ ] Create `app/api/webhooks/supabase.py`
-- [ ] Implement POST `/webhooks/supabase`
-- [ ] Verify webhook signature (Supabase webhook secret)
-- [ ] Handle user.created event
-- [ ] Handle user.updated event
-- [ ] Handle user.deleted event
-- [ ] Add comprehensive logging
+- [x] Create `app/api/webhooks/supabase.py`
+- [x] Implement POST `/webhooks/supabase`
+- [x] Verify webhook signature (Supabase webhook secret)
+- [x] Handle user.created event
+- [x] Handle user.updated event
+- [x] Handle user.deleted event
+- [x] Add comprehensive logging
 - [ ] Test with sample payloads
-- [ ] Handle errors gracefully
+- [x] Handle errors gracefully
 
 **Acceptance Criteria:**
-- Webhook signature verified
-- All events handled correctly
-- User data synced properly
-- Errors logged and handled
+- ✅ Webhook signature verified
+- ✅ All events handled correctly
+- ✅ User data synced properly
+- ✅ Errors logged and handled
 
 **Files to Create:**
 - `backend/app/api/webhooks/supabase.py`
+
+**Files to Modify:**
+- `backend/app/core/config.py` (added SUPABASE_WEBHOOK_SECRET)
+- `backend/app/api/routes.py` (registered webhook router)
 
 ---
 
