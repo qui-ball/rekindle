@@ -23,7 +23,7 @@ from app.core.types import GUID
 
 UserTier = Literal["free", "remember", "cherish", "forever"]
 SubscriptionStatus = Literal["active", "cancelled", "past_due", "paused"]
-AccountStatus = Literal["active", "suspended", "deleted"]
+AccountStatus = Literal["active", "suspended", "deleted", "archived"]
 
 
 class User(Base):
@@ -59,6 +59,8 @@ class User(Base):
     # Account status
     account_status = Column(String(20), default="active", nullable=False)
     deletion_requested_at = Column(DateTime(timezone=True), nullable=True)
+    deletion_task_id = Column(String(255), nullable=True, index=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
 
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -76,7 +78,7 @@ class User(Base):
             name="valid_subscription_tier",
         ),
         CheckConstraint(
-            account_status.in_(["active", "suspended", "deleted"]),
+            account_status.in_(["active", "suspended", "deleted", "archived"]),
             name="valid_account_status",
         ),
         CheckConstraint(

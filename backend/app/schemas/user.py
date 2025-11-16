@@ -144,6 +144,7 @@ class UserResponse(UserBase):
     subscription_period_start: Optional[datetime] = None
     subscription_period_end: Optional[datetime] = None
     deletion_requested_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
 
     created_at: datetime
     updated_at: datetime

@@ -218,84 +218,27 @@ for i in {1..20}; do
     sleep 1
 done
 
-# Setup database tables and run migrations (only if a local postgres service exists)
+#
+# Apply database migrations (only if a local postgres service exists)
 if docker compose ps postgres >/dev/null 2>&1; then
-    echo "🗄️  Setting up database schema..."
-    
-    # First, create basic tables that migrations may depend on
-    echo "  📋 Creating base tables (jobs, restore_attempts, animation_attempts)..."
-    docker compose exec -T postgres psql -U rekindle -d rekindle -c "
-CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";
-
-CREATE TABLE IF NOT EXISTS jobs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW(),
-    selected_restore_id UUID,
-    latest_animation_id UUID
-);
-
-CREATE TABLE IF NOT EXISTS restore_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id UUID REFERENCES jobs(id),
-    s3_key VARCHAR(500),
-    model VARCHAR(100),
-    params JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS animation_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id UUID REFERENCES jobs(id),
-    restore_id UUID REFERENCES restore_attempts(id),
-    preview_s3_key VARCHAR(500),
-    result_s3_key VARCHAR(500),
-    thumb_s3_key VARCHAR(500),
-    model VARCHAR(100),
-    params JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-" >/dev/null 2>&1 || echo "    ⚠️  Note: Some tables may already exist (this is okay)"
-    
-    # Run migration files in order
-    MIGRATIONS_DIR="$PROJECT_ROOT/backend/migrations"
-    MIGRATION_FILES=(
-        "001_add_thumbnail_s3_key.sql"
-        "002_ensure_thumbnail_consistency.sql"
-        "003_create_photos_table.sql"
-        "004_create_users_table.sql"
-    )
-    
-    echo ""
-    echo "📋 Applying database migrations..."
-    for migration_file in "${MIGRATION_FILES[@]}"; do
-        migration_path="$MIGRATIONS_DIR/$migration_file"
-        if [ -f "$migration_path" ]; then
-            echo "  📄 Running migration: $migration_file..."
-            # Capture both stdout and stderr to check for errors
-            MIGRATION_OUTPUT=$(docker compose exec -T postgres psql -U rekindle -d rekindle < "$migration_path" 2>&1)
-            MIGRATION_EXIT_CODE=$?
-            
-            if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-                echo "    ✅ $migration_file applied successfully"
-            else
-                # Check if error is due to already existing objects (safe to ignore)
-                if echo "$MIGRATION_OUTPUT" | grep -qiE "(already exists|duplicate|already present|relation.*already exists)"; then
-                    echo "    ⚠️  $migration_file: Some objects already exist (skipping - this is okay)"
-                else
-                    # Show the actual error for debugging, but don't fail
-                    echo "    ⚠️  $migration_file: Migration may have already been applied"
-                    if [ -n "$MIGRATION_OUTPUT" ]; then
-                        echo "       Error details: $(echo "$MIGRATION_OUTPUT" | head -1)"
-                    fi
-                fi
-            fi
-        else
-            echo "    ⚠️  Migration file not found: $migration_file (skipping)"
-        fi
-    done
-    echo "  ✅ Database migrations complete"
+    echo "🗄️  Applying database migrations..."
+    "$SCRIPT_DIR/apply-migrations.sh" || {
+        echo "⚠️  Migration application had issues (this may be okay if migrations already applied)"
+    }
 fi
+
+# Exit hook for clean shutdown / messaging
+cleanup() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "❌ Development environment encountered an error (exit code $exit_code)"
+        echo "   Check docker compose logs for more details: docker compose logs"
+    fi
+    exit $exit_code
+}
+
+trap cleanup EXIT
 
 echo ""
 echo "✅ Development Environment Ready!"
@@ -317,7 +260,7 @@ echo "   View celery:       docker compose logs -f celery"
 echo "   View flower:       docker compose logs -f flower"
 echo "   Stop:              ./dev stop"
 echo "   Restart:           docker compose restart"
-echo "   Frontend shell:   docker compose exec frontend sh"
+echo "   Frontend shell:    docker compose exec frontend sh"
 echo "   Backend shell:     docker compose exec backend sh"
 echo "   Celery shell:      docker compose exec celery sh"
 echo ""

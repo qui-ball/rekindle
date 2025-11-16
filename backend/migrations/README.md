@@ -2,11 +2,11 @@
 
 This directory contains SQL migration files for database schema changes.
 
-## How to Apply Migrations
+## Automatic Migration Application ✅
 
 ### Development (Automatic)
 
-Migrations are automatically applied when you run `./dev start` or `./dev https`. The development script runs all migrations in order.
+Migrations are automatically applied when you run `./dev start` or `./dev https`. The development script runs all migrations in order via `scripts/apply-migrations.sh`.
 
 ### Production / AWS RDS (Manual)
 
@@ -93,12 +93,59 @@ docker run --rm -it \
        -f /migrations/001_add_thumbnail_s3_key.sql
 ```
 
+## Manual Migration Application (Local)
+
+If you need to re-apply migrations locally:
+
+### Using the Migration Script (Recommended)
+```bash
+./scripts/apply-migrations.sh
+```
+
+### Using Docker Compose Directly
+```bash
+# Apply a specific migration
+docker compose exec -T postgres psql -U rekindle -d rekindle < backend/migrations/005_add_deletion_fields.sql
+
+# Or pipe the file
+cat backend/migrations/005_add_deletion_fields.sql | docker compose exec -T postgres psql -U rekindle -d rekindle
+```
+
+### Using Direct PostgreSQL Connection
+```bash
+psql -U rekindle -d rekindle -h localhost -p 5432 -f backend/migrations/005_add_deletion_fields.sql
+```
+
 ## Migration History
 
-- **001_add_thumbnail_s3_key.sql** - Add thumbnail_s3_key column to jobs table for performance optimization
-  - Adds nullable VARCHAR column to store S3 thumbnail paths
-  - Creates index for faster lookups
-  - Safe to run on existing databases (nullable field)
+- **001_add_thumbnail_s3_key.sql** - Add thumbnail_s3_key column to jobs table
+- **002_ensure_thumbnail_consistency.sql** - Ensure thumbnail consistency
+- **003_create_photos_table.sql** - Create photos table
+- **004_create_users_table.sql** - Create users table with Supabase linkage
+- **005_add_deletion_fields.sql** - Add deletion_task_id and archived_at fields
+- **006_create_audit_logs_table.sql** - Create audit_logs table for compliance tracking
+
+## For New Developers
+
+When setting up your local environment for the first time:
+
+1. **Run the dev setup:**
+   ```bash
+   ./dev start
+   ```
+   This automatically applies all migrations.
+
+2. **If migrations fail:**
+   - Check Docker logs: `docker compose logs postgres`
+   - Manually apply: `./scripts/apply-migrations.sh`
+   - Verify tables: `docker compose exec postgres psql -U rekindle -d rekindle -c "\dt"`
+
+3. **After pulling new migrations:**
+   ```bash
+   ./dev start  # Automatically applies new migrations
+   ```
+
+See `MIGRATION_GUIDE.md` for detailed migration documentation.
 
 - **002_ensure_thumbnail_consistency.sql** - Ensure thumbnail data consistency
   - Adds NOT NULL constraint to thumbnail_s3_key
