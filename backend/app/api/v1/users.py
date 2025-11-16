@@ -7,7 +7,9 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from loguru import logger
 import httpx
 import json
@@ -21,22 +23,24 @@ from app.models.audit_log import AuditLog
 from app.schemas.user import UserSyncRequest, UserResponse, UserUpdateRequest
 from app.core.config import settings
 from app.workers.tasks.users import schedule_account_deletion, schedule_account_hard_delete
-from fastapi import Request
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, and_
 
 router = APIRouter()
 
-# Rate limiting setup (using simple in-memory approach for now)
-# TODO: Replace with slowapi or Redis-based rate limiting for production
+# Rate limiter instance
+# Note: Each router creates its own limiter instance, but they share the same storage backend
+limiter = Limiter(key_func=get_remote_address)
+
+# Simple in-memory rate limiting for user-specific endpoints
+# (slowapi runs before dependencies, so we can't use authenticated user in key_func)
 from collections import defaultdict
 from datetime import datetime as dt
-_rate_limit_store: Dict[str, list] = defaultdict(list)
+_user_rate_limit_store: Dict[str, list] = defaultdict(list)
 
-def check_rate_limit(user_id: str, endpoint: str, limit: int, window_seconds: int) -> bool:
+def check_user_rate_limit(user_id: str, endpoint: str, limit: int, window_seconds: int) -> bool:
     """
-    Simple in-memory rate limiting.
+    Simple in-memory rate limiting for user-specific endpoints.
     
     Args:
         user_id: User identifier
@@ -51,18 +55,18 @@ def check_rate_limit(user_id: str, endpoint: str, limit: int, window_seconds: in
     now = dt.now()
     
     # Clean old entries (remove timestamps outside the window)
-    if key in _rate_limit_store:
-        _rate_limit_store[key] = [
-            ts for ts in _rate_limit_store[key]
+    if key in _user_rate_limit_store:
+        _user_rate_limit_store[key] = [
+            ts for ts in _user_rate_limit_store[key]
             if (now - ts).total_seconds() < window_seconds
         ]
     
     # Check if limit exceeded
-    if len(_rate_limit_store[key]) >= limit:
+    if len(_user_rate_limit_store[key]) >= limit:
         return False
     
     # Record this request
-    _rate_limit_store[key].append(now)
+    _user_rate_limit_store[key].append(now)
     return True
 
 # Storage limits by tier (in bytes)
@@ -182,11 +186,14 @@ def _user_to_response(user: User) -> UserResponse:
         200: {"description": "User already exists"},
         201: {"description": "User created successfully"},
         409: {"description": "Conflict - user already exists"},
+        429: {"description": "Too many requests - rate limit exceeded"},
         500: {"description": "Internal server error"},
     },
 )
+@limiter.limit("5/minute")
 async def sync_user(
-    request: UserSyncRequest,
+    request: Request,
+    user_sync_request: UserSyncRequest,
     db: Session = Depends(get_db),
 ):
     """
@@ -206,14 +213,16 @@ async def sync_user(
     
     **Security Note:** This endpoint should be protected with webhook signature
     verification in production (see Task 3.10).
+    
+    **Rate Limited:** 5 requests per minute per IP address.
     """
     logger.info(
-        f"Syncing user: supabase_user_id={request.supabase_user_id}, email={request.email}"
+        f"Syncing user: supabase_user_id={user_sync_request.supabase_user_id}, email={user_sync_request.email}"
     )
     
     # Check if user already exists
     existing_user = db.query(User).filter(
-        (User.supabase_user_id == request.supabase_user_id) | (User.email == request.email)
+        (User.supabase_user_id == user_sync_request.supabase_user_id) | (User.email == user_sync_request.email)
     ).first()
     
     if existing_user:
@@ -229,14 +238,14 @@ async def sync_user(
         )
     
     # Determine tier and initialize defaults
-    tier = request.subscription_tier or "free"
+    tier = user_sync_request.subscription_tier or "free"
     
     # Determine monthly credits:
     # - If tier is not free and request has free tier default (3), use tier default
     # - Otherwise, use request value (explicit override or free tier)
     monthly_credits = _determine_monthly_credits(
         tier=tier,
-        requested=request.monthly_credits
+        requested=user_sync_request.monthly_credits
     )
     
     # Determine storage limit:
@@ -244,29 +253,29 @@ async def sync_user(
     # - Otherwise, use request value (explicit override or free tier)
     storage_limit = _determine_storage_limit(
         tier=tier,
-        requested=request.storage_limit_bytes
+        requested=user_sync_request.storage_limit_bytes
     )
     
     # Create new user
     try:
         new_user = User(
-            supabase_user_id=request.supabase_user_id,
-            email=request.email,
-            email_verified=request.email_verified,
-            first_name=request.first_name,
-            last_name=request.last_name,
-            profile_image_url=request.profile_image_url,
+            supabase_user_id=user_sync_request.supabase_user_id,
+            email=user_sync_request.email,
+            email_verified=user_sync_request.email_verified,
+            first_name=user_sync_request.first_name,
+            last_name=user_sync_request.last_name,
+            profile_image_url=user_sync_request.profile_image_url,
             subscription_tier=tier,
-            subscription_status=request.subscription_status or "active",
+            subscription_status=user_sync_request.subscription_status or "active",
             monthly_credits=monthly_credits,
-            topup_credits=request.topup_credits or 0,
+            topup_credits=user_sync_request.topup_credits or 0,
             storage_limit_bytes=storage_limit,
-            storage_used_bytes=request.storage_used_bytes or 0,
-            account_status=request.account_status or "active",
-            stripe_customer_id=request.stripe_customer_id,
-            stripe_subscription_id=request.stripe_subscription_id,
-            subscription_period_start=request.subscription_period_start,
-            subscription_period_end=request.subscription_period_end,
+            storage_used_bytes=user_sync_request.storage_used_bytes or 0,
+            account_status=user_sync_request.account_status or "active",
+            stripe_customer_id=user_sync_request.stripe_customer_id,
+            stripe_subscription_id=user_sync_request.stripe_subscription_id,
+            subscription_period_start=user_sync_request.subscription_period_start,
+            subscription_period_end=user_sync_request.subscription_period_end,
         )
         
         db.add(new_user)
@@ -300,13 +309,13 @@ async def sync_user(
         # If we still can't find the user, raise an error
         logger.error(
             f"Failed to create user and could not find existing user: "
-            f"supabase_user_id={request.supabase_user_id}, email={request.email}, error={e}"
+            f"supabase_user_id={user_sync_request.supabase_user_id}, email={user_sync_request.email}, error={e}"
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"User with supabase_user_id={request.supabase_user_id} or "
-                f"email={request.email} already exists"
+                f"User with supabase_user_id={user_sync_request.supabase_user_id} or "
+                f"email={user_sync_request.email} already exists"
             )
         )
     except Exception as e:
@@ -318,8 +327,18 @@ async def sync_user(
         )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    responses={
+        200: {"description": "User profile retrieved successfully"},
+        401: {"description": "Unauthorized - authentication required"},
+        429: {"description": "Too many requests - rate limit exceeded"},
+    },
+)
+@limiter.limit("60/minute")
 async def get_current_user_profile(
+    request: Request,
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -333,6 +352,8 @@ async def get_current_user_profile(
     - Account status and metadata
     
     Requires authentication via JWT token.
+    
+    **Rate Limited:** 60 requests per minute per IP address.
     """
     logger.debug(f"Fetching profile for user: id={current_user.id}, email={current_user.email}")
     
@@ -470,6 +491,7 @@ async def update_current_user_profile(
     },
 )
 async def delete_account(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -486,10 +508,10 @@ async def delete_account(
     
     Requires authentication via JWT token.
     
-    Rate limited to 1 request per hour per user.
+    **Rate Limited:** 1 request per hour per user.
     """
     # Rate limiting: 1 request per hour per user
-    if not check_rate_limit(str(current_user.id), "delete_account", limit=1, window_seconds=3600):
+    if not check_user_rate_limit(str(current_user.id), "delete_account", limit=1, window_seconds=3600):
         logger.warning(
             f"Rate limit exceeded for deletion request: user_id={current_user.id}"
         )
@@ -615,6 +637,7 @@ async def delete_account(
     },
 )
 async def cancel_account_deletion(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -628,10 +651,10 @@ async def cancel_account_deletion(
     
     Requires authentication via JWT token.
     
-    Rate limited to 5 requests per hour per user.
+    **Rate Limited:** 5 requests per hour per user.
     """
     # Rate limiting: 5 requests per hour per user
-    if not check_rate_limit(str(current_user.id), "cancel_deletion", limit=5, window_seconds=3600):
+    if not check_user_rate_limit(str(current_user.id), "cancel_deletion", limit=5, window_seconds=3600):
         logger.warning(
             f"Rate limit exceeded for cancellation request: user_id={current_user.id}"
         )
@@ -774,10 +797,10 @@ async def export_user_data(
     
     Requires authentication via JWT token.
     
-    Rate limited to 1 export per hour per user.
+    **Rate Limited:** 1 export per hour per user.
     """
     # Rate limiting: 1 export per hour per user
-    if not check_rate_limit(str(current_user.id), "export_data", limit=1, window_seconds=3600):
+    if not check_user_rate_limit(str(current_user.id), "export_data", limit=1, window_seconds=3600):
         logger.warning(
             f"Rate limit exceeded for export request: user_id={current_user.id}"
         )

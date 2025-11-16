@@ -12,6 +12,8 @@ import hashlib
 import json
 from typing import Dict, Any, Optional, Tuple
 from fastapi import APIRouter, Request, HTTPException, status, Depends
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from loguru import logger
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -25,6 +27,9 @@ from app.api.v1.users import (
 )
 
 router = APIRouter()
+
+# Rate limiter instance (will be initialized from app.state.limiter)
+limiter = Limiter(key_func=get_remote_address)
 
 
 def verify_webhook_signature(payload_body: bytes, signature_header: str, secret: str) -> bool:
@@ -141,7 +146,18 @@ def extract_user_data_from_record(record: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-@router.post("/supabase", status_code=200)
+@router.post(
+    "/supabase",
+    status_code=200,
+    responses={
+        200: {"description": "Webhook processed successfully"},
+        400: {"description": "Invalid payload"},
+        401: {"description": "Invalid webhook signature"},
+        429: {"description": "Too many requests - rate limit exceeded"},
+        500: {"description": "Internal server error"},
+    },
+)
+@limiter.limit("100/minute")
 async def handle_supabase_webhook(
     request: Request,
     db: Session = Depends(get_db),
@@ -166,6 +182,8 @@ async def handle_supabase_webhook(
         "record": { ... },  # New/updated record
         "old_record": { ... }  # Previous record (UPDATE/DELETE only)
     }
+    
+    **Rate Limited:** 100 requests per minute per IP address.
     """
     # Get raw body for signature verification
     # Note: request.body() can only be read once, so we parse JSON from bytes
