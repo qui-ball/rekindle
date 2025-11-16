@@ -4,7 +4,7 @@ Tests for jobs upload endpoint - ensuring thumbnail keys are stored correctly
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from fastapi import UploadFile
+from fastapi import UploadFile, HTTPException
 from io import BytesIO
 
 from app.api.v1.jobs import upload_and_process, list_jobs, get_job
@@ -77,7 +77,7 @@ class TestJobsUpload:
 
     @pytest.mark.asyncio
     async def test_upload_handles_thumbnail_generation_failure(self, mock_s3_service, test_db_session, test_image_bytes):
-        """Test that upload continues even if thumbnail generation fails"""
+        """Test that upload surfaces an error if thumbnail generation fails"""
         # Arrange
         file = UploadFile(
             filename="test.jpg",
@@ -89,20 +89,17 @@ class TestJobsUpload:
         # Make thumbnail generation fail
         mock_s3_service.generate_thumbnail.side_effect = Exception("Thumbnail generation failed")
 
-        # Act
-        response = await upload_and_process(
-            file=file,
-            email=email,
-            db=test_db_session
-        )
+        # Act / Assert - expect HTTP 500 due to required thumbnail
+        with pytest.raises(HTTPException) as exc_info:
+            await upload_and_process(
+                file=file,
+                email=email,
+                db=test_db_session
+            )
 
-        # Assert
-        # Upload should still succeed
-        assert response.job_id is not None
-        
-        # Job should exist but may not have thumbnail
-        job = test_db_session.query(Job).filter(Job.id == response.job_id).first()
-        assert job is not None
+        assert exc_info.value.status_code == 500
+        # Ensure no job records were persisted
+        assert test_db_session.query(Job).count() == 0
 
     @pytest.mark.asyncio
     async def test_list_jobs_cleans_thumbnail_key(self, mock_s3_service, test_db_session):

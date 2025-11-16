@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, constr, Field, validator, ConfigDict
+from pydantic import BaseModel, EmailStr, constr, Field, field_validator, ConfigDict
 
 from app.models.user import UserTier, SubscriptionStatus, AccountStatus
 
@@ -53,7 +53,8 @@ class UserBase(BaseModel):
         },
     )
 
-    @validator("first_name", "last_name")
+    @field_validator("first_name", "last_name")
+    @classmethod
     def validate_name(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value
@@ -78,6 +79,23 @@ class UserSyncRequest(UserBase):
     subscription_period_start: Optional[datetime] = None
     subscription_period_end: Optional[datetime] = None
 
+    @field_validator("supabase_user_id")
+    @classmethod
+    def validate_supabase_user_id(cls, v: str) -> str:
+        """
+        Validate supabase_user_id is a valid UUID format.
+        
+        Supabase user IDs are UUIDs, so we validate the format here.
+        """
+        import uuid
+        try:
+            uuid.UUID(v)
+        except ValueError:
+            raise ValueError(
+                f"supabase_user_id must be a valid UUID format, got: {v}"
+            )
+        return v
+
 
 class UserUpdateRequest(BaseModel):
     """
@@ -88,7 +106,8 @@ class UserUpdateRequest(BaseModel):
     last_name: Optional[constr(min_length=1, max_length=100)] = None
     profile_image_url: Optional[str] = None
 
-    @validator("first_name", "last_name")
+    @field_validator("first_name", "last_name")
+    @classmethod
     def validate_name(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value

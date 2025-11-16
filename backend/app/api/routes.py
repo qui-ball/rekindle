@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.api.v1.events import router as events_router
+from app.api.v1.users import router as users_router
 
 # Create main API router
 api_router = APIRouter()
@@ -20,4 +21,7 @@ api_router.include_router(
 )
 api_router.include_router(
     events_router, prefix="/v1/events", tags=["events"]
+)
+api_router.include_router(
+    users_router, prefix="/v1/users", tags=["users"]
 )

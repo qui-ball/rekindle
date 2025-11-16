@@ -31,6 +31,11 @@ if not os.getenv("RUN_INTEGRATION_TESTS"):
         "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
         "AWS_REGION": "us-east-2",
         "S3_BUCKET": "rekindle-media",
+        "XDEVICE_JWT_SECRET": "test_xdevice_jwt_secret_at_least_32_chars_long_for_testing",
+        "SUPABASE_URL": "https://test.supabase.co",
+        "SUPABASE_ANON_KEY": "test_anon_key",
+        "SUPABASE_SERVICE_KEY": "test_service_key",
+        "BACKEND_BASE_URL": "http://localhost:8000",
     }
     for key, value in defaults.items():
         os.environ.setdefault(key, value)
@@ -45,6 +50,11 @@ else:
         "STRIPE_SECRET_KEY": "sk_test_test_key",
         "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
         "RUNPOD_API_KEY": "test_runpod_key",
+        "XDEVICE_JWT_SECRET": "test_xdevice_jwt_secret_at_least_32_chars_long_for_testing",
+        "SUPABASE_URL": "https://test.supabase.co",
+        "SUPABASE_ANON_KEY": "test_anon_key",
+        "SUPABASE_SERVICE_KEY": "test_service_key",
+        "BACKEND_BASE_URL": "http://localhost:8000",
     }
     # Only set test values for keys that aren't already in environment
     for key, value in test_env.items():

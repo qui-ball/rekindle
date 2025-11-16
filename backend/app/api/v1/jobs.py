@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
 from loguru import logger
+import uuid
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -53,10 +54,9 @@ async def upload_and_process(
         )
 
     try:
-        # Create job record
-        job = Job(email=email)
-        db.add(job)
-        db.flush()  # Get the job ID
+        # Prepare job record but defer persistence until thumbnail exists
+        job_id = uuid.uuid4()
+        job = Job(id=job_id, email=email)
 
         # Upload processed image to S3
         mime_to_ext = {
@@ -69,7 +69,7 @@ async def upload_and_process(
 
         processed_url = s3_service.upload_processed_image(
             image_content=file_content,
-            job_id=str(job.id),
+            job_id=str(job_id),
             extension=extension,
             content_type=file.content_type,
         )
@@ -77,7 +77,7 @@ async def upload_and_process(
         # Generate and upload thumbnail
         try:
             # Generate thumbnail key directly (don't extract from URL to avoid issues)
-            thumbnail_key = f"thumbnails/{job.id}.jpg"
+            thumbnail_key = f"thumbnails/{job_id}.jpg"
             thumbnail_bytes = s3_service.generate_thumbnail(
                 image_content=file_content,
                 max_size=(400, 400),
@@ -91,10 +91,15 @@ async def upload_and_process(
                 ContentType="image/jpeg"
             )
             job.thumbnail_s3_key = thumbnail_key
-            logger.info(f"Thumbnail generated for job {job.id}: {thumbnail_key}")
+            logger.info(f"Thumbnail generated for job {job_id}: {thumbnail_key}")
         except Exception as thumb_error:
-            logger.error(f"Failed to generate thumbnail for job {job.id}: {thumb_error}")
-            # Continue without thumbnail - non-critical error
+            logger.error(f"Failed to generate thumbnail for job {job_id}: {thumb_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate thumbnail"
+            )
+
+        db.add(job)
 
         db.commit()
 
