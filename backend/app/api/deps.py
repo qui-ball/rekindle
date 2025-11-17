@@ -2,24 +2,23 @@
 API dependencies for authentication and database
 """
 
-import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from functools import lru_cache
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from jose.constants import ALGORITHMS
 from sqlalchemy.orm import Session
 import httpx
+from loguru import logger
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User
 from app.services.cross_device_session_service import CrossDeviceSessionService
 
-logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 # Cache for JWKS keys (refreshed periodically)
@@ -46,7 +45,7 @@ def fetch_supabase_jwks() -> dict:
     
     # Check cache validity
     if _jwks_cache and _jwks_cache_time:
-        age = (datetime.utcnow() - _jwks_cache_time).total_seconds()
+        age = (datetime.now(timezone.utc) - _jwks_cache_time).total_seconds()
         if age < JWKS_CACHE_TTL:
             return _jwks_cache
     
@@ -60,23 +59,40 @@ def fetch_supabase_jwks() -> dict:
             jwks = response.json()
             
             _jwks_cache = jwks
-            _jwks_cache_time = datetime.utcnow()
+            _jwks_cache_time = datetime.now(timezone.utc)
             
             logger.debug(f"JWKS fetched successfully, {len(jwks.get('keys', []))} keys")
             return jwks
             
     except httpx.RequestError as e:
-        logger.error(f"Failed to fetch JWKS: {e}")
+        logger.error(
+            "Failed to fetch JWKS",
+            extra={
+                "event_type": "jwks_fetch_error",
+                "error": str(e),
+                "jwks_url": get_supabase_jwks_url(),
+            }
+        )
         # Return cached JWKS if available, even if expired
         if _jwks_cache:
-            logger.warning("Using expired JWKS cache due to fetch failure")
+            logger.warning(
+                "Using expired JWKS cache due to fetch failure",
+                extra={"event_type": "jwks_cache_fallback"}
+            )
             return _jwks_cache
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service unavailable"
         )
     except Exception as e:
-        logger.error(f"Unexpected error fetching JWKS: {e}")
+        logger.error(
+            "Unexpected error fetching JWKS",
+            extra={
+                "event_type": "jwks_fetch_error",
+                "error": str(e),
+                "jwks_url": get_supabase_jwks_url(),
+            }
+        )
         if _jwks_cache:
             return _jwks_cache
         raise HTTPException(
@@ -151,7 +167,14 @@ def verify_supabase_token(token: str) -> dict:
         # Re-raise HTTPException as-is
         raise
     except JWTError as e:
-        logger.warning(f"JWT verification failed: {e}")
+        logger.warning(
+            "JWT verification failed",
+            extra={
+                "event_type": "jwt_verification_failed",
+                "error": str(e),
+                "token_type": "supabase",
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
@@ -222,7 +245,14 @@ def verify_cross_device_token(token: str) -> dict:
         # Load session from Redis
         session = CrossDeviceSessionService.get_active_session(session_id)
         if not session:
-            logger.warning(f"Cross-device session {session_id} not found or inactive")
+            logger.warning(
+                "Cross-device session not found or inactive",
+                extra={
+                    "event_type": "session_expired",
+                    "session_id": session_id,
+                    "token_type": "cross_device",
+                }
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired or revoked"
@@ -241,9 +271,8 @@ def verify_cross_device_token(token: str) -> dict:
         expires_at_str = session.get("expires_at")
         if expires_at_str:
             try:
-                from datetime import datetime
                 expires_at = datetime.fromisoformat(expires_at_str)
-                if datetime.utcnow() > expires_at:
+                if datetime.now(timezone.utc) > expires_at:
                     logger.warning(f"Cross-device session {session_id} has expired")
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -258,7 +287,14 @@ def verify_cross_device_token(token: str) -> dict:
         
         if user_id_from_token != user_id_from_session:
             logger.warning(
-                f"User ID mismatch: token={user_id_from_token}, session={user_id_from_session}"
+                "User ID mismatch in cross-device token",
+                extra={
+                    "event_type": "token_user_mismatch",
+                    "token_user_id": user_id_from_token,
+                    "session_user_id": user_id_from_session,
+                    "session_id": session_id,
+                    "token_type": "cross_device",
+                }
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -268,7 +304,14 @@ def verify_cross_device_token(token: str) -> dict:
         return payload
         
     except JWTError as e:
-        logger.warning(f"Cross-device JWT verification failed: {e}")
+        logger.warning(
+            "Cross-device JWT verification failed",
+            extra={
+                "event_type": "jwt_verification_failed",
+                "error": str(e),
+                "token_type": "cross_device",
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid cross-device token"
@@ -276,6 +319,7 @@ def verify_cross_device_token(token: str) -> dict:
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
@@ -321,6 +365,9 @@ def get_current_user(
         
         iss = unverified_payload.get("iss")
         
+        # Variables for logging (set based on token type)
+        session_id_for_logging = None
+        
         # Route to appropriate verification based on issuer
         user_id = None
         supabase_user_id = None
@@ -329,6 +376,7 @@ def get_current_user(
             # Cross-device token - get user_id from session (not from token sub)
             payload = verify_cross_device_token(token)
             session_id = payload.get("sid")
+            session_id_for_logging = session_id  # Store for logging
             session = CrossDeviceSessionService.get_active_session(session_id)
             if not session:
                 raise HTTPException(
@@ -362,7 +410,17 @@ def get_current_user(
         
         if not user:
             identifier = user_id if iss == "rekindle:xdevice" else supabase_user_id
-            logger.warning(f"User not found for {iss} token with identifier: {identifier}")
+            ip_address = request.client.host if request and request.client else None
+            logger.warning(
+                "User not found for token",
+                extra={
+                    "event_type": "user_not_found",
+                    "issuer": iss,
+                    "identifier": identifier,
+                    "ip_address": ip_address,
+                    "token_type": "supabase" if iss != "rekindle:xdevice" else "cross_device",
+                }
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
@@ -370,29 +428,88 @@ def get_current_user(
         
         # Check account status
         if user.account_status != "active":
-            logger.warning(f"User {user.id} account status is {user.account_status}")
+            ip_address = request.client.host if request and request.client else None
+            logger.warning(
+                "Account access denied - inactive status",
+                extra={
+                    "event_type": "permission_denied",
+                    "user_id": str(user.id),
+                    "account_status": user.account_status,
+                    "ip_address": ip_address,
+                    "reason": "account_inactive",
+                }
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Account is {user.account_status}"
             )
         
         # Update last_login_at (only for Supabase tokens, not cross-device)
+        # Log successful authentication (INFO level - important security event)
+        ip_address = request.client.host if request and request.client else None
+        is_first_login = user.last_login_at is None
+        
         if iss != "rekindle:xdevice":
-            user.last_login_at = datetime.utcnow()
+            user.last_login_at = datetime.now(timezone.utc)
             db.commit()
+            
+            # Log successful authentication (INFO level for security monitoring)
+            # Only log first login or use sampling to reduce volume in production
+            if is_first_login or settings.ENVIRONMENT == "development":
+                logger.info(
+                    "Authentication successful",
+                    extra={
+                        "event_type": "login_success",
+                        "user_id": str(user.id),
+                        "email": user.email,
+                        "ip_address": ip_address,
+                        "token_type": "supabase",
+                        "is_first_login": is_first_login,
+                    }
+                )
+        else:
+            # Cross-device authentication (less frequent, always log)
+            logger.info(
+                "Cross-device authentication successful",
+                extra={
+                    "event_type": "login_success",
+                    "user_id": str(user.id),
+                    "email": user.email,
+                    "ip_address": ip_address,
+                    "token_type": "cross_device",
+                    "session_id": session_id_for_logging,
+                }
+            )
         
         return user
         
     except HTTPException:
         raise
     except JWTError as e:
-        logger.warning(f"JWT decode error: {e}")
+        ip_address = request.client.host if request and request.client else None
+        logger.warning(
+            "JWT decode error",
+            extra={
+                "event_type": "jwt_decode_error",
+                "error": str(e),
+                "ip_address": ip_address,
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
     except Exception as e:
-        logger.error(f"Unexpected error in get_current_user: {e}", exc_info=True)
+        ip_address = request.client.host if request and request.client else None
+        logger.error(
+            "Unexpected error in authentication",
+            extra={
+                "event_type": "auth_error",
+                "error": str(e),
+                "ip_address": ip_address,
+            },
+            exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Authentication error"

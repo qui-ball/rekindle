@@ -7,6 +7,12 @@ from app.core.config import Settings
 
 class TestingSettings(Settings):
     """Test settings with default values"""
+    
+    __test__ = False  # Tell pytest not to collect this as a test class
+    
+    def __init__(self, **kwargs):
+        """Initialize test settings"""
+        super().__init__(**kwargs)
 
     # Override required fields with test defaults
     SECRET_KEY: str = "test_secret_key_for_testing_only"

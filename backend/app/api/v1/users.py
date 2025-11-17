@@ -216,8 +216,15 @@ async def sync_user(
     
     **Rate Limited:** 5 requests per minute per IP address.
     """
+    ip_address = request.client.host if request.client else None
     logger.info(
-        f"Syncing user: supabase_user_id={user_sync_request.supabase_user_id}, email={user_sync_request.email}"
+        "User sync request",
+        extra={
+            "event_type": "user_sync",
+            "supabase_user_id": user_sync_request.supabase_user_id,
+            "email": user_sync_request.email,
+            "ip_address": ip_address,
+        }
     )
     
     # Check if user already exists
@@ -283,8 +290,15 @@ async def sync_user(
         db.refresh(new_user)
         
         logger.info(
-            f"User created successfully: id={new_user.id}, "
-            f"supabase_user_id={new_user.supabase_user_id}, tier={tier}"
+            "User created successfully",
+            extra={
+                "event_type": "user_created",
+                "user_id": str(new_user.id),
+                "supabase_user_id": new_user.supabase_user_id,
+                "email": new_user.email,
+                "tier": tier,
+                "ip_address": ip_address,
+            }
         )
         
         return _user_to_response(new_user)
@@ -373,7 +387,8 @@ async def get_current_user_profile(
     },
 )
 async def update_current_user_profile(
-    request: UserUpdateRequest,
+    request: Request,
+    update_request: UserUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -409,7 +424,7 @@ async def update_current_user_profile(
     
     # Get fields that were explicitly set in the request (including None values)
     # This allows us to distinguish between "field not provided" and "field set to None"
-    request_data = request.model_dump(exclude_unset=True)
+    request_data = update_request.model_dump(exclude_unset=True)
     
     # Track what fields are being updated for logging
     updated_fields = []
@@ -440,9 +455,15 @@ async def update_current_user_profile(
         db.commit()
         db.refresh(current_user)
         
+        ip_address = request.client.host if request.client else None
         logger.info(
-            f"Profile updated successfully for user: id={current_user.id}, "
-            f"updated_fields={updated_fields}"
+            "User profile updated",
+            extra={
+                "event_type": "user_updated",
+                "user_id": str(current_user.id),
+                "updated_fields": updated_fields,
+                "ip_address": ip_address,
+            }
         )
         
         return _user_to_response(current_user)
@@ -512,8 +533,16 @@ async def delete_account(
     """
     # Rate limiting: 1 request per hour per user
     if not check_user_rate_limit(str(current_user.id), "delete_account", limit=1, window_seconds=3600):
+        ip_address = request.client.host if request.client else None
         logger.warning(
-            f"Rate limit exceeded for deletion request: user_id={current_user.id}"
+            "Rate limit exceeded for account deletion",
+            extra={
+                "event_type": "rate_limit_exceeded",
+                "user_id": str(current_user.id),
+                "endpoint": "delete_account",
+                "ip_address": ip_address,
+                "limit": "1/hour",
+            }
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -563,9 +592,16 @@ async def delete_account(
         db.commit()
         db.refresh(current_user)
         
+        ip_address = request.client.host if request.client else None
         logger.info(
-            f"Account deletion scheduled for user {current_user.id} on {deletion_date.isoformat()}, "
-            f"task_id={task.id}"
+            "Account deletion requested",
+            extra={
+                "event_type": "user_deletion_requested",
+                "user_id": str(current_user.id),
+                "deletion_date": deletion_date.isoformat(),
+                "task_id": task.id,
+                "ip_address": ip_address,
+            }
         )
         
         # Send confirmation email via Supabase Admin API
@@ -655,8 +691,16 @@ async def cancel_account_deletion(
     """
     # Rate limiting: 5 requests per hour per user
     if not check_user_rate_limit(str(current_user.id), "cancel_deletion", limit=5, window_seconds=3600):
+        ip_address = request.client.host if request.client else None
         logger.warning(
-            f"Rate limit exceeded for cancellation request: user_id={current_user.id}"
+            "Rate limit exceeded for deletion cancellation",
+            extra={
+                "event_type": "rate_limit_exceeded",
+                "user_id": str(current_user.id),
+                "endpoint": "cancel_deletion",
+                "ip_address": ip_address,
+                "limit": "5/hour",
+            }
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -712,7 +756,15 @@ async def cancel_account_deletion(
         db.commit()
         db.refresh(current_user)
         
-        logger.info(f"Account deletion request cancelled for user {current_user.id}")
+        ip_address = request.client.host if request.client else None
+        logger.info(
+            "Account deletion cancelled",
+            extra={
+                "event_type": "user_deletion_cancelled",
+                "user_id": str(current_user.id),
+                "ip_address": ip_address,
+            }
+        )
         
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -801,8 +853,16 @@ async def export_user_data(
     """
     # Rate limiting: 1 export per hour per user
     if not check_user_rate_limit(str(current_user.id), "export_data", limit=1, window_seconds=3600):
+        ip_address = request.client.host if request.client else None
         logger.warning(
-            f"Rate limit exceeded for export request: user_id={current_user.id}"
+            "Rate limit exceeded for data export",
+            extra={
+                "event_type": "rate_limit_exceeded",
+                "user_id": str(current_user.id),
+                "endpoint": "export_data",
+                "ip_address": ip_address,
+                "limit": "1/hour",
+            }
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

@@ -97,7 +97,11 @@ def test_db_session(test_engine):
         yield session
     finally:
         session.close()
-        transaction.rollback()
+        try:
+            if transaction.is_active:
+                transaction.rollback()
+        except Exception:
+            pass  # Transaction may already be closed
         connection.close()
 
 
@@ -145,7 +149,7 @@ def override_get_current_user(mock_user, test_db_session):
     del app.dependency_overrides[get_current_user]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client(override_get_db, override_get_current_user):
     """Async test client with overridden dependencies"""
     async with AsyncClient(

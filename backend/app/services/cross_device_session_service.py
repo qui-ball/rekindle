@@ -9,7 +9,7 @@ will be completed in Task 5.1a.
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import json
 import logging
@@ -74,7 +74,7 @@ class CrossDeviceSessionService:
             expires_at_str = session.get("expires_at")
             if expires_at_str:
                 expires_at = datetime.fromisoformat(expires_at_str)
-                if datetime.utcnow() > expires_at:
+                if datetime.now(timezone.utc) > expires_at:
                     logger.debug(f"Session {session_id} has expired")
                     return None
             
@@ -108,7 +108,7 @@ class CrossDeviceSessionService:
             
             session = json.loads(data)
             session["status"] = "consumed"
-            session["consumed_at"] = datetime.utcnow().isoformat()
+            session["consumed_at"] = datetime.now(timezone.utc).isoformat()
             
             redis_client.setex(
                 key,

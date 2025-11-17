@@ -41,7 +41,7 @@ def test_connection():
 
     if not S3_ACCESS_KEY or not S3_SECRET_KEY:
         logger.error("❌ S3 credentials not set in .env file")
-        return False
+        assert False, "S3 credentials not set in .env file"
 
     # Initialize S3 client
     s3_client = boto3.client(
@@ -67,10 +67,10 @@ def test_connection():
         print()
     except ClientError as e:
         logger.error(f"❌ Failed to list buckets: {e}")
-        return False
+        assert False, f"Failed to list buckets: {e}"
     except Exception as e:
         logger.error(f"❌ Unexpected error: {e}")
-        return False
+        assert False, f"Unexpected error: {e}"
 
     # Test 2: Try to access the specific volume
     print(f"Test 2: Access volume '{VOLUME_ID}'")
@@ -93,10 +93,10 @@ def test_connection():
         print(f"   Error Code: {error_code}")
         print(f"   Error Message: {error_msg}")
         print()
-        return False
+        assert False, f"Failed to access volume '{VOLUME_ID}': {error_code} - {error_msg}"
     except Exception as e:
         logger.error(f"❌ Unexpected error: {e}")
-        return False
+        assert False, f"Unexpected error: {e}"
 
     # Test 3: Try to upload a small test file
     print("Test 3: Upload test file")
@@ -115,7 +115,7 @@ def test_connection():
         print(f"   Error Code: {error_code}")
         print(f"   Error Message: {error_msg}")
         print()
-        return False
+        assert False, f"Failed to upload test file: {error_code} - {error_msg}"
 
     # Test 4: Try to download the test file
     print("Test 4: Download test file")
@@ -130,7 +130,7 @@ def test_connection():
         print()
     except ClientError as e:
         logger.error(f"❌ Failed to download test file: {e}")
-        return False
+        assert False, f"Failed to download test file: {e}"
 
     # Clean up test file
     try:
@@ -142,9 +142,11 @@ def test_connection():
     print("=" * 60)
     logger.success("✅ All tests passed! S3 connection is working.")
     print("=" * 60)
-    return True
 
 
 if __name__ == "__main__":
-    success = test_connection()
-    sys.exit(0 if success else 1)
+    try:
+        test_connection()
+        sys.exit(0)
+    except AssertionError:
+        sys.exit(1)

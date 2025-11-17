@@ -3,7 +3,7 @@ Unit tests for JWT authentication and verification
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
 from jose import jwt
 from fastapi import HTTPException, status
@@ -60,8 +60,8 @@ def supabase_token(mock_supabase_jwks):
         "email": "test@example.com",
         "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
         "aud": "authenticated",
-        "exp": int((datetime.utcnow() + timedelta(hours=1)).timestamp()),
-        "iat": int(datetime.utcnow().timestamp()),
+        "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
+        "iat": int(datetime.now(timezone.utc).timestamp()),
     }
     # For testing, we'll mock the verification
     return jwt.encode(payload, "test-secret", algorithm="HS256")
@@ -77,8 +77,8 @@ def cross_device_token():
         "sub": user_id,
         "sid": session_id,
         "scope": ["upload:mobile"],
-        "exp": int((datetime.utcnow() + timedelta(hours=1)).timestamp()),
-        "iat": int(datetime.utcnow().timestamp()),
+        "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
+        "iat": int(datetime.now(timezone.utc).timestamp()),
     }
     return jwt.encode(payload, settings.XDEVICE_JWT_SECRET, algorithm="HS256"), session_id, user_id
 
@@ -151,7 +151,7 @@ class TestCrossDeviceTokenVerification:
         mock_get_session.return_value = {
             "user_id": user_id,
             "status": "active",
-            "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
         }
         
         result = verify_cross_device_token(token)
@@ -186,7 +186,7 @@ class TestCrossDeviceTokenVerification:
         mock_get_session.return_value = {
             "user_id": user_id,
             "status": "consumed",  # Not active
-            "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
         }
         
         with pytest.raises(HTTPException) as exc_info:
@@ -204,7 +204,7 @@ class TestCrossDeviceTokenVerification:
         mock_get_session.return_value = {
             "user_id": "different-user-id",  # Mismatch
             "status": "active",
-            "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
         }
         
         with pytest.raises(HTTPException) as exc_info:
@@ -235,7 +235,7 @@ class TestGetCurrentUser:
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             
-            user = get_current_user(credentials, test_db_session)
+            user = get_current_user(Mock(), credentials, test_db_session)
             
             assert user.id == mock_user.id
             assert user.supabase_user_id == mock_user.supabase_user_id
@@ -257,7 +257,7 @@ class TestGetCurrentUser:
         mock_get_session.return_value = {
             "user_id": str(mock_user.id),
             "status": "active",
-            "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
         }
         
         credentials = Mock()
@@ -268,7 +268,7 @@ class TestGetCurrentUser:
                 "iss": "rekindle:xdevice"
             }
             
-            user = get_current_user(credentials, test_db_session)
+            user = get_current_user(Mock(), credentials, test_db_session)
             
             assert user.id == mock_user.id
             assert user.supabase_user_id == mock_user.supabase_user_id
@@ -298,7 +298,7 @@ class TestGetCurrentUser:
             }
             
             with pytest.raises(HTTPException) as exc_info:
-                get_current_user(credentials, test_db_session)
+                get_current_user(Mock(), credentials, test_db_session)
             
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
             assert "not found" in exc_info.value.detail.lower()
@@ -325,7 +325,7 @@ class TestGetCurrentUser:
             }
             
             with pytest.raises(HTTPException) as exc_info:
-                get_current_user(credentials, test_db_session)
+                get_current_user(Mock(), credentials, test_db_session)
             
             assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
             assert "suspended" in exc_info.value.detail.lower()
@@ -350,7 +350,7 @@ class TestGetCurrentUser:
                 "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
             }
             
-            user = get_current_user(credentials, test_db_session)
+            user = get_current_user(Mock(), credentials, test_db_session)
             
             assert user.last_login_at is not None
             assert user.last_login_at != initial_login_time
@@ -366,7 +366,7 @@ class TestGetCurrentUser:
             }
             
             with pytest.raises(HTTPException) as exc_info:
-                get_current_user(credentials, test_db_session)
+                get_current_user(Mock(), credentials, test_db_session)
             
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
             assert "Unknown token issuer" in exc_info.value.detail
@@ -411,8 +411,8 @@ class TestEdgeCases:
             "sub": "test-user-id",
             "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
             "aud": "authenticated",
-            "exp": int((datetime.utcnow() - timedelta(hours=1)).timestamp()),  # Expired 1 hour ago
-            "iat": int((datetime.utcnow() - timedelta(hours=2)).timestamp()),
+            "exp": int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp()),  # Expired 1 hour ago
+            "iat": int((datetime.now(timezone.utc) - timedelta(hours=2)).timestamp()),
         }
         
         with patch("app.api.deps.jwt.decode") as mock_decode:
@@ -436,7 +436,7 @@ class TestEdgeCases:
             from app.core.database import SessionLocal
             db = SessionLocal()
             try:
-                get_current_user(credentials, db)
+                get_current_user(Mock(), credentials, db)
             finally:
                 db.close()
         
@@ -452,7 +452,7 @@ class TestEdgeCases:
             from app.core.database import SessionLocal
             db = SessionLocal()
             try:
-                get_current_user(credentials, db)
+                get_current_user(Mock(), credentials, db)
             finally:
                 db.close()
         
@@ -506,8 +506,8 @@ class TestEdgeCases:
             "iss": "rekindle:xdevice",
             "sub": str(uuid.uuid4()),
             "sid": str(uuid.uuid4()),
-            "exp": int((datetime.utcnow() - timedelta(hours=1)).timestamp()),  # Expired
-            "iat": int((datetime.utcnow() - timedelta(hours=2)).timestamp()),
+            "exp": int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp()),  # Expired
+            "iat": int((datetime.now(timezone.utc) - timedelta(hours=2)).timestamp()),
         }
         
         expired_token = jwt.encode(expired_payload, settings.XDEVICE_JWT_SECRET, algorithm="HS256")
@@ -524,7 +524,7 @@ class TestEdgeCases:
             "iss": "rekindle:xdevice",
             "sub": str(uuid.uuid4()),
             # Missing "sid"
-            "exp": int((datetime.utcnow() + timedelta(hours=1)).timestamp()),
+            "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
         }
         
         token = jwt.encode(payload, settings.XDEVICE_JWT_SECRET, algorithm="HS256")
@@ -552,7 +552,7 @@ class TestEdgeCases:
             }
             
             with pytest.raises(HTTPException) as exc_info:
-                get_current_user(credentials, test_db_session)
+                get_current_user(Mock(), credentials, test_db_session)
             
             assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -562,7 +562,7 @@ class TestEdgeCases:
         credentials.credentials = "invalid.jwt.token.format"
         
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(credentials, test_db_session)
+            get_current_user(Mock(), credentials, test_db_session)
         
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -589,7 +589,7 @@ class TestEdgeCases:
         mock_get_session.return_value = {
             "user_id": user_id,
             "status": "active",
-            "expires_at": (datetime.utcnow() - timedelta(minutes=1)).isoformat(),  # Expired
+            "expires_at": (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat(),  # Expired
         }
         
         with pytest.raises(HTTPException) as exc_info:

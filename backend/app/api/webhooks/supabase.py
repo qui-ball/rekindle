@@ -291,13 +291,28 @@ async def handle_user_created(record: Dict[str, Any], db: Session) -> Dict[str, 
     
     Creates a new user in the backend database with free tier defaults.
     """
-    logger.info(f"Processing user.created event: record_id={record.get('id')}")
+    supabase_user_id = record.get('id')
+    logger.info(
+        "Processing user.created webhook event",
+        extra={
+            "event_type": "webhook_user_created",
+            "supabase_user_id": supabase_user_id,
+            "source": "supabase_webhook",
+        }
+    )
     
     # Extract user data from Supabase record
     user_data = extract_user_data_from_record(record)
     
     if not user_data.get("supabase_user_id") or not user_data.get("email"):
-        logger.error(f"Missing required fields in user record: {user_data}")
+        logger.error(
+            "Missing required fields in user record",
+            extra={
+                "event_type": "webhook_error",
+                "supabase_user_id": supabase_user_id,
+                "user_data": user_data,
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing required fields: supabase_user_id or email"
@@ -357,8 +372,14 @@ async def handle_user_created(record: Dict[str, Any], db: Session) -> Dict[str, 
         db.refresh(new_user)
         
         logger.info(
-            f"User created via webhook: id={new_user.id}, "
-            f"supabase_user_id={new_user.supabase_user_id}, email={new_user.email}"
+            "User created via webhook",
+            extra={
+                "event_type": "user_created",
+                "user_id": str(new_user.id),
+                "supabase_user_id": new_user.supabase_user_id,
+                "email": new_user.email,
+                "source": "supabase_webhook",
+            }
         )
         
         return {
@@ -425,7 +446,14 @@ async def handle_user_updated(
             detail="Missing supabase_user_id in record"
         )
     
-    logger.info(f"Processing user.updated event: supabase_user_id={supabase_user_id}")
+    logger.info(
+        "Processing user.updated webhook event",
+        extra={
+            "event_type": "webhook_user_updated",
+            "supabase_user_id": supabase_user_id,
+            "source": "supabase_webhook",
+        }
+    )
     
     # Find user in database
     user = db.query(User).filter(User.supabase_user_id == supabase_user_id).first()
@@ -481,8 +509,13 @@ async def handle_user_updated(
         db.refresh(user)
         
         logger.info(
-            f"User updated via webhook: id={user.id}, "
-            f"updated_fields={updated_fields}"
+            "User updated via webhook",
+            extra={
+                "event_type": "user_updated",
+                "user_id": str(user.id),
+                "updated_fields": updated_fields,
+                "source": "supabase_webhook",
+            }
         )
         
         return {
@@ -538,7 +571,14 @@ async def handle_user_deleted(
             detail="Missing supabase_user_id in old_record"
         )
     
-    logger.info(f"Processing user.deleted event: supabase_user_id={supabase_user_id}")
+    logger.info(
+        "Processing user.deleted webhook event",
+        extra={
+            "event_type": "webhook_user_deleted",
+            "supabase_user_id": supabase_user_id,
+            "source": "supabase_webhook",
+        }
+    )
     
     # Find user in database
     user = db.query(User).filter(User.supabase_user_id == supabase_user_id).first()
@@ -567,8 +607,13 @@ async def handle_user_deleted(
             db.refresh(user)
             
             logger.info(
-                f"User marked as deleted via webhook: id={user.id}, "
-                f"deletion_requested_at={user.deletion_requested_at}"
+                "User marked as deleted via webhook",
+                extra={
+                    "event_type": "user_deletion_requested",
+                    "user_id": str(user.id),
+                    "deletion_requested_at": user.deletion_requested_at.isoformat() if user.deletion_requested_at else None,
+                    "source": "supabase_webhook",
+                }
             )
             
             return {
