@@ -313,13 +313,13 @@ else
 fi
 echo ""
 
-# Run migration files in order
-MIGRATION_FILES=(
-    "001_add_thumbnail_s3_key.sql"
-    "002_ensure_thumbnail_consistency.sql"
-    "003_create_photos_table.sql"
-    "004_create_users_table.sql"
-)
+# Run migration files in order (automatically discover all .sql files)
+MIGRATION_FILES=($(ls -1 "$MIGRATIONS_DIR"/*.sql 2>/dev/null | xargs -n1 basename | sort))
+
+if [ ${#MIGRATION_FILES[@]} -eq 0 ]; then
+    echo "⚠️  No migration files found in $MIGRATIONS_DIR"
+    exit 0
+fi
 
 echo "📋 Applying database migrations..."
 echo ""

@@ -139,7 +139,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
     
     try {
       // Fetch the presigned URL for download
-      const response = await fetch(`/api/v1/jobs/${photo.id}/image-url`);
+      const response = await fetch(`/api/v1/photos/${photo.id}/download-url?key_type=original`);
       if (!response.ok) {
         throw new Error('Failed to get download URL');
       }

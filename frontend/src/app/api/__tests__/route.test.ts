@@ -15,15 +15,33 @@ jest.mock('next/server', () => ({
     url: string;
     nextUrl: { searchParams: URLSearchParams; pathname: string };
     headers: Headers;
+    body: BodyInit | null;
+    method: string;
     
-    constructor(url: string) {
+    constructor(url: string, init?: RequestInit) {
       this.url = url;
       const urlObj = new URL(url);
       this.nextUrl = {
         searchParams: urlObj.searchParams,
         pathname: urlObj.pathname,
       };
-      this.headers = new Headers();
+      this.headers = new Headers(init?.headers);
+      this.body = init?.body || null;
+      this.method = init?.method || 'GET';
+    }
+    
+    async formData(): Promise<FormData> {
+      if (this.body instanceof FormData) {
+        return this.body;
+      }
+      return new FormData();
+    }
+    
+    async json(): Promise<any> {
+      if (this.body) {
+        return JSON.parse(this.body as string);
+      }
+      return {};
     }
   },
   NextResponse: {
@@ -172,9 +190,17 @@ describe('API Proxy Route', () => {
   describe('POST requests', () => {
     it('should not add trailing slash to POST endpoints', async () => {
       // Arrange
+      const formData = new FormData();
+      formData.append('file', new Blob(['test'], { type: 'image/jpeg' }), 'test.jpg');
+      
+      // Create a request with multipart/form-data content type
+      const headers = new Headers();
+      headers.set('content-type', 'multipart/form-data');
+      
       const request = new NextRequest('http://localhost:3000/api/v1/jobs/upload', {
         method: 'POST',
-        body: new FormData(),
+        body: formData,
+        headers,
       });
       const params = { path: ['v1', 'jobs', 'upload'] };
 
@@ -188,7 +214,8 @@ describe('API Proxy Route', () => {
       await POST(request, { params });
 
       // Assert
-      const callUrl = mockFetch.mock.calls[0][0] as string;
+      expect(mockFetch).toHaveBeenCalled();
+      const callUrl = mockFetch.mock.calls[0]?.[0] as string;
       expect(callUrl).toBe('http://backend:8000/api/v1/jobs/upload');
       expect(callUrl).not.toMatch(/\/$/);
     });
@@ -226,9 +253,7 @@ describe('API Proxy Route', () => {
       const params = { path: ['v1', 'jobs'] };
 
       // Mock fetch to throw an error (simulating network failure)
-      mockFetch.mockImplementationOnce(() => {
-        throw new Error('Network error');
-      });
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       // Act
       const response = await GET(request, { params });
@@ -236,7 +261,7 @@ describe('API Proxy Route', () => {
       // Assert
       expect(response.status).toBe(500);
       const data = await response.json();
-      expect(data.error).toBe('Failed to proxy request');
+      expect(data.error).toBe('Network error');
       expect(mockFetch).toHaveBeenCalled();
     });
 
@@ -249,6 +274,7 @@ describe('API Proxy Route', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        text: async () => 'Not found',
         json: async () => ({ error: 'Not found' }),
       } as Response);
 

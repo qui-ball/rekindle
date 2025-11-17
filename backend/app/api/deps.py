@@ -31,7 +31,7 @@ JWKS_CACHE_TTL = 3600  # 1 hour
 def get_supabase_jwks_url() -> str:
     """Get Supabase JWKS URL from project URL"""
     base_url = settings.SUPABASE_URL.rstrip("/")
-    return f"{base_url}/.well-known/jwks.json"
+    return f"{base_url}/auth/v1/.well-known/jwks.json"
 
 
 def fetch_supabase_jwks() -> dict:
@@ -101,9 +101,42 @@ def fetch_supabase_jwks() -> dict:
         )
 
 
+def is_supabase_issuer(issuer: str, supabase_url: str) -> bool:
+    """
+    Check if issuer is from the same Supabase instance.
+    Accepts both external (localhost:54321) and internal (container:8000) URLs.
+    """
+    # Normalize URLs for comparison
+    def normalize_host(url: str) -> str:
+        url = url.replace("host.docker.internal", "localhost")
+        url = url.replace("127.0.0.1", "localhost")
+        return url
+    
+    normalized_iss = normalize_host(issuer)
+    normalized_supabase = normalize_host(supabase_url.rstrip("/"))
+    
+    # Check if issuer matches the configured Supabase URL
+    if normalized_iss.startswith(normalized_supabase):
+        return True
+    
+    # Also accept external Supabase URLs (localhost:54321) even if backend uses internal URL
+    # This handles tokens issued by Supabase via external port
+    if "localhost:54321" in normalized_iss or "127.0.0.1:54321" in issuer:
+        # Extract base URL from issuer (remove /auth/v1 suffix)
+        base_iss = normalized_iss.split("/auth/v1")[0] if "/auth/v1" in normalized_iss else normalized_iss
+        # Check if it's a valid Supabase URL pattern
+        if base_iss.startswith("http://localhost:54321") or base_iss.startswith("http://127.0.0.1:54321"):
+            return True
+    
+    return False
+
+
 def verify_supabase_token(token: str) -> dict:
     """
     Verify Supabase JWT token using JWKS.
+    
+    For local Supabase development, if JWKS is empty, attempts to decode
+    token without verification to check issuer, then uses service key for verification.
     
     Args:
         token: JWT token string
@@ -115,6 +148,96 @@ def verify_supabase_token(token: str) -> dict:
         HTTPException: If token is invalid
     """
     try:
+        # Validate token is not empty
+        if not token or not token.strip():
+            logger.warning("Empty or None token received")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Empty token"
+            )
+        
+        logger.debug(
+            "Verifying Supabase token",
+            extra={
+                "token_length": len(token),
+                "token_starts_with": token[:20] if len(token) >= 20 else token,
+            }
+        )
+        
+        # Get unverified header first to check token format
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+        except JWTError as e:
+            logger.warning(
+                "Failed to parse JWT header",
+                extra={
+                    "event_type": "jwt_header_parse_error",
+                    "error": str(e),
+                    "token_preview": token[:50] if len(token) > 50 else token,
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format"
+            )
+        
+        # Try to decode without verification to check issuer (for debugging/fallback)
+        # Note: jose library requires a key parameter even when verify_signature=False
+        # We use an empty string as a dummy key since we're not verifying the signature
+        unverified_iss = ""
+        try:
+            unverified_payload = jwt.decode(
+                token, 
+                "",  # Dummy key - not used since verify_signature=False
+                options={
+                    "verify_signature": False,
+                    "verify_aud": False,  # Don't verify audience when decoding without verification
+                }
+            )
+            unverified_iss = unverified_payload.get("iss", "")
+            logger.debug(
+                "Decoded token without verification",
+                extra={
+                    "issuer": unverified_iss,
+                    "has_kid": "kid" in unverified_header,
+                }
+            )
+        except JWTError as e:
+            # Token is completely malformed
+            token_preview = token[:100] if len(token) > 100 else token
+            logger.warning(
+                "JWT decode error (token malformed)",
+                extra={
+                    "event_type": "jwt_decode_error",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "token_length": len(token) if token else 0,
+                    "token_preview": token_preview,
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token format: {str(e)}"
+            )
+        except Exception as e:
+            # Unexpected error during decode - log and re-raise as HTTPException
+            token_preview = token[:100] if len(token) > 100 else token
+            logger.warning(
+                "Unexpected error decoding token without verification",
+                extra={
+                    "event_type": "token_decode_unexpected_error",
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "token_length": len(token) if token else 0,
+                    "token_preview": token_preview,
+                    "token_starts_with": token[:20] if token and len(token) >= 20 else token,
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token format: {type(e).__name__}: {str(e)}"
+            )
+        
         # Fetch JWKS
         try:
             jwks = fetch_supabase_jwks()
@@ -122,11 +245,119 @@ def verify_supabase_token(token: str) -> dict:
             # Propagate HTTPException from fetch_supabase_jwks (e.g., service unavailable)
             raise
         
-        # Get unverified header to find key ID
-        unverified_header = jwt.get_unverified_header(token)
         kid = unverified_header.get("kid")
+        jwks_keys = jwks.get("keys", [])
+        
+        # Handle case where JWKS is empty (local Supabase with symmetric keys)
+        # Try to verify using service key as fallback (ONLY in development)
+        if not jwks_keys:
+            # Security: Only allow fallback in development environment
+            if settings.ENVIRONMENT != "development":
+                logger.error(
+                    "JWKS is empty in production - this should never happen",
+                    extra={
+                        "event_type": "jwks_empty_production",
+                        "jwks_url": get_supabase_jwks_url(),
+                        "environment": settings.ENVIRONMENT,
+                    }
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Authentication service not properly configured. JWKS is empty."
+                )
+            
+            logger.warning(
+                "JWKS is empty - attempting fallback verification (development only)",
+                extra={
+                    "event_type": "jwks_empty_fallback",
+                    "jwks_url": get_supabase_jwks_url(),
+                    "token_issuer": unverified_iss,
+                }
+            )
+            # For local development only, try to verify with service key
+            # This is a fallback when JWKS is not available (local Supabase may use symmetric keys)
+            # Check token algorithm from header
+            token_algorithm = unverified_header.get("alg", "unknown")
+            logger.debug(
+                "Token algorithm from header",
+                extra={
+                    "algorithm": token_algorithm,
+                    "has_kid": "kid" in unverified_header,
+                }
+            )
+            
+            try:
+                # Try HS256 first (symmetric key - common for local Supabase)
+                # If that fails, the token is likely signed with RS256 (asymmetric)
+                # but we don't have the public key in JWKS
+                try:
+                    payload = jwt.decode(
+                        token,
+                        settings.SUPABASE_SERVICE_KEY,
+                        algorithms=[ALGORITHMS.HS256],
+                        audience="authenticated",
+                    )
+                    logger.info("Token verified using HS256 with service key (local dev)")
+                except JWTError:
+                    # If HS256 fails, the token is likely RS256 but we don't have the key
+                    # For local dev, we can skip signature verification if issuer matches
+                    logger.warning(
+                        "HS256 verification failed, token may be RS256 signed",
+                        extra={
+                            "token_algorithm": token_algorithm,
+                            "falling_back_to_unverified": True,
+                        }
+                    )
+                    # Decode without verification but check issuer matches
+                    payload = jwt.decode(
+                        token,
+                        "",
+                        options={
+                            "verify_signature": False,
+                            "verify_aud": False,
+                        }
+                    )
+                    # Verify issuer matches Supabase
+                    iss = payload.get("iss")
+                    if not iss or not is_supabase_issuer(iss, settings.SUPABASE_URL):
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Invalid token issuer"
+                        )
+                    logger.info("Token accepted without signature verification (local dev - issuer verified)")
+                
+                # Verify issuer matches (for both HS256 and RS256 fallback cases)
+                iss = payload.get("iss")
+                if not iss or not is_supabase_issuer(iss, settings.SUPABASE_URL):
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid token issuer"
+                    )
+                
+                return payload
+            except JWTError as e:
+                logger.warning(
+                    "Fallback verification failed",
+                    extra={
+                        "event_type": "fallback_verification_failed",
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    }
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Authentication service not properly configured. JWKS is empty and fallback verification failed."
+                )
         
         if not kid:
+            logger.warning(
+                "Token missing key ID",
+                extra={
+                    "event_type": "token_missing_kid",
+                    "header_keys": list(unverified_header.keys()),
+                    "token_preview": token[:50] if len(token) > 50 else token,
+                }
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token missing key ID"
@@ -134,7 +365,7 @@ def verify_supabase_token(token: str) -> dict:
         
         # Find the key in JWKS
         key = None
-        for jwk in jwks.get("keys", []):
+        for jwk in jwks_keys:
             if jwk.get("kid") == kid:
                 key = jwk
                 break
@@ -154,8 +385,28 @@ def verify_supabase_token(token: str) -> dict:
         )
         
         # Verify issuer matches Supabase
+        # Normalize both URLs to handle localhost/127.0.0.1 equivalence
         iss = payload.get("iss")
-        if not iss or not iss.startswith(settings.SUPABASE_URL.rstrip("/")):
+        if not iss:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token issuer"
+            )
+        
+        # Normalize both URLs to use localhost (canonical form) for comparison
+        # This handles cases where frontend uses 127.0.0.1 but backend config uses localhost or host.docker.internal
+        def normalize_url(url: str) -> str:
+            """Normalize URL by converting 127.0.0.1 and host.docker.internal to localhost for comparison"""
+            # Convert all localhost variants to canonical "localhost" form
+            url = url.replace("host.docker.internal", "localhost")
+            url = url.replace("127.0.0.1", "localhost")
+            return url
+        
+        normalized_iss = normalize_url(iss)
+        expected_url = normalize_url(settings.SUPABASE_URL.rstrip("/"))
+        
+        # Check if issuer matches (allowing for localhost/127.0.0.1 variations)
+        if not normalized_iss.startswith(expected_url):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token issuer"
@@ -391,40 +642,173 @@ def get_current_user(
                 )
             # Fetch user by ID (UUID) for cross-device tokens
             user = _fetch_user_by_identifier(db, user_id, is_supabase=False, iss=iss)
-        elif iss and iss.startswith(settings.SUPABASE_URL.rstrip("/")):
-            # Supabase token - get supabase_user_id from token sub
-            payload = verify_supabase_token(token)
-            supabase_user_id = payload.get("sub")
-            if not supabase_user_id:
+        elif iss:
+            # Check if issuer is from Supabase - accept both external (localhost:54321) and internal (container:8000) URLs
+            if is_supabase_issuer(iss, settings.SUPABASE_URL):
+                # Supabase token - get supabase_user_id from token sub
+                payload = verify_supabase_token(token)
+                supabase_user_id = payload.get("sub")
+                if not supabase_user_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Token missing user ID"
+                    )
+                # Fetch user by supabase_user_id for Supabase tokens
+                user = _fetch_user_by_identifier(db, supabase_user_id, is_supabase=True, iss=iss)
+            else:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token missing user ID"
+                    detail=f"Unknown token issuer: {iss}"
                 )
-            # Fetch user by supabase_user_id for Supabase tokens
-            user = _fetch_user_by_identifier(db, supabase_user_id, is_supabase=True, iss=iss)
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Unknown token issuer: {iss}"
+                detail="Missing token issuer"
             )
         
         if not user:
             identifier = user_id if iss == "rekindle:xdevice" else supabase_user_id
             ip_address = request.client.host if request and request.client else None
-            logger.warning(
-                "User not found for token",
-                extra={
-                    "event_type": "user_not_found",
-                    "issuer": iss,
-                    "identifier": identifier,
-                    "ip_address": ip_address,
-                    "token_type": "supabase" if iss != "rekindle:xdevice" else "cross_device",
-                }
-            )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found"
-            )
+            
+            # For Supabase tokens, try to auto-create user if they don't exist
+            # This handles cases where user signed in via OAuth or email/password but webhook didn't fire
+            if iss != "rekindle:xdevice" and supabase_user_id:
+                try:
+                    # Get email from token payload if available
+                    # Supabase JWT tokens include email for both OAuth and email/password users
+                    email = payload.get("email")
+                    email_verified = payload.get("email_verified", False)
+                    
+                    # Fallback: If email not in token (rare edge case), try to fetch from Supabase Admin API
+                    if not email:
+                        logger.warning(
+                            "Email not in token payload, attempting to fetch from Supabase API",
+                            extra={
+                                "event_type": "email_missing_from_token",
+                                "supabase_user_id": supabase_user_id,
+                            }
+                        )
+                        try:
+                            # Use Supabase Admin API to fetch user details
+                            admin_url = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/admin/users/{supabase_user_id}"
+                            headers = {
+                                "apikey": settings.SUPABASE_SERVICE_KEY,
+                                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                            }
+                            with httpx.Client(timeout=5.0) as client:
+                                response = client.get(admin_url, headers=headers)
+                                if response.status_code == 200:
+                                    user_data = response.json()
+                                    email = user_data.get("email")
+                                    email_verified = bool(user_data.get("email_confirmed_at"))
+                                    logger.info(
+                                        "Fetched email from Supabase Admin API",
+                                        extra={
+                                            "event_type": "email_fetched_from_api",
+                                            "supabase_user_id": supabase_user_id,
+                                            "email": email,
+                                        }
+                                    )
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to fetch email from Supabase API",
+                                extra={
+                                    "event_type": "email_fetch_failed",
+                                    "error": str(e),
+                                    "supabase_user_id": supabase_user_id,
+                                }
+                            )
+                    
+                    if email:
+                        logger.info(
+                            "Auto-creating user on first authentication",
+                            extra={
+                                "event_type": "user_auto_create",
+                                "supabase_user_id": supabase_user_id,
+                                "email": email,
+                                "ip_address": ip_address,
+                            }
+                        )
+                        
+                        # Create user with free tier defaults
+                        new_user = User(
+                            supabase_user_id=supabase_user_id,
+                            email=email,
+                            email_verified=email_verified,
+                            subscription_tier="free",
+                            subscription_status="active",
+                            monthly_credits=3,  # Free tier default
+                            topup_credits=0,
+                            storage_limit_bytes=0,  # Free tier default
+                            storage_used_bytes=0,
+                            account_status="active",
+                        )
+                        
+                        db.add(new_user)
+                        db.commit()
+                        db.refresh(new_user)
+                        
+                        logger.info(
+                            "User auto-created successfully",
+                            extra={
+                                "event_type": "user_created",
+                                "user_id": str(new_user.id),
+                                "supabase_user_id": supabase_user_id,
+                                "email": email,
+                                "source": "auto_create_on_auth",
+                            }
+                        )
+                        
+                        user = new_user
+                    else:
+                        # No email in token - can't auto-create
+                        logger.warning(
+                            "User not found and cannot auto-create (no email in token)",
+                            extra={
+                                "event_type": "user_not_found",
+                                "issuer": iss,
+                                "identifier": identifier,
+                                "ip_address": ip_address,
+                                "token_type": "supabase",
+                            }
+                        )
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="User not found. Please complete sign-up."
+                        )
+                except Exception as e:
+                    db.rollback()
+                    logger.error(
+                        "Failed to auto-create user",
+                        extra={
+                            "event_type": "user_auto_create_error",
+                            "error": str(e),
+                            "supabase_user_id": supabase_user_id,
+                            "ip_address": ip_address,
+                        },
+                        exc_info=True
+                    )
+                    # Re-raise as user not found
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User not found"
+                    )
+            else:
+                # Cross-device token or no supabase_user_id - can't auto-create
+                logger.warning(
+                    "User not found for token",
+                    extra={
+                        "event_type": "user_not_found",
+                        "issuer": iss,
+                        "identifier": identifier,
+                        "ip_address": ip_address,
+                        "token_type": "supabase" if iss != "rekindle:xdevice" else "cross_device",
+                    }
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found"
+                )
         
         # Check account status
         if user.account_status != "active":
@@ -501,18 +885,22 @@ def get_current_user(
         )
     except Exception as e:
         ip_address = request.client.host if request and request.client else None
+        import traceback
+        error_traceback = traceback.format_exc()
         logger.error(
             "Unexpected error in authentication",
             extra={
                 "event_type": "auth_error",
                 "error": str(e),
+                "error_type": type(e).__name__,
                 "ip_address": ip_address,
+                "traceback": error_traceback,
             },
             exc_info=True
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication error"
+            detail=f"Authentication error: {type(e).__name__}: {str(e)}"
         )
 
 

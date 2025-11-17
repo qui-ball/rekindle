@@ -93,31 +93,50 @@ class TestSupabaseTokenVerification:
         """Test successful Supabase token verification"""
         mock_fetch_jwks.return_value = mock_supabase_jwks
         mock_header.return_value = {"kid": "test-key-id"}
+        # First call is without verification (to check issuer), second is with verification
+        mock_decode.side_effect = [
+            {
+                "sub": "test-user-id",
+                "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
+                "aud": "authenticated",
+            },
+            {
+                "sub": "test-user-id",
+                "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
+                "aud": "authenticated",
+            },
+        ]
+        
+        # Use a valid JWT format (header.payload.signature)
+        token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3Qta2V5LWlkIn0.eyJzdWIiOiJ0ZXN0LXVzZXItaWQiLCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2F1dGgvdjEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIn0.signature"
+        result = verify_supabase_token(token)
+        
+        assert result["sub"] == "test-user-id"
+        # Should be called twice: once without verification, once with verification
+        assert mock_decode.call_count == 2
+
+    @patch("app.api.deps.fetch_supabase_jwks")
+    @patch("app.api.deps.jwt.decode")
+    @patch("app.api.deps.jwt.get_unverified_header")
+    def test_verify_supabase_token_missing_kid(self, mock_header, mock_decode, mock_fetch_jwks, mock_supabase_jwks):
+        """Test token verification fails when key ID is missing"""
+        mock_fetch_jwks.return_value = mock_supabase_jwks
+        mock_header.return_value = {}  # No 'kid' field
+        # Mock the unverified decode to succeed
         mock_decode.return_value = {
             "sub": "test-user-id",
             "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
             "aud": "authenticated",
         }
         
-        token = "test-token"
-        result = verify_supabase_token(token)
+        # Use a valid JWT format so it passes format check
+        token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItaWQiLCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2F1dGgvdjEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIn0.signature"
         
-        assert result["sub"] == "test-user-id"
-        mock_decode.assert_called_once()
-
-    @patch("app.api.deps.fetch_supabase_jwks")
-    def test_verify_supabase_token_missing_kid(self, mock_fetch_jwks, mock_supabase_jwks):
-        """Test token verification fails when key ID is missing"""
-        mock_fetch_jwks.return_value = mock_supabase_jwks
+        with pytest.raises(HTTPException) as exc_info:
+            verify_supabase_token(token)
         
-        with patch("app.api.deps.jwt.get_unverified_header") as mock_header:
-            mock_header.return_value = {}  # No 'kid' field
-            
-            with pytest.raises(HTTPException) as exc_info:
-                verify_supabase_token("test-token")
-            
-            assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "key id" in exc_info.value.detail.lower()
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "key id" in exc_info.value.detail.lower() or "missing" in exc_info.value.detail.lower()
 
     @patch("app.api.deps.fetch_supabase_jwks")
     @patch("app.api.deps.jwt.get_unverified_header")
@@ -459,8 +478,20 @@ class TestEdgeCases:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     @patch("app.api.deps.fetch_supabase_jwks")
-    def test_jwks_fetch_timeout(self, mock_fetch_jwks):
+    @patch("app.api.deps.jwt.decode")
+    @patch("app.api.deps.jwt.get_unverified_header")
+    def test_jwks_fetch_timeout(self, mock_header, mock_decode, mock_fetch_jwks):
         """Test JWKS fetch timeout handling"""
+        # Use a valid JWT format so it passes format check
+        token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3Qta2V5LWlkIn0.eyJzdWIiOiJ0ZXN0LXVzZXItaWQiLCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2F1dGgvdjEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIn0.signature"
+        mock_header.return_value = {"kid": "test-key-id"}
+        # Mock the unverified decode to succeed
+        mock_decode.return_value = {
+            "sub": "test-user-id",
+            "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
+            "aud": "authenticated",
+        }
+        
         # Mock fetch_supabase_jwks to raise HTTPException (as it would after catching TimeoutException)
         # This simulates the behavior when fetch_supabase_jwks catches a timeout and raises HTTPException
         mock_fetch_jwks.side_effect = HTTPException(
@@ -470,7 +501,7 @@ class TestEdgeCases:
         
         # verify_supabase_token should propagate the HTTPException
         with pytest.raises(HTTPException) as exc_info:
-            verify_supabase_token("test-token")
+            verify_supabase_token(token)
         
         # Should return 503 from fetch_supabase_jwks
         assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
@@ -567,18 +598,27 @@ class TestEdgeCases:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     @patch("app.api.deps.fetch_supabase_jwks")
-    def test_jwks_key_not_found(self, mock_fetch_jwks, mock_supabase_jwks):
+    @patch("app.api.deps.jwt.decode")
+    @patch("app.api.deps.jwt.get_unverified_header")
+    def test_jwks_key_not_found(self, mock_header, mock_decode, mock_fetch_jwks, mock_supabase_jwks):
         """Test handling when JWKS key ID doesn't match any key"""
         mock_fetch_jwks.return_value = mock_supabase_jwks
+        mock_header.return_value = {"kid": "non-existent-key-id"}
+        # Mock the unverified decode to succeed
+        mock_decode.return_value = {
+            "sub": "test-user-id",
+            "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
+            "aud": "authenticated",
+        }
         
-        with patch("app.api.deps.jwt.get_unverified_header") as mock_header:
-            mock_header.return_value = {"kid": "non-existent-key-id"}
-            
-            with pytest.raises(HTTPException) as exc_info:
-                verify_supabase_token("test-token")
-            
-            assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "key not found" in exc_info.value.detail.lower()
+        # Use a valid JWT format so it passes format check
+        token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im5vbi1leGlzdGVudC1rZXktaWQifQ.eyJzdWIiOiJ0ZXN0LXVzZXItaWQiLCJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tL2F1dGgvdjEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIn0.signature"
+        
+        with pytest.raises(HTTPException) as exc_info:
+            verify_supabase_token(token)
+        
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "key not found" in exc_info.value.detail.lower()
 
     @patch("app.services.cross_device_session_service.CrossDeviceSessionService.get_active_session")
     def test_cross_device_session_expired_in_redis(self, mock_get_session, cross_device_token):

@@ -8,6 +8,7 @@ from app.api.v1.jobs import router as jobs_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.api.v1.events import router as events_router
 from app.api.v1.users import router as users_router
+from app.api.v1.photos import router as photos_router
 from app.api.webhooks.supabase import router as supabase_webhook_router
 
 # Create main API router
@@ -25,6 +26,9 @@ api_router.include_router(
 )
 api_router.include_router(
     users_router, prefix="/v1/users", tags=["users"]
+)
+api_router.include_router(
+    photos_router, prefix="/v1/photos", tags=["photos"]
 )
 # Supabase webhook endpoint (at /api/webhooks/supabase, not /api/v1/webhooks/supabase)
 api_router.include_router(

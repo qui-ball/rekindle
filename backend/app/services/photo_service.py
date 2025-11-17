@@ -84,6 +84,9 @@ class PhotoService:
     ) -> List[Photo]:
         """
         List photos for a user, optionally filtering by status.
+        
+        By default, excludes deleted photos. To include deleted photos,
+        explicitly pass 'deleted' in the statuses parameter.
         """
         query = db.query(Photo).filter(Photo.owner_id == owner_id)
 
@@ -94,6 +97,9 @@ class PhotoService:
                     f"Invalid status values: {', '.join(sorted(invalid_statuses))}"
                 )
             query = query.filter(Photo.status.in_(tuple(statuses)))
+        else:
+            # By default, exclude deleted photos
+            query = query.filter(Photo.status != "deleted")
 
         return (
             query.order_by(Photo.created_at.desc()).offset(offset).limit(limit).all()

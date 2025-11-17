@@ -173,7 +173,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     // Fetch full image URL if not already loaded (for drawer display)
     if (!photo.metadata.originalUrl) {
       try {
-        const response = await fetch(`/api/v1/jobs/${photo.id}/image-url`);
+        const response = await fetch(`/api/v1/photos/${photo.id}/download-url?key_type=original`);
         if (response.ok) {
           const data = await response.json();
           // Create a new photo object with updated URL

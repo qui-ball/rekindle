@@ -54,20 +54,40 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async getPhotos(userId: string, pagination: PaginationOptions): Promise<Photo[]> {
     try {
-      // Use the existing backend API endpoint for jobs - don't filter by email to get ALL jobs
+      // Use the new photos API endpoint with offset/limit pagination
+      const offset = (pagination.page - 1) * pagination.limit;
       const params = new URLSearchParams({
-        skip: ((pagination.page - 1) * pagination.limit).toString(),
+        offset: offset.toString(),
         limit: pagination.limit.toString()
-        // Don't include email parameter to get ALL jobs
       });
 
-      // Use authenticated API client
-      const jobs = await apiClient.get<BackendJob[]>(`/v1/jobs?${params}`);
+      // Use authenticated API client to get PhotoListResponse
+      const response = await apiClient.get<{
+        photos: Array<{
+          id: string;
+          owner_id: string;
+          original_key: string;
+          processed_key?: string;
+          thumbnail_key?: string;
+          storage_bucket: string;
+          status: string;
+          size_bytes?: number;
+          mime_type?: string;
+          checksum_sha256: string;
+          metadata?: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+          original_url?: string;
+          processed_url?: string;
+          thumbnail_url?: string;
+        }>;
+        total: number;
+        limit: number;
+        offset: number;
+      }>(`/v1/photos?${params}`);
       
-      // Transform backend Job data to frontend Photo format with presigned URLs
-      const photos = await Promise.all(
-        jobs.map((job: BackendJob) => this.transformJobToPhoto(job))
-      );
+      // Transform backend PhotoResponse data to frontend Photo format
+      const photos = response.photos.map((photo) => this.transformPhotoResponseToPhoto(photo));
       return photos;
       
     } catch (error) {
@@ -77,16 +97,75 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
     }
   }
 
+  private transformPhotoResponseToPhoto(photo: {
+    id: string;
+    owner_id: string;
+    original_key: string;
+    processed_key?: string;
+    thumbnail_key?: string;
+    storage_bucket: string;
+    status: string;
+    size_bytes?: number;
+    mime_type?: string;
+    checksum_sha256: string;
+    metadata?: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+    original_url?: string;
+    processed_url?: string;
+    thumbnail_url?: string;
+  }): Photo {
+    // Extract filename from original_key (format: users/{user_id}/raw/{photo_id}.{ext})
+    const keyParts = photo.original_key.split('/');
+    const filename = keyParts[keyParts.length - 1] || `${photo.id}.jpg`;
+    
+    // Map backend status to frontend status
+    const statusMap: Record<string, 'uploaded' | 'processing' | 'completed' | 'failed'> = {
+      'uploaded': 'uploaded',
+      'processing': 'processing',
+      'ready': 'completed',
+      'archived': 'completed',
+      'deleted': 'failed'
+    };
+    
+    // Extract dimensions from metadata if available
+    const metadata = photo.metadata || {};
+    const dimensions = (metadata.dimensions as { width?: number; height?: number }) || { width: 1920, height: 1080 };
+    
+    return {
+      id: photo.id,
+      userId: photo.owner_id,
+      originalFilename: filename,
+      fileKey: photo.original_key,
+      thumbnailKey: photo.thumbnail_key || '',
+      status: statusMap[photo.status] || 'uploaded',
+      createdAt: new Date(photo.created_at),
+      updatedAt: new Date(photo.updated_at),
+      metadata: {
+        dimensions: {
+          width: dimensions.width || 1920,
+          height: dimensions.height || 1080
+        },
+        fileSize: photo.size_bytes || 0,
+        format: photo.mime_type?.split('/')[1] || 'jpeg',
+        uploadMethod: 'camera', // Default, can be enhanced later
+        originalUrl: photo.original_url || '',
+        thumbnailUrl: photo.thumbnail_url || ''
+      },
+      results: [], // Photo results are separate - can be fetched via getPhotoDetails if needed
+      processingJobs: []
+    };
+  }
+
   private async transformJobToPhoto(job: BackendJob): Promise<Photo> {
-    // Use thumbnail URL from backend if available
+    // Legacy method for backward compatibility - kept for now but should be deprecated
     const thumbnailUrl = job.thumbnail_url || '';
     const uploadedUrl = '';
     
-    // Do NOT fetch full image URL here; thumbnail should come from backend
     return {
       id: job.id,
-      userId: job.email, // Using email as userId for now
-      originalFilename: `${job.id}.jpg`, // Use job ID as filename (no "photo-" prefix)
+      userId: job.email,
+      originalFilename: `${job.id}.jpg`,
       fileKey: `uploaded/${job.id}.jpg`,
       thumbnailKey: job.thumbnail_s3_key || `thumbnails/${job.id}.jpg`,
       status: this.mapJobStatus(job),
@@ -148,11 +227,9 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async deletePhoto(photoId: string): Promise<void> {
     try {
-      // Photo IDs map directly to job IDs in the new backend architecture,
-      // so delete the underlying job to remove the photo from the gallery.
-      await apiClient.delete(`/v1/jobs/${photoId}`);
+      await apiClient.delete(`/v1/photos/${photoId}`);
     } catch (error) {
-      console.error('Error deleting job photo:', error);
+      console.error('Error deleting photo:', error);
       throw error;
     }
   }

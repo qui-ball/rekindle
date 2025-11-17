@@ -3,7 +3,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { middleware } from './middleware';
+import { middleware } from '../middleware';
 import { createMiddlewareClient } from '@supabase/ssr';
 
 jest.mock('@supabase/ssr', () => ({

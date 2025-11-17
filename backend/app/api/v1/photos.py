@@ -249,10 +249,7 @@ async def upload_photo(
     photo_id = uuid4()
     
     # Extract extension
-    if file.filename and "." in file.filename:
-        extension = file.filename.split(".")[-1].lower()
-    else:
-        extension = "jpg"
+    extension = file.filename.split(".")[-1].lower() if "." in file.filename else "jpg"
     if extension not in ["jpg", "jpeg", "png", "webp", "heic"]:
         extension = "jpg"
     
@@ -405,10 +402,13 @@ async def list_photos(
             offset=offset,
         )
         
-        # Get total count
+        # Get total count (exclude deleted by default, unless explicitly requested)
         total_query = db.query(Photo).filter(Photo.owner_id == current_user.supabase_user_id)
         if status_filter:
             total_query = total_query.filter(Photo.status == status_filter)
+        else:
+            # By default, exclude deleted photos from count
+            total_query = total_query.filter(Photo.status != "deleted")
         total = total_query.count()
         
         # Generate presigned URLs for each photo
@@ -475,7 +475,6 @@ async def list_photos(
 
 @router.get("/{photo_id}", response_model=PhotoResponse)
 async def get_photo(
-    request: Request,
     photo_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -484,21 +483,17 @@ async def get_photo(
     Get a specific photo by ID.
     
     Returns 404 if photo doesn't exist or doesn't belong to the user.
-    Ownership violations are logged for security monitoring.
     """
-    try:
-        photo = photo_service.assert_owner(
-            db=db,
-            photo_id=photo_id,
-            user_id=current_user.supabase_user_id,
-            ip_address=request.client.host if request.client else None,
-        )
-    except ValueError as e:
-        # assert_owner raises ValueError for both "not found" and "ownership mismatch"
-        # Both cases return 404 to avoid leaking existence
+    photo = photo_service.get_photo(
+        db=db,
+        owner_id=current_user.supabase_user_id,
+        photo_id=photo_id,
+    )
+    
+    if not photo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+            detail="Photo not found",
         )
     
     # Generate presigned URLs
@@ -566,21 +561,17 @@ async def get_photo_download_url(
     Get a presigned download URL for a photo.
     
     Validates ownership before generating the URL.
-    Returns 404 if photo doesn't exist or doesn't belong to the user.
     """
-    try:
-        photo = photo_service.assert_owner(
-            db=db,
-            photo_id=photo_id,
-            user_id=current_user.supabase_user_id,
-            ip_address=request.client.host if request.client else None,
-        )
-    except ValueError as e:
-        # assert_owner raises ValueError for both "not found" and "ownership mismatch"
-        # Both cases return 404 to avoid leaking existence
+    photo = photo_service.get_photo(
+        db=db,
+        owner_id=current_user.supabase_user_id,
+        photo_id=photo_id,
+    )
+    
+    if not photo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+            detail="Photo not found",
         )
     
     # Determine which key to use
@@ -616,28 +607,15 @@ async def get_photo_download_url(
         )
         
     except ValueError as e:
-        # Storage service ownership validation failed
-        # This should not happen if assert_owner() passed, but handle gracefully
-        logger.warning(
-            "Storage key ownership validation failed after photo ownership check",
-            extra={
-                "event_type": "storage_key_ownership_violation",
-                "user_id": current_user.supabase_user_id,
-                "photo_id": str(photo_id),
-                "key": s3_key,
-                "ip_address": request.client.host if request.client else None,
-            }
-        )
-        # Return 404 to avoid leaking information
+        # Ownership validation failed
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Photo not found",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
         )
 
 
 @router.put("/{photo_id}", response_model=PhotoResponse)
 async def update_photo(
-    request: Request,
     photo_id: UUID,
     photo_update: PhotoUpdate,
     current_user: User = Depends(get_current_user),
@@ -647,21 +625,17 @@ async def update_photo(
     Update photo metadata.
     
     Only metadata can be updated. Ownership is validated.
-    Returns 404 if photo doesn't exist or doesn't belong to the user.
     """
-    try:
-        photo = photo_service.assert_owner(
-            db=db,
-            photo_id=photo_id,
-            user_id=current_user.supabase_user_id,
-            ip_address=request.client.host if request.client else None,
-        )
-    except ValueError as e:
-        # assert_owner raises ValueError for both "not found" and "ownership mismatch"
-        # Both cases return 404 to avoid leaking existence
+    photo = photo_service.get_photo(
+        db=db,
+        owner_id=current_user.supabase_user_id,
+        photo_id=photo_id,
+    )
+    
+    if not photo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+            detail="Photo not found",
         )
     
     # Update metadata if provided
@@ -736,20 +710,16 @@ async def delete_photo(
             detail="Too many deletion requests. Please wait before deleting again."
         )
     
-    # Validate ownership before deletion
-    try:
-        photo = photo_service.assert_owner(
-            db=db,
-            photo_id=photo_id,
-            user_id=current_user.supabase_user_id,
-            ip_address=request.client.host if request.client else None,
-        )
-    except ValueError as e:
-        # assert_owner raises ValueError for both "not found" and "ownership mismatch"
-        # Both cases return 404 to avoid leaking existence
+    photo = photo_service.get_photo(
+        db=db,
+        owner_id=current_user.supabase_user_id,
+        photo_id=photo_id,
+    )
+    
+    if not photo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+            detail="Photo not found",
         )
     
     # Soft delete
