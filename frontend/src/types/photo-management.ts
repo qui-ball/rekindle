@@ -176,6 +176,7 @@ export interface PhotoDetailDrawerProps {
   onClose: () => void;
   onPhotoAction: (action: PhotoAction, photo: Photo) => void | Promise<void>;
   onProcessingStart: (options: ProcessingOptions) => void;
+  onPhotoUpdate?: (updatedPhoto: Photo) => void | Promise<void>;
 }
 
 export interface ProcessingOptionsPanelProps {

@@ -48,6 +48,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
+    extra_hosts:
+      # Map host.docker.internal to host gateway (for Linux compatibility)
+      - "host.docker.internal:host-gateway"
     networks:
       - rekindle-network
     depends_on:
@@ -97,6 +100,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
+    extra_hosts:
+      # Map host.docker.internal to host gateway (for Linux compatibility)
+      - "host.docker.internal:host-gateway"
     networks:
       - rekindle-network
     depends_on:
@@ -118,6 +124,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
+    extra_hosts:
+      # Map host.docker.internal to host gateway (for Linux compatibility)
+      - "host.docker.internal:host-gateway"
     networks:
       - rekindle-network
     depends_on:

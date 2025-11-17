@@ -65,6 +65,19 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       
       // Refresh the specific photo to get updated restore attempts
       try {
+        // Update the selected photo in the drawer to show the new restoration
+        if (selectedPhoto && selectedPhoto.id === data.job_id) {
+          // Fetch full photo details to get results
+          const photoDetails = await photoManagementService.getPhotoDetails(data.job_id);
+          setSelectedPhoto({
+            ...selectedPhoto,
+            ...photoDetails.photo,
+            results: photoDetails.results,
+            processingJobs: photoDetails.processingJobs,
+          });
+        }
+        
+        // Also refresh the photos list
         const updatedPhotos = await photoManagementService.getPhotos(userId, {
           page: 1,
           limit: 100,
@@ -72,14 +85,6 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
           sortOrder: 'desc'
         });
         setPhotos(updatedPhotos);
-        
-        // Update the selected photo in the drawer to show the new restoration
-        if (selectedPhoto && selectedPhoto.id === data.job_id) {
-          const updatedSelectedPhoto = updatedPhotos.find(p => p.id === data.job_id);
-          if (updatedSelectedPhoto) {
-            setSelectedPhoto(updatedSelectedPhoto);
-          }
-        }
       } catch (err) {
         console.error('Error refreshing photos after job completion:', err);
       }
@@ -168,43 +173,20 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Handle photo selection
   const handlePhotoClick = useCallback(async (photo: Photo) => {
+    // Always fetch full photo details to get results
     let photoToSelect = photo;
-    
-    // Fetch full image URL if not already loaded (for drawer display)
-    if (!photo.metadata.originalUrl) {
-      try {
-        const response = await fetch(`/api/v1/photos/${photo.id}/download-url?key_type=original`);
-        if (response.ok) {
-          const data = await response.json();
-          // Create a new photo object with updated URL
-          photoToSelect = {
-            ...photo,
-            metadata: {
-              ...photo.metadata,
-              originalUrl: data.url
-            }
-          };
-        } else {
-          // Fallback to thumbnail if full image fails
-          photoToSelect = {
-            ...photo,
-            metadata: {
-              ...photo.metadata,
-              originalUrl: photo.metadata.thumbnailUrl
-            }
-          };
-        }
-      } catch (error) {
-        console.error('Error fetching full image URL:', error);
-        // Fallback to thumbnail if full image fails
-        photoToSelect = {
-          ...photo,
-          metadata: {
-            ...photo.metadata,
-            originalUrl: photo.metadata.thumbnailUrl
-          }
-        };
-      }
+    try {
+      const photoDetails = await photoManagementService.getPhotoDetails(photo.id);
+      photoToSelect = {
+        ...photo,
+        ...photoDetails.photo,
+        results: photoDetails.results, // Include results from details
+        processingJobs: photoDetails.processingJobs,
+      };
+    } catch (error) {
+      console.error('Error fetching photo details:', error);
+      // Fallback to original photo if details fetch fails
+      photoToSelect = photo;
     }
     
     setSelectedPhoto(photoToSelect);
@@ -438,6 +420,21 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
               onClose={handleDrawerClose}
               onPhotoAction={handlePhotoAction}
               onProcessingStart={handleProcessingStart}
+              onPhotoUpdate={async (updatedPhoto) => {
+                // Update the selected photo with fresh data from server
+                try {
+                  const photoDetails = await photoManagementService.getPhotoDetails(updatedPhoto.id);
+                  setSelectedPhoto({
+                    ...updatedPhoto,
+                    ...photoDetails.photo,
+                    results: photoDetails.results
+                  });
+                } catch (error) {
+                  console.error('Error refreshing photo details:', error);
+                  // Fallback to local update if refresh fails
+                  setSelectedPhoto(updatedPhoto);
+                }
+              }}
             />
           </ErrorBoundary>
         )}

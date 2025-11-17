@@ -3,7 +3,7 @@ API dependencies for authentication and database
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Dict
 from functools import lru_cache
 
 from fastapi import Depends, HTTPException, status, Request
@@ -16,7 +16,7 @@ from loguru import logger
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.user import User
+from app.models.user import User, UserTier
 from app.services.cross_device_session_service import CrossDeviceSessionService
 
 security = HTTPBearer()
@@ -919,3 +919,222 @@ def get_db_session() -> Session:
     Get database session dependency
     """
     return Depends(get_db)
+
+
+# Tier hierarchy for permission checking
+# Higher number = higher tier level
+TIER_HIERARCHY: Dict[UserTier, int] = {
+    "free": 0,
+    "remember": 1,
+    "cherish": 2,
+    "forever": 3,
+}
+
+
+def require_tier(min_tier: UserTier):
+    """
+    Dependency factory that creates a dependency requiring a minimum subscription tier.
+    
+    Usage:
+        @router.post("/endpoint")
+        async def my_endpoint(
+            current_user: User = Depends(require_tier("remember"))
+        ):
+            # User is guaranteed to have at least "remember" tier
+            pass
+    
+    Args:
+        min_tier: Minimum required tier ("free", "remember", "cherish", or "forever")
+        
+    Returns:
+        Dependency function that validates tier and returns the user
+        
+    Raises:
+        HTTPException: 403 Forbidden if user's tier is insufficient
+    """
+    def check_tier(current_user: User = Depends(get_current_user)) -> User:
+        """
+        Check if user has required tier level.
+        
+        Args:
+            current_user: Authenticated user from get_current_user dependency
+            
+        Returns:
+            User instance if tier requirement met
+            
+        Raises:
+            HTTPException: 403 if tier insufficient
+        """
+        user_tier_level = TIER_HIERARCHY.get(current_user.subscription_tier, 0)
+        required_level = TIER_HIERARCHY.get(min_tier, 0)
+        
+        if user_tier_level < required_level:
+            logger.warning(
+                "Tier requirement not met",
+                extra={
+                    "event_type": "permission_denied",
+                    "user_id": str(current_user.id),
+                    "user_tier": current_user.subscription_tier,
+                    "required_tier": min_tier,
+                    "reason": "insufficient_tier",
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This feature requires at least the {min_tier.capitalize()} tier. "
+                       f"Your current tier: {current_user.subscription_tier.capitalize()}",
+            )
+        
+        return current_user
+    
+    return check_tier
+
+
+def require_credits(min_credits: int):
+    """
+    Dependency factory that creates a dependency requiring minimum credits.
+    
+    Usage:
+        @router.post("/endpoint")
+        async def my_endpoint(
+            current_user: User = Depends(require_credits(2))
+        ):
+            # User is guaranteed to have at least 2 credits
+            pass
+    
+    Args:
+        min_credits: Minimum required credits (must be > 0)
+        
+    Returns:
+        Dependency function that validates credits and returns the user
+        
+    Raises:
+        HTTPException: 402 Payment Required if insufficient credits
+    """
+    if min_credits <= 0:
+        raise ValueError("min_credits must be greater than 0")
+    
+    def check_credits(current_user: User = Depends(get_current_user)) -> User:
+        """
+        Check if user has sufficient credits.
+        
+        Args:
+            current_user: Authenticated user from get_current_user dependency
+            
+        Returns:
+            User instance if credit requirement met
+            
+        Raises:
+            HTTPException: 402 if insufficient credits
+        """
+        available_credits = current_user.total_credits
+        
+        if available_credits < min_credits:
+            logger.warning(
+                "Insufficient credits",
+                extra={
+                    "event_type": "permission_denied",
+                    "user_id": str(current_user.id),
+                    "required_credits": min_credits,
+                    "available_credits": available_credits,
+                    "reason": "insufficient_credits",
+                }
+            )
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Insufficient credits. Required: {min_credits}, Available: {available_credits}. "
+                       f"Please purchase more credits to continue.",
+            )
+        
+        return current_user
+    
+    return check_credits
+
+
+def require_storage(required_bytes: int):
+    """
+    Dependency factory that creates a dependency requiring available storage space.
+    
+    Usage:
+        @router.post("/endpoint")
+        async def my_endpoint(
+            current_user: User = Depends(require_storage(5 * 1024 * 1024))  # 5 MB
+        ):
+            # User is guaranteed to have at least 5 MB available
+            pass
+    
+    Args:
+        required_bytes: Minimum required available storage in bytes (must be > 0)
+        
+    Returns:
+        Dependency function that validates storage and returns the user
+        
+    Raises:
+        HTTPException: 507 Insufficient Storage if storage limit exceeded
+    """
+    if required_bytes <= 0:
+        raise ValueError("required_bytes must be greater than 0")
+    
+    def check_storage(current_user: User = Depends(get_current_user)) -> User:
+        """
+        Check if user has sufficient available storage.
+        
+        Args:
+            current_user: Authenticated user from get_current_user dependency
+            
+        Returns:
+            User instance if storage requirement met
+            
+        Raises:
+            HTTPException: 507 if insufficient storage
+        """
+        # If user has no storage limit (free tier), check if they have any storage
+        if current_user.storage_limit_bytes == 0:
+            # Free tier users have no permanent storage
+            logger.warning(
+                "Storage limit exceeded - no storage limit",
+                extra={
+                    "event_type": "permission_denied",
+                    "user_id": str(current_user.id),
+                    "user_tier": current_user.subscription_tier,
+                    "required_bytes": required_bytes,
+                    "reason": "no_storage_limit",
+                }
+            )
+            raise HTTPException(
+                status_code=507,  # HTTP 507 Insufficient Storage
+                detail="Storage not available. Free tier users have no permanent storage. "
+                       "Please upgrade to a paid tier to store photos permanently.",
+            )
+        
+        available_bytes = current_user.storage_limit_bytes - current_user.storage_used_bytes
+        
+        if available_bytes < required_bytes:
+            available_gb = available_bytes / (1024 ** 3)
+            required_gb = required_bytes / (1024 ** 3)
+            limit_gb = current_user.storage_limit_bytes / (1024 ** 3)
+            used_gb = current_user.storage_used_bytes / (1024 ** 3)
+            
+            logger.warning(
+                "Insufficient storage",
+                extra={
+                    "event_type": "permission_denied",
+                    "user_id": str(current_user.id),
+                    "required_bytes": required_bytes,
+                    "available_bytes": available_bytes,
+                    "storage_limit_bytes": current_user.storage_limit_bytes,
+                    "storage_used_bytes": current_user.storage_used_bytes,
+                    "reason": "insufficient_storage",
+                }
+            )
+            raise HTTPException(
+                status_code=507,  # HTTP 507 Insufficient Storage
+                detail=f"Insufficient storage. Required: {required_gb:.2f} GB, "
+                       f"Available: {available_gb:.2f} GB. "
+                       f"Storage used: {used_gb:.2f} GB / {limit_gb:.2f} GB. "
+                       f"Please free up space or upgrade your plan.",
+            )
+        
+        return current_user
+    
+    return check_storage

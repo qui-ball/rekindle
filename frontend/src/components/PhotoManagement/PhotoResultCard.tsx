@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { PhotoResult } from '../../types/photo-management';
+import { apiClient } from '../../services/apiClient';
 
 /**
  * PhotoResultCard Component
@@ -38,14 +39,14 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
 
       try {
         // If we have a fileKey, fetch the presigned URL from the backend
-        if (result.fileKey && result.fileKey !== 'pending') {
-          const response = await fetch(`/api/v1/jobs/${result.photoId}`);
-          
-          if (!response.ok) {
-            throw new Error('Failed to fetch result URL');
-          }
-
-          const jobData = await response.json();
+        if (result.fileKey && result.fileKey !== 'pending' && result.fileKey !== 'failed') {
+          // Use authenticated API client
+          const jobData = await apiClient.get<{
+            restore_attempts?: Array<{
+              id: string;
+              url?: string;
+            }>;
+          }>(`/v1/jobs/${result.photoId}`);
           
           // Find the matching restore attempt
           const restoreAttempt = jobData.restore_attempts?.find(
@@ -58,7 +59,7 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
             throw new Error('Result URL not found');
           }
         } else {
-          // Result is still processing
+          // Result is still processing or failed
           setImageUrl(null);
         }
       } catch (error) {

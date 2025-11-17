@@ -218,7 +218,81 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async getPhotoDetails(photoId: string): Promise<PhotoDetails> {
     try {
-      return await apiClient.get<PhotoDetails>(`/v1/photos/${photoId}`);
+      const response = await apiClient.get<{
+        photo: {
+          id: string;
+          owner_id: string;
+          original_key: string;
+          processed_key?: string;
+          thumbnail_key?: string;
+          storage_bucket: string;
+          status: string;
+          size_bytes?: number;
+          mime_type?: string;
+          checksum_sha256: string;
+          metadata?: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+          original_url?: string;
+          processed_url?: string;
+          thumbnail_url?: string;
+        };
+        results: Array<{
+          id: string;
+          job_id: string;
+          s3_key: string;
+          model?: string;
+          params?: Record<string, unknown>;
+          created_at: string;
+          url?: string;
+        }>;
+        processingJobs: any[];
+        relatedPhotos: any[];
+      }>(`/v1/photos/${photoId}`);
+      
+      // Transform the response to PhotoDetails format
+      const photo = this.transformPhotoResponseToPhoto(response.photo);
+      
+      // Transform results from restore attempts
+      const results: PhotoResult[] = response.results.map(result => {
+        let status: 'processing' | 'completed' | 'failed' = 'processing';
+        if (result.s3_key === 'failed') {
+          status = 'failed';
+        } else if (result.s3_key && result.s3_key !== 'pending' && result.s3_key !== '') {
+          status = 'completed';
+        }
+        
+        return {
+          id: result.id,
+          photoId: result.job_id,
+          resultType: 'restored' as const,
+          fileKey: result.s3_key || '',
+          thumbnailKey: '',
+          status: status,
+          createdAt: new Date(result.created_at),
+          completedAt: status === 'completed' ? new Date(result.created_at) : undefined,
+          processingJobId: result.id,
+          metadata: {
+            dimensions: { width: 1920, height: 1080 },
+            fileSize: 1800000,
+            format: 'jpeg',
+            quality: 'hd',
+            processingTime: 45,
+            model: result.model || 'comfyui_default',
+            parameters: result.params || {}
+          }
+        };
+      });
+      
+      return {
+        photo: {
+          ...photo,
+          results: results // Also include results in photo object for convenience
+        },
+        results: results,
+        processingJobs: response.processingJobs || [],
+        relatedPhotos: (response.relatedPhotos || []).map(p => this.transformPhotoResponseToPhoto(p))
+      };
     } catch (error) {
       console.error('Error fetching photo details:', error);
       throw error;
@@ -342,7 +416,8 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     try {
       // For now, only handle restore option
       if (options.restore) {
-        const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/jobs/${photoId}/restore`, {
+        // Use photos endpoint instead of jobs endpoint
+        const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/photos/${photoId}/restore`, {
           model: 'comfyui_default',
           params: {
             denoise: 0.8,

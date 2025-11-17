@@ -11,6 +11,8 @@ import uuid
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.api.deps import require_tier, require_credits, get_current_user
+from app.models.user import User
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.schemas.jobs import (
     JobResponse,
@@ -31,10 +33,13 @@ router = APIRouter()
 async def upload_and_process(
     file: UploadFile = File(...),
     email: str = Form(...),
+    current_user: User = Depends(require_tier("cherish")),  # Batch upload requires Cherish tier
     db: Session = Depends(get_db),
 ):
     """
-    Upload an image and create a new job
+    Upload an image and create a new job.
+    
+    **Requires:** Cherish tier or higher (batch upload feature)
     """
     # Validate file type
     if file.content_type not in settings.ALLOWED_FILE_TYPES:
@@ -121,17 +126,27 @@ async def upload_and_process(
 async def create_restore_attempt(
     job_id: UUID,
     restore_data: RestoreAttemptCreate,
+    current_user: User = Depends(require_credits(2)),  # Restoration costs 2 credits
     db: Session = Depends(get_db),
 ):
     """
-    Create a new restore attempt for a job
+    Create a new restore attempt for a job.
+    
+    **Requires:** 2 credits
     """
-    # Verify job exists
+    # Verify job exists and belongs to the user
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     try:
@@ -177,17 +192,48 @@ async def create_restore_attempt(
 async def create_animation_attempt(
     job_id: UUID,
     animation_data: AnimationAttemptCreate,
+    # Animation requires "remember" tier AND 8 credits
+    # We use require_tier first, then require_credits will also check tier implicitly
+    current_user: User = Depends(require_tier("remember")),  # Animation requires Remember tier
     db: Session = Depends(get_db),
 ):
     """
-    Create a new animation attempt for a job
+    Create a new animation attempt for a job.
+    
+    **Requires:** 
+    - Remember tier or higher
+    - 8 credits
     """
+    # Check credits after tier check (can't combine dependencies easily, so check manually)
+    if current_user.total_credits < 8:
+        logger.warning(
+            "Insufficient credits for animation",
+            extra={
+                "event_type": "permission_denied",
+                "user_id": str(current_user.id),
+                "required_credits": 8,
+                "available_credits": current_user.total_credits,
+                "reason": "insufficient_credits",
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient credits. Required: 8, Available: {current_user.total_credits}. "
+                   f"Please purchase more credits to continue.",
+        )
     # Verify job and restore attempt exist
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     restore = (
@@ -246,16 +292,26 @@ async def create_animation_attempt(
 @router.get("/{job_id}", response_model=JobWithRelations)
 async def get_job(
     job_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get a job with all its restore and animation attempts
+    Get a job with all its restore and animation attempts.
+    
+    **Requires:** Authentication and ownership verification
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     # Convert to response model with presigned URLs
@@ -333,16 +389,26 @@ async def get_job(
 @router.get("/{job_id}/image-url")
 async def get_job_image_url(
     job_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get presigned URL for a job's uploaded image
+    Get presigned URL for a job's uploaded image.
+    
+    **Requires:** Authentication and ownership verification
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     # Generate presigned URL for the uploaded image
@@ -363,17 +429,18 @@ async def get_job_image_url(
 
 @router.get("/", response_model=List[JobWithRelations])
 async def list_jobs(
-    email: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    List jobs with optional email filter, thumbnail URLs, and all restore/animation attempts
+    List jobs for the current user, with thumbnail URLs and all restore/animation attempts.
+    
+    **Requires:** Authentication - only returns jobs belonging to the current user
     """
-    query = db.query(Job)
-    if email:
-        query = query.filter(Job.email == email)
+    # Only return jobs for the authenticated user
+    query = db.query(Job).filter(Job.email == current_user.email)
     
     jobs = query.offset(skip).limit(limit).all()
     
@@ -454,19 +521,97 @@ async def list_jobs(
     return job_responses
 
 
-@router.delete("/{job_id}")
-async def delete_job(
+@router.delete("/{job_id}/restore/{restore_id}")
+async def delete_restore_attempt(
     job_id: UUID,
+    restore_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Delete a job and all its associated data
+    Delete a restore attempt.
+    
+    **Requires:** Authentication and ownership verification
+    """
+    # Verify job exists and belongs to the user
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
+        )
+    
+    # Verify restore attempt exists and belongs to the job
+    restore = db.query(RestoreAttempt).filter(
+        RestoreAttempt.id == restore_id,
+        RestoreAttempt.job_id == job_id
+    ).first()
+    
+    if not restore:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Restore attempt not found",
+        )
+    
+    try:
+        # If this was the selected restore, clear the selection
+        if job.selected_restore_id == restore_id:
+            job.selected_restore_id = None
+        
+        # Delete the restore attempt
+        db.delete(restore)
+        db.commit()
+        
+        # TODO: Add S3 cleanup task to delete associated files if needed
+        
+        logger.info(
+            f"Deleted restore attempt {restore_id} for job {job_id}",
+            user_id=current_user.email,
+            job_id=str(job_id),
+            restore_id=str(restore_id),
+        )
+        
+        return {"message": "Restore attempt deleted successfully"}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting restore attempt {restore_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting restore attempt: {str(e)}",
+        )
+
+
+@router.delete("/{job_id}")
+async def delete_job(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a job and all its associated data.
+    
+    **Requires:** Authentication and ownership verification
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     try:

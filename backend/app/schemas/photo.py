@@ -5,7 +5,7 @@ Pydantic schemas for photo operations.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -74,4 +74,14 @@ class PhotoPresignedUrlResponse(BaseModel):
     """Schema for presigned download URL response."""
     url: str = Field(..., description="Presigned GET URL")
     expires_in: int = Field(3600, description="URL expiration in seconds")
+
+
+class PhotoDetailsResponse(BaseModel):
+    """Schema for photo details with results."""
+    photo: PhotoResponse
+    results: List[Dict[str, Any]] = Field(default_factory=list, description="Restore attempts from associated job")
+    processingJobs: List[Dict[str, Any]] = Field(default_factory=list, description="Processing jobs")
+    relatedPhotos: List[PhotoResponse] = Field(default_factory=list, description="Related photos")
+    
+    model_config = ConfigDict(from_attributes=True)
 

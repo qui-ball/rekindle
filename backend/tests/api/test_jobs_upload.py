@@ -102,10 +102,12 @@ class TestJobsUpload:
         assert test_db_session.query(Job).count() == 0
 
     @pytest.mark.asyncio
-    async def test_list_jobs_cleans_thumbnail_key(self, mock_s3_service, test_db_session):
+    async def test_list_jobs_cleans_thumbnail_key(self, mock_s3_service, test_db_session, override_get_current_user):
         """Test that list_jobs endpoint cleans thumbnail keys before generating presigned URLs"""
         # Arrange - create a job with a dirty thumbnail key (simulating old bug)
-        job = Job(email="test@example.com")
+        # Use the same email as the test user
+        user = override_get_current_user
+        job = Job(email=user.email)
         job.thumbnail_s3_key = "thumbnails/test.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256"
         test_db_session.add(job)
         test_db_session.commit()
@@ -114,7 +116,7 @@ class TestJobsUpload:
         mock_s3_service.s3_client.generate_presigned_url.return_value = "https://presigned-url.com/thumbnails/test.jpg?X-Amz-Algorithm=..."
 
         # Act
-        response = await list_jobs(db=test_db_session)
+        response = await list_jobs(current_user=user, db=test_db_session)
 
         # Assert
         # Verify clean_s3_key was called (indirectly by checking the key passed to generate_presigned_url)
@@ -129,10 +131,12 @@ class TestJobsUpload:
         assert clean_key == "thumbnails/test.jpg"
 
     @pytest.mark.asyncio
-    async def test_get_job_cleans_thumbnail_key(self, mock_s3_service, test_db_session):
+    async def test_get_job_cleans_thumbnail_key(self, mock_s3_service, test_db_session, override_get_current_user):
         """Test that get_job endpoint cleans thumbnail keys before generating presigned URLs"""
         # Arrange - create a job with a dirty thumbnail key
-        job = Job(email="test@example.com")
+        # Use the same email as the test user
+        user = override_get_current_user
+        job = Job(email=user.email)
         job.thumbnail_s3_key = "thumbnails/test.jpg%3FX-Amz-Algorithm%3D"
         test_db_session.add(job)
         test_db_session.commit()
@@ -141,7 +145,7 @@ class TestJobsUpload:
         mock_s3_service.s3_client.generate_presigned_url.return_value = "https://presigned-url.com/thumbnails/test.jpg"
 
         # Act
-        response = await get_job(job_id=job.id, db=test_db_session)
+        response = await get_job(job_id=job.id, current_user=user, db=test_db_session)
 
         # Assert
         # Verify clean_s3_key was used

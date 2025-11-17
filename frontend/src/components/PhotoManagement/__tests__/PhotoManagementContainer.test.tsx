@@ -195,6 +195,14 @@ describe('PhotoManagementContainer', () => {
     
     // Setup default mock implementations
     (photoManagementService.getPhotos as jest.Mock).mockResolvedValue(mockPhotos);
+    (photoManagementService.getPhotoDetails as jest.Mock).mockImplementation((photoId: string) => {
+      const photo = mockPhotos.find(p => p.id === photoId);
+      return Promise.resolve({
+        photo: photo || mockPhotos[0],
+        results: [],
+        processingJobs: []
+      });
+    });
     (creditManagementService.getCreditBalance as jest.Mock).mockResolvedValue(mockCreditBalance);
     (creditManagementService.calculateProcessingCost as jest.Mock).mockResolvedValue({
       totalCost: 5,
@@ -268,7 +276,9 @@ describe('PhotoManagementContainer', () => {
     
     fireEvent.click(screen.getByTestId('photo-1'));
     
-    expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    });
     expect(screen.getByTestId('selected-photo')).toHaveTextContent('test1.jpg');
   });
 
@@ -280,7 +290,10 @@ describe('PhotoManagementContainer', () => {
     });
     
     fireEvent.click(screen.getByTestId('photo-1'));
-    expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    });
     
     fireEvent.click(screen.getByTestId('close-drawer'));
     expect(screen.queryByTestId('photo-detail-drawer')).not.toBeInTheDocument();
@@ -294,6 +307,11 @@ describe('PhotoManagementContainer', () => {
     });
     
     fireEvent.click(screen.getByTestId('photo-1'));
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    });
+    
     fireEvent.click(screen.getByTestId('delete-photo'));
     
     expect(photoManagementService.deletePhoto).toHaveBeenCalledWith('1');
@@ -307,6 +325,11 @@ describe('PhotoManagementContainer', () => {
     });
     
     fireEvent.click(screen.getByTestId('photo-1'));
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    });
+    
     fireEvent.click(screen.getByTestId('process-photo'));
     
     await waitFor(() => {
@@ -429,7 +452,14 @@ describe('PhotoManagementContainer', () => {
     
     fireEvent.click(screen.getByTestId('photo-1'));
     
-    expect(onPhotoSelect).toHaveBeenCalledWith(mockPhotos[0]);
+    await waitFor(() => {
+      expect(onPhotoSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '1',
+          originalFilename: 'test1.jpg'
+        })
+      );
+    });
   });
 
   it('calls onProcessingComplete callback when processing starts', async () => {
@@ -441,6 +471,11 @@ describe('PhotoManagementContainer', () => {
     });
     
     fireEvent.click(screen.getByTestId('photo-1'));
+    
+    await waitFor(() => {
+      expect(screen.getByTestId('photo-detail-drawer')).toBeInTheDocument();
+    });
+    
     fireEvent.click(screen.getByTestId('process-photo'));
     
     await waitFor(() => {

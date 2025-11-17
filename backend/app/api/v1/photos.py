@@ -27,9 +27,16 @@ from app.schemas.photo import (
     PresignedUploadResponse,
     PhotoUpdate,
     PhotoPresignedUrlResponse,
+    PhotoDetailsResponse,
 )
 from app.services.storage_service import storage_service
 from app.services.photo_service import photo_service
+from app.models.jobs import Job, RestoreAttempt
+from app.schemas.jobs import RestoreAttemptCreate, RestoreAttemptResponse
+from app.api.deps import require_credits
+from app.workers.tasks import jobs as job_tasks
+from app.services.s3 import s3_service
+import uuid
 
 router = APIRouter()
 
@@ -421,10 +428,14 @@ async def list_photos(
             
             processed_url = None
             if photo.processed_key:
-                processed_url = storage_service.generate_presigned_download_url(
-                    photo.processed_key,
-                    current_user.supabase_user_id,
-                )
+                # Check if processed_key is user-scoped or job-based
+                if photo.processed_key.startswith("users/"):
+                    # User-scoped key - use storage_service
+                    processed_url = storage_service.generate_presigned_download_url(
+                        photo.processed_key,
+                        current_user.supabase_user_id,
+                    )
+                # Legacy job-based keys are ignored (old photos should be deleted)
             
             thumbnail_url = None
             if photo.thumbnail_key:
@@ -473,16 +484,17 @@ async def list_photos(
         )
 
 
-@router.get("/{photo_id}", response_model=PhotoResponse)
+@router.get("/{photo_id}", response_model=PhotoDetailsResponse)
 async def get_photo(
     photo_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get a specific photo by ID.
+    Get a specific photo by ID with results from associated Job.
     
     Returns 404 if photo doesn't exist or doesn't belong to the user.
+    Includes restore attempts from the associated job (job_id = photo_id).
     """
     photo = photo_service.get_photo(
         db=db,
@@ -504,10 +516,15 @@ async def get_photo(
     
     processed_url = None
     if photo.processed_key:
-        processed_url = storage_service.generate_presigned_download_url(
-            photo.processed_key,
-            current_user.supabase_user_id,
-        )
+        # Only support user-scoped keys
+        if not photo.processed_key.startswith("users/"):
+            # Legacy job-based key - skip it (old photos should be deleted)
+            logger.warning(f"Photo {photo.id} has legacy job-based processed_key: {photo.processed_key}")
+        else:
+            processed_url = storage_service.generate_presigned_download_url(
+                photo.processed_key,
+                current_user.supabase_user_id,
+            )
     
     thumbnail_url = None
     if photo.thumbnail_key:
@@ -516,7 +533,7 @@ async def get_photo(
             current_user.supabase_user_id,
         )
     
-    return PhotoResponse(
+    photo_response = PhotoResponse(
         id=photo.id,
         owner_id=photo.owner_id,
         original_key=photo.original_key,
@@ -533,6 +550,49 @@ async def get_photo(
         original_url=original_url,
         processed_url=processed_url,
         thumbnail_url=thumbnail_url,
+    )
+    
+    # Get restore attempts from associated job (job_id = photo_id)
+    job = db.query(Job).filter(Job.id == photo_id).first()
+    results = []
+    if job:
+        restore_attempts = db.query(RestoreAttempt).filter(
+            RestoreAttempt.job_id == photo_id
+        ).order_by(RestoreAttempt.created_at.desc()).all()
+        
+        for restore in restore_attempts:
+            # Generate presigned URL for restore result
+            restore_url = None
+            if restore.s3_key and restore.s3_key not in ["pending", "", "failed"]:
+                try:
+                    # Only support user-scoped keys
+                    if not restore.s3_key.startswith("users/"):
+                        # Legacy job-based key - skip it (old restore attempts should be cleaned up)
+                        logger.warning(f"Restore attempt {restore.id} has legacy job-based s3_key: {restore.s3_key}")
+                    else:
+                        # User-scoped key - use storage_service
+                        restore_url = storage_service.generate_presigned_download_url(
+                            restore.s3_key,
+                            current_user.supabase_user_id,
+                        )
+                except Exception as e:
+                    logger.error(f"Error generating presigned URL for restore {restore.id}: {e}")
+            
+            results.append({
+                "id": str(restore.id),
+                "job_id": str(restore.job_id),
+                "s3_key": restore.s3_key,
+                "model": restore.model,
+                "params": restore.params,
+                "created_at": restore.created_at.isoformat(),
+                "url": restore_url,
+            })
+    
+    return PhotoDetailsResponse(
+        photo=photo_response,
+        results=results,
+        processingJobs=[],  # TODO: Add processing jobs if needed
+        relatedPhotos=[],  # TODO: Add related photos if needed
     )
 
 
@@ -743,4 +803,112 @@ async def delete_photo(
     )
     
     return {"message": "Photo deleted successfully"}
+
+
+@router.post("/{photo_id}/restore", response_model=RestoreAttemptResponse)
+async def restore_photo(
+    photo_id: UUID,
+    restore_data: RestoreAttemptCreate,
+    current_user: User = Depends(require_credits(2)),  # Restoration costs 2 credits
+    db: Session = Depends(get_db),
+):
+    """
+    Create a restoration job for a photo.
+    
+    This endpoint creates a Job record for the photo (if one doesn't exist),
+    then creates a restore attempt using the existing restoration workflow.
+    
+    **Requires:** 2 credits
+    """
+    # Verify photo exists and belongs to user
+    photo = photo_service.get_photo(
+        db=db,
+        owner_id=current_user.supabase_user_id,
+        photo_id=photo_id,
+    )
+    
+    if not photo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Photo not found",
+        )
+    
+    try:
+        # Create or find a Job for this photo
+        # Use photo ID as job ID for consistency (one job per photo)
+        job_id = photo_id
+        job = db.query(Job).filter(Job.id == job_id).first()
+        
+        # If job exists, verify it belongs to the current user
+        if job and job.email != current_user.email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Job does not belong to the current user",
+            )
+        
+        if not job:
+            # Create a new job for this photo
+            # The database requires thumbnail_s3_key to be NOT NULL and must start with "thumbnails/"
+            # Use job-based format to match the constraint, even though photo uses user-based format
+            thumbnail_key = f"thumbnails/{job_id}.jpg"
+            
+            job = Job(
+                id=job_id,
+                email=current_user.email,  # Use user's email for the job
+                thumbnail_s3_key=thumbnail_key,
+            )
+            db.add(job)
+            db.flush()
+        
+        # Create restore attempt record (will be updated by worker)
+        # The worker will check for existing restore attempts and use this one
+        restore = RestoreAttempt(
+            job_id=job_id,
+            s3_key="",  # Will be updated by worker
+            model=restore_data.model,
+            params=restore_data.params,
+        )
+        db.add(restore)
+        db.flush()
+        
+        # Update job's selected restore
+        job.selected_restore_id = restore.id
+        
+        # Update photo status to processing
+        photo.status = "processing"
+        
+        db.commit()
+        
+        # Queue the restoration task
+        # The worker will find and update the restore attempt we just created
+        job_tasks.process_restoration.delay(
+            str(job_id),
+            restore_data.model,
+            restore_data.params or {},
+        )
+        
+        return RestoreAttemptResponse(
+            id=restore.id,
+            job_id=job_id,
+            s3_key="pending",
+            model=restore.model,
+            params=restore.params,
+            created_at=restore.created_at,
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            "Error creating restore attempt for photo",
+            extra={
+                "photo_id": str(photo_id),
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating restore attempt: {str(e)}",
+        )
 

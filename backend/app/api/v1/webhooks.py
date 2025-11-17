@@ -155,6 +155,16 @@ async def handle_runpod_completion(request: Request):
                 # Update job's selected restore
                 job.selected_restore_id = restore.id
 
+                # Update the associated Photo model if job_id matches a photo_id
+                # (When restoration is triggered from a photo, job_id = photo_id)
+                from app.models.photo import Photo
+                photo = db.query(Photo).filter(Photo.id == job_uuid).first()
+                if photo:
+                    # Update photo's processed_key to point to the restored image
+                    photo.processed_key = restore.s3_key
+                    photo.status = "ready"
+                    logger.info(f"Updated photo {photo.id} with processed_key: {restore.s3_key}")
+
                 # Add execution metrics to params
                 restore.params = {
                     **restore.params,

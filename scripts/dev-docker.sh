@@ -126,8 +126,30 @@ SUPABASE_URL_FOR_CONTAINERS="http://host.docker.internal:54321"
 # Try to extract keys from supabase status output
 # First try JSON output, then fallback to parsing text output
 if command -v jq &> /dev/null && supabase status --output json >/dev/null 2>&1; then
-    SUPABASE_ANON_KEY=$(supabase status --output json 2>/dev/null | jq -r '.DB.APIKeys.anon' 2>/dev/null || echo "")
-    SUPABASE_SERVICE_KEY=$(supabase status --output json 2>/dev/null | jq -r '.DB.APIKeys.service_role' 2>/dev/null || echo "")
+    # New Supabase CLI uses top-level keys: ANON_KEY and SERVICE_ROLE_KEY
+    # Use 'if .KEY then .KEY else empty end' to avoid jq outputting "null" as a string
+    SUPABASE_ANON_KEY=$(supabase status --output json 2>/dev/null | jq -r 'if .ANON_KEY then .ANON_KEY elif .DB.APIKeys.anon then .DB.APIKeys.anon else empty end' 2>/dev/null || echo "")
+    SUPABASE_SERVICE_KEY=$(supabase status --output json 2>/dev/null | jq -r 'if .SERVICE_ROLE_KEY then .SERVICE_ROLE_KEY elif .DB.APIKeys.service_role then .DB.APIKeys.service_role else empty end' 2>/dev/null || echo "")
+    
+    # Filter out "null" strings that jq might output
+    if [ "$SUPABASE_ANON_KEY" = "null" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+        SUPABASE_ANON_KEY=""
+    fi
+    if [ "$SUPABASE_SERVICE_KEY" = "null" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+        SUPABASE_SERVICE_KEY=""
+    fi
+    
+    # If still empty, try alternative paths
+    if [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
+        # Fallback: parse from text output
+        STATUS_OUTPUT=$(supabase status 2>/dev/null || echo "")
+        if [ -z "$SUPABASE_ANON_KEY" ]; then
+            SUPABASE_ANON_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'anon key:\s+\K[^\s]+' | head -1 || echo "")
+        fi
+        if [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            SUPABASE_SERVICE_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'service_role key:\s+\K[^\s]+' | head -1 || echo "")
+        fi
+    fi
 else
     # Fallback: parse from text output
     STATUS_OUTPUT=$(supabase status 2>/dev/null || echo "")
@@ -135,14 +157,54 @@ else
     SUPABASE_SERVICE_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'service_role key:\s+\K[^\s]+' | head -1 || echo "")
 fi
 
-# Export Supabase environment variables for use in Docker containers
-# These will override values in env_file if the script successfully extracted them
+# Update backend/.env file with Supabase credentials (source of truth)
+# This ensures the .env file always has the correct values, even if docker-compose is run directly
+# Only update if we successfully extracted non-empty, non-null values
+if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ] && [ "$SUPABASE_ANON_KEY" != "null" ] && [ "$SUPABASE_SERVICE_KEY" != "null" ]; then
+    # Update backend/.env with correct Supabase values
+    if [ -f "backend/.env" ]; then
+        # Use sed to update or add SUPABASE_URL
+        if grep -q "^SUPABASE_URL=" backend/.env; then
+            sed -i "s|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|" backend/.env
+        else
+            echo "SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS" >> backend/.env
+        fi
+        # Update or add SUPABASE_ANON_KEY
+        if grep -q "^SUPABASE_ANON_KEY=" backend/.env; then
+            sed -i "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|" backend/.env
+        else
+            echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> backend/.env
+        fi
+        # Update or add SUPABASE_SERVICE_KEY
+        if grep -q "^SUPABASE_SERVICE_KEY=" backend/.env; then
+            sed -i "s|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY|" backend/.env
+        else
+            echo "SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY" >> backend/.env
+        fi
+    fi
+    
+    # Update frontend/.env.local with Supabase credentials (preferred over .env)
+    if [ ! -f "frontend/.env.local" ]; then
+        touch frontend/.env.local
+    fi
+    # Update or add NEXT_PUBLIC_SUPABASE_URL
+    if grep -q "^NEXT_PUBLIC_SUPABASE_URL=" frontend/.env.local; then
+        sed -i "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|" frontend/.env.local
+    else
+        echo "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS" >> frontend/.env.local
+    fi
+    # Update or add NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if grep -q "^NEXT_PUBLIC_SUPABASE_ANON_KEY=" frontend/.env.local; then
+        sed -i "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|" frontend/.env.local
+    else
+        echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> frontend/.env.local
+    fi
+fi
+
+# Export for potential use by docker-compose (though .env file is primary source)
 export SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
 export SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY"
-
-# Also set frontend environment variables (containers access via host.docker.internal)
-# Note: These can be set in frontend/.env or frontend/.env.local, but script exports take precedence
 export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
@@ -218,7 +280,36 @@ for i in {1..20}; do
     sleep 1
 done
 
-#
+# Wait for frontend to be ready and warm up pages
+echo "🔥 Warming up frontend pages..."
+# Use -k flag for HTTPS to skip certificate verification in development
+CURL_FLAGS="-s"
+if [ "$HTTPS_MODE" = true ]; then
+    CURL_FLAGS="-sk"
+fi
+
+for i in {1..30}; do
+    if curl $CURL_FLAGS "$PROTOCOL://localhost:3000" > /dev/null 2>&1; then
+        # Frontend is ready, now warm up main pages
+        echo "   Pre-compiling pages..."
+        # Warm up main pages in parallel (quietly)
+        (
+            curl $CURL_FLAGS "$PROTOCOL://localhost:3000" > /dev/null 2>&1 &
+            curl $CURL_FLAGS "$PROTOCOL://localhost:3000/sign-in" > /dev/null 2>&1 &
+            curl $CURL_FLAGS "$PROTOCOL://localhost:3000/sign-up" > /dev/null 2>&1 &
+            curl $CURL_FLAGS "$PROTOCOL://localhost:3000/gallery" > /dev/null 2>&1 &
+            curl $CURL_FLAGS "$PROTOCOL://localhost:3000/upload" > /dev/null 2>&1 &
+            wait
+        )
+        echo "✅ Frontend warmed up"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "⚠️  Frontend may not be fully ready, but continuing..."
+    fi
+    sleep 1
+done
+
 # Apply database migrations (only if a local postgres service exists)
 if docker compose ps postgres >/dev/null 2>&1; then
     echo "🗄️  Applying database migrations..."
