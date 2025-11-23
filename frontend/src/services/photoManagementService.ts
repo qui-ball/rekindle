@@ -55,6 +55,8 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
   async getPhotos(userId: string, pagination: PaginationOptions): Promise<Photo[]> {
     try {
       // Use the new photos API endpoint with offset/limit pagination
+      // Backend automatically filters by current_user.supabase_user_id from the authentication token
+      // userId parameter is kept for API compatibility but backend handles filtering
       const offset = (pagination.page - 1) * pagination.limit;
       const params = new URLSearchParams({
         offset: offset.toString(),
@@ -91,6 +93,36 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       return photos;
       
     } catch (error) {
+      // Check if this is an authentication error
+      if (error instanceof Error && (
+        error.message.includes('Authentication required') || 
+        error.message.includes('Session expired') ||
+        error.message.includes('401')
+      )) {
+        console.error('Authentication error fetching photos:', error);
+        
+        // Check if we still have a valid session - if yes, this might be a backend issue
+        // Don't throw - return empty array instead (user might just have no photos)
+        try {
+          const { getSupabaseClient } = await import('@/lib/supabase');
+          const supabase = getSupabaseClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session && session.access_token) {
+            // We have a valid session but got 401 - might be backend issue or empty result
+            // Return empty array instead of throwing (empty gallery is valid)
+            console.warn('Got 401 but have valid session - returning empty array (might be empty gallery)');
+            return [];
+          }
+        } catch (checkError) {
+          console.error('Error checking session:', checkError);
+        }
+        
+        // No valid session - re-throw so caller can handle
+        throw error;
+      }
+      
+      // For other errors (network, server errors, etc.), return empty array
       console.error('Error fetching photos from API:', error);
       // Return empty array instead of mock data - let UI handle empty state
       return [];

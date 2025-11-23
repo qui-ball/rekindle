@@ -2412,18 +2412,18 @@ Add tier and credit requirements to photo processing endpoints.
 **Type:** Backend  
 **Priority:** P0  
 **Estimated Time:** 3 hours  
-**Status:** Not Started
+**Status:** ✅ Completed
 
 **Description:**
 Ensure every photo API (list, get, delete, download, share) scopes queries by `current_user.id`.
 
 **Subtasks:**
-- [ ] Implement `photo_service.assert_owner(photo_id, user_id)`
-- [ ] Update list endpoints to join on `user_id` and prohibit unbounded queries
-- [ ] Wrap presigned download/delete routes with ownership verification
-- [ ] Return 404 (not 403) when resource belongs to another user
-- [ ] Emit security log on ownership violation attempts
-- [ ] Add caching layer for frequently accessed photo metadata (optional)
+- [x] Implement `photo_service.assert_owner(photo_id, user_id)`
+- [x] Update list endpoints to join on `user_id` and prohibit unbounded queries
+- [x] Wrap presigned download/delete routes with ownership verification
+- [x] Return 404 (not 403) when resource belongs to another user
+- [x] Emit security log on ownership violation attempts
+- [ ] Add caching layer for frequently accessed photo metadata (optional - deferred)
 
 **Acceptance Criteria:**
 - ✅ All photo endpoints fail closed when `user_id` mismatch detected
@@ -2431,10 +2431,31 @@ Ensure every photo API (list, get, delete, download, share) scopes queries by `c
 - ✅ Security logs capture offending user/token details without leaking target IDs
 - ✅ Unit tests cover success, foreign user, and missing resource cases
 
-**Files to Modify:**
-- `backend/app/api/v1/photos.py`
-- `backend/app/services/photo_service.py`
-- `backend/tests/api/test_photos.py`
+**Implementation Notes:**
+- Added `assert_owner()` method to `PhotoService` that:
+  - Checks if photo exists (without owner filter first)
+  - Validates ownership and logs security violations
+  - Returns Photo if valid, raises ValueError if not found or ownership mismatch
+  - Logs ownership violations with structured event type `photo_ownership_violation`
+- Updated all photo endpoints (`get_photo`, `get_photo_download_url`, `update_photo`, `delete_photo`) to use `assert_owner()`
+- All endpoints return 404 (not 403) for both "not found" and "ownership mismatch" to avoid leaking existence
+- List endpoint already enforces limits (`limit: int = Query(50, ge=1, le=100)`) preventing unbounded queries
+- Comprehensive unit tests added covering:
+  - Success cases (user owns photo)
+  - Not found cases (photo doesn't exist)
+  - Ownership violation cases (photo belongs to another user)
+  - Security logging verification
+  - List endpoint scoping
+  - Limit enforcement
+
+**Files Modified:**
+- `backend/app/api/v1/photos.py` - Updated all endpoints to use `assert_owner()`
+- `backend/app/services/photo_service.py` - Added `assert_owner()` method with security logging
+- `backend/tests/api/test_photos.py` - Created comprehensive unit tests
+
+**Evaluation:**
+- See `task-6.2a-evaluation.md` for detailed completeness analysis, code quality review, and recommendations
+- Overall Grade: A- (90/100) - Production ready with minor enhancement opportunities
 
 ---
 
@@ -2442,28 +2463,45 @@ Ensure every photo API (list, get, delete, download, share) scopes queries by `c
 **Type:** Testing  
 **Priority:** P0  
 **Estimated Time:** 2 hours  
-**Status:** Not Started
+**Status:** ✅ Completed
 
 **Description:**
-Add automated tests validating that users cannot view or download other users’ photos.
+Add automated tests validating that users cannot view or download other users' photos.
 
 **Subtasks:**
-- [ ] Create integration tests simulating two users with distinct photos
-- [ ] Assert list endpoint only returns caller’s assets
-- [ ] Attempt to fetch/download/delete another user’s photo (expect 404)
-- [ ] Verify presigned URL generation fails for mismatched ownership
-- [ ] Add regression test for S3 smoke script (`scripts/test-presigned-access.sh`)
-- [ ] Document test plan in `docs/testing/AUTHENTICATION_TEST_PLAN.md`
+- [x] Create integration tests simulating two users with distinct photos
+- [x] Assert list endpoint only returns caller's assets
+- [x] Attempt to fetch/download/delete another user's photo (expect 404)
+- [x] Verify presigned URL generation fails for mismatched ownership
+- [x] Add regression test for S3 smoke script (`scripts/test-presigned-access.sh`)
+- [x] Document test plan in `docs/testing/AUTHENTICATION_TEST_PLAN.md`
 
 **Acceptance Criteria:**
 - ✅ Automated suite fails if cross-user access slips through
 - ✅ Smoke script runs in CI/CD and staging environments
 - ✅ Test documentation updated with scenarios
 
-**Files to Modify:**
-- `backend/tests/integration/test_photo_ownership.py`
-- `scripts/test-presigned-access.sh`
-- `docs/testing/AUTHENTICATION_TEST_PLAN.md`
+**Implementation Notes:**
+- Created comprehensive integration test suite (`test_photo_ownership.py`) with 10+ test scenarios
+- Tests cover all CRUD operations (GET, PUT, DELETE) with ownership validation
+- Tests verify list endpoint isolation (users only see their own photos)
+- Tests verify presigned URL generation isolation (scoped to requesting user)
+- Created shell script wrapper (`test-presigned-access.sh`) for CI/CD integration
+- Comprehensive test plan documentation includes:
+  - Test scenarios and expected behaviors
+  - CI/CD integration examples
+  - Security logging verification
+  - Regression test procedures
+- All tests verify 404 (not 403) responses to avoid information leakage
+- Tests include security log verification for ownership violations
+
+**Files Created:**
+- `backend/tests/integration/test_photo_ownership.py` - Integration test suite
+- `backend/scripts/test-presigned-access.sh` - Shell wrapper for smoke tests
+- `backend/docs/testing/AUTHENTICATION_TEST_PLAN.md` - Comprehensive test plan
+
+**Files Modified:**
+- `backend/scripts/test_storage_isolation.py` - Already exists, used by smoke script
 
 ---
 

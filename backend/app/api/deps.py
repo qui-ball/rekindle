@@ -19,7 +19,9 @@ from app.core.database import get_db
 from app.models.user import User, UserTier
 from app.services.cross_device_session_service import CrossDeviceSessionService
 
-security = HTTPBearer()
+# HTTPBearer with auto_error=False so we can handle missing tokens ourselves
+# This allows us to return 401 instead of 403 when token is missing
+security = HTTPBearer(auto_error=False)
 
 # Cache for JWKS keys (refreshed periodically)
 _jwks_cache: Optional[dict] = None
@@ -133,7 +135,7 @@ def is_supabase_issuer(issuer: str, supabase_url: str) -> bool:
 
 def verify_supabase_token(token: str) -> dict:
     """
-    Verify Supabase JWT token using JWKS.
+    Verify Supabase JWT token using JWKS (RS256 for production) or anon key (HS256 for local dev).
     
     For local Supabase development, if JWKS is empty, attempts to decode
     token without verification to check issuer, then uses service key for verification.
@@ -164,7 +166,7 @@ def verify_supabase_token(token: str) -> dict:
             }
         )
         
-        # Get unverified header first to check token format
+        # Get unverified header first to check token format and algorithm
         try:
             unverified_header = jwt.get_unverified_header(token)
         except JWTError as e:
@@ -181,9 +183,14 @@ def verify_supabase_token(token: str) -> dict:
                 detail="Invalid token format"
             )
         
+        # Get algorithm and key ID from header
+        alg = unverified_header.get("alg")
+        kid = unverified_header.get("kid")
+        
+        logger.info(f"Token algorithm: {alg}, kid: {kid}")
+        
         # Try to decode without verification to check issuer (for debugging/fallback)
         # Note: jose library requires a key parameter even when verify_signature=False
-        # We use an empty string as a dummy key since we're not verifying the signature
         unverified_iss = ""
         try:
             unverified_payload = jwt.decode(
@@ -238,18 +245,119 @@ def verify_supabase_token(token: str) -> dict:
                 detail=f"Invalid token format: {type(e).__name__}: {str(e)}"
             )
         
-        # Fetch JWKS
+        # Handle HS256 tokens (local Supabase development)
+        if alg == "HS256":
+            logger.info("Detected HS256 token (likely local Supabase), attempting verification")
+            logger.debug(f"Anon key length: {len(settings.SUPABASE_ANON_KEY)}, preview: {settings.SUPABASE_ANON_KEY[:20]}...")
+            
+            # For local Supabase, try multiple keys:
+            # 1. JWT secret (if explicitly configured)
+            # 2. Anon key (most common for local Supabase)
+            # 3. Service key (sometimes used for signing)
+            keys_to_try = []
+            if settings.SUPABASE_JWT_SECRET:
+                keys_to_try.append(("jwt_secret", settings.SUPABASE_JWT_SECRET))
+            keys_to_try.extend([
+                ("anon_key", settings.SUPABASE_ANON_KEY),
+                ("service_key", settings.SUPABASE_SERVICE_KEY),
+            ])
+            
+            last_error = None
+            for key_name, key_value in keys_to_try:
+                try:
+                    logger.info(f"Trying HS256 verification with {key_name}")
+                    # Try with audience check first
+                    try:
+                        payload = jwt.decode(
+                            token,
+                            key_value,
+                            algorithms=[ALGORITHMS.HS256],
+                            audience="authenticated",
+                            options={"verify_aud": True}
+                        )
+                        logger.info(f"HS256 verification succeeded with {key_name} (with audience check)")
+                        break
+                    except JWTError as aud_error:
+                        logger.debug(f"HS256 verification with {key_name} and audience check failed: {aud_error}, trying without audience check")
+                        # Try without audience verification (local Supabase might not set audience)
+                        payload = jwt.decode(
+                            token,
+                            key_value,
+                            algorithms=[ALGORITHMS.HS256],
+                            options={"verify_aud": False}
+                        )
+                        logger.info(f"HS256 verification succeeded with {key_name} (without audience check)")
+                        break
+                except JWTError as e:
+                    logger.debug(f"HS256 verification with {key_name} failed: {e}")
+                    last_error = e
+                    continue
+            
+            # If all keys failed, raise error with helpful message
+            if 'payload' not in locals():
+                logger.error(f"HS256 token verification failed with all keys. Last error: {last_error}")
+                logger.error(f"Tried keys: JWT_SECRET={'set' if settings.SUPABASE_JWT_SECRET else 'not set'}, anon_key length={len(settings.SUPABASE_ANON_KEY)}, service_key length={len(settings.SUPABASE_SERVICE_KEY)}")
+                # Try to decode without verification to get issuer info for debugging
+                try:
+                    unverified_payload = jwt.decode(
+                        token,
+                        key=settings.SUPABASE_ANON_KEY,
+                        options={"verify_signature": False, "verify_aud": False, "verify_exp": False}
+                    )
+                    logger.error(f"Token issuer: {unverified_payload.get('iss')}, sub: {unverified_payload.get('sub')}")
+                except:
+                    pass
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"HS256 token verification failed: Signature verification failed. For local Supabase, ensure SUPABASE_ANON_KEY matches the 'Publishable key' from 'supabase status'. You can also set SUPABASE_JWT_SECRET if your JWT secret differs."
+                )
+            
+            # Verify issuer matches Supabase (more flexible for local dev)
+            iss = payload.get("iss")
+            supabase_url_normalized = settings.SUPABASE_URL.rstrip("/")
+            # For local Supabase, issuer might be different format, so check if it contains the URL
+            if not iss:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token missing issuer"
+                )
+            # Normalize URLs for comparison (handle localhost/127.0.0.1/host.docker.internal)
+            def normalize_url(url: str) -> str:
+                """Normalize URL by converting 127.0.0.1 and host.docker.internal to localhost for comparison"""
+                url = url.replace("host.docker.internal", "localhost")
+                url = url.replace("127.0.0.1", "localhost")
+                return url
+            
+            normalized_iss = normalize_url(iss)
+            normalized_supabase = normalize_url(supabase_url_normalized)
+            
+            # Check if issuer matches Supabase URL (exact match or contains for local dev)
+            if not (normalized_iss == normalized_supabase or normalized_iss.startswith(normalized_supabase) or normalized_supabase in normalized_iss):
+                logger.warning(f"Token issuer {iss} doesn't match Supabase URL {supabase_url_normalized}")
+                # In development, be more lenient
+                if settings.ENVIRONMENT == "development":
+                    logger.warning(f"Allowing issuer mismatch in development mode")
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid token issuer"
+                    )
+            
+            logger.info(f"HS256 token verified successfully, issuer: {iss}, sub: {payload.get('sub')}")
+            return payload
+        
+        # Handle RS256 tokens (production Supabase) or unknown algorithm (default to RS256)
+        # Fetch JWKS for RS256 verification
         try:
             jwks = fetch_supabase_jwks()
         except HTTPException:
             # Propagate HTTPException from fetch_supabase_jwks (e.g., service unavailable)
             raise
         
-        kid = unverified_header.get("kid")
         jwks_keys = jwks.get("keys", [])
         
         # Handle case where JWKS is empty (local Supabase with symmetric keys)
-        # Try to verify using service key as fallback (ONLY in development)
+        # This should only happen for RS256 tokens when JWKS is not available
         if not jwks_keys:
             # Security: Only allow fallback in development environment
             if settings.ENVIRONMENT != "development":
@@ -274,66 +382,24 @@ def verify_supabase_token(token: str) -> dict:
                     "token_issuer": unverified_iss,
                 }
             )
-            # For local development only, try to verify with service key
-            # This is a fallback when JWKS is not available (local Supabase may use symmetric keys)
-            # Check token algorithm from header
-            token_algorithm = unverified_header.get("alg", "unknown")
-            logger.debug(
-                "Token algorithm from header",
-                extra={
-                    "algorithm": token_algorithm,
-                    "has_kid": "kid" in unverified_header,
-                }
-            )
-            
+            # For local development only, decode without verification but check issuer matches
             try:
-                # Try HS256 first (symmetric key - common for local Supabase)
-                # If that fails, the token is likely signed with RS256 (asymmetric)
-                # but we don't have the public key in JWKS
-                try:
-                    payload = jwt.decode(
-                        token,
-                        settings.SUPABASE_SERVICE_KEY,
-                        algorithms=[ALGORITHMS.HS256],
-                        audience="authenticated",
-                    )
-                    logger.info("Token verified using HS256 with service key (local dev)")
-                except JWTError:
-                    # If HS256 fails, the token is likely RS256 but we don't have the key
-                    # For local dev, we can skip signature verification if issuer matches
-                    logger.warning(
-                        "HS256 verification failed, token may be RS256 signed",
-                        extra={
-                            "token_algorithm": token_algorithm,
-                            "falling_back_to_unverified": True,
-                        }
-                    )
-                    # Decode without verification but check issuer matches
-                    payload = jwt.decode(
-                        token,
-                        "",
-                        options={
-                            "verify_signature": False,
-                            "verify_aud": False,
-                        }
-                    )
-                    # Verify issuer matches Supabase
-                    iss = payload.get("iss")
-                    if not iss or not is_supabase_issuer(iss, settings.SUPABASE_URL):
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid token issuer"
-                        )
-                    logger.info("Token accepted without signature verification (local dev - issuer verified)")
-                
-                # Verify issuer matches (for both HS256 and RS256 fallback cases)
+                payload = jwt.decode(
+                    token,
+                    "",
+                    options={
+                        "verify_signature": False,
+                        "verify_aud": False,
+                    }
+                )
+                # Verify issuer matches Supabase
                 iss = payload.get("iss")
                 if not iss or not is_supabase_issuer(iss, settings.SUPABASE_URL):
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid token issuer"
                     )
-                
+                logger.info("Token accepted without signature verification (local dev - issuer verified)")
                 return payload
             except JWTError as e:
                 logger.warning(
@@ -349,6 +415,7 @@ def verify_supabase_token(token: str) -> dict:
                     detail="Authentication service not properly configured. JWKS is empty and fallback verification failed."
                 )
         
+        # Handle RS256 tokens (production Supabase)
         if not kid:
             logger.warning(
                 "Token missing key ID",
@@ -412,6 +479,7 @@ def verify_supabase_token(token: str) -> dict:
                 detail="Invalid token issuer"
             )
         
+        logger.info(f"RS256 token verified successfully, issuer: {iss}, sub: {payload.get('sub')}")
         return payload
         
     except HTTPException:
@@ -424,11 +492,13 @@ def verify_supabase_token(token: str) -> dict:
                 "event_type": "jwt_verification_failed",
                 "error": str(e),
                 "token_type": "supabase",
-            }
+                "algorithm": unverified_header.get("alg") if 'unverified_header' in locals() else "unknown",
+            },
+            exc_info=True
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail=f"Invalid token: {str(e)}"
         )
 
 
@@ -451,9 +521,45 @@ def _fetch_user_by_identifier(
         User object if found, None otherwise
     """
     if is_supabase:
-        return db.query(User).filter(User.supabase_user_id == identifier).first()
+        logger.debug(f"Fetching user by supabase_user_id: {identifier}")
+        # Use raw SQL to bypass SQLAlchemy ORM issues with column aliasing
+        # This is a workaround for the KeyError('supabase_user_id_1') issue
+        from sqlalchemy import text
+        try:
+            # First, get the user ID using raw SQL
+            result = db.execute(
+                text("SELECT id FROM users WHERE supabase_user_id = :supabase_user_id LIMIT 1"),
+                {"supabase_user_id": identifier}
+            ).scalar_one_or_none()
+            
+            if result:
+                # Now use db.get() to get the full User object - this should work reliably
+                user = db.get(User, result)
+                if user:
+                    logger.debug(f"User found: id={user.id}, email={user.email}")
+                else:
+                    logger.debug("No user found with supabase_user_id (after ID lookup)")
+                return user
+            else:
+                logger.debug("No user found with supabase_user_id")
+                return None
+        except Exception as e:
+            logger.error(
+                f"Error fetching user by supabase_user_id: {e}",
+                exc_info=True
+            )
+            # Fallback: try simple ORM query one more time
+            try:
+                user = db.query(User).filter(User.supabase_user_id == identifier).first()
+                return user
+            except Exception as fallback_error:
+                logger.error(f"Fallback query also failed: {fallback_error}", exc_info=True)
+                raise
     else:
-        return db.query(User).filter(User.id == identifier).first()
+        logger.debug(f"Fetching user by id: {identifier}")
+        user = db.query(User).filter(User.id == identifier).first()
+        logger.debug(f"User lookup result: {'found' if user else 'not found'}")
+        return user
 
 
 def verify_cross_device_token(token: str) -> dict:
@@ -571,7 +677,7 @@ def verify_cross_device_token(token: str) -> dict:
 
 def get_current_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
     """
@@ -582,7 +688,7 @@ def get_current_user(
     2. Cross-device tokens (iss = rekindle:xdevice) - verified via XDEVICE_JWT_SECRET
     
     Args:
-        credentials: HTTP Bearer token credentials
+        credentials: HTTP Bearer token credentials (optional if auto_error=False)
         db: Database session
         
     Returns:
@@ -591,30 +697,108 @@ def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
-    token = credentials.credentials
-    
-    # Validate token is not empty
-    if not token or not token.strip():
+    # Check if credentials were provided
+    if not credentials:
+        ip_address = request.client.host if request.client else None
+        logger.warning(
+            "Missing Authorization header",
+            extra={
+                "event_type": "missing_auth_header",
+                "ip_address": ip_address,
+                "path": request.url.path,
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Empty token"
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    token = credentials.credentials
+    
+    # Check if token is present
+    if not token or not token.strip():
+        ip_address = request.client.host if request.client else None
+        logger.warning(
+            "Empty token in Authorization header",
+            extra={
+                "event_type": "empty_token",
+                "ip_address": ip_address,
+                "path": request.url.path,
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Empty token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Log authentication attempt (without sensitive data)
+    ip_address = request.client.host if request.client else None
+    logger.info(
+        "Authentication attempt",
+        extra={
+            "event_type": "auth_attempt",
+            "ip_address": ip_address,
+            "has_token": bool(token),
+            "token_length": len(token) if token else 0,
+            "token_preview": token[:20] + "..." if token and len(token) > 20 else "N/A",
+        }
+    )
     
     try:
         # Decode token without verification to check issuer
-        # We need to catch JWTError for malformed tokens
+        # First try to get unverified header to check algorithm
         try:
-            # Use get_unverified_claims to decode without verification
-            unverified_payload = jwt.get_unverified_claims(token)
-        except JWTError as e:
-            # Token is malformed or invalid
-            logger.warning(f"Malformed JWT token: {e}")
+            unverified_header = jwt.get_unverified_header(token)
+            alg = unverified_header.get("alg")
+            kid = unverified_header.get("kid")
+            logger.info(f"Token header: alg={alg}, kid={kid}")
+        except Exception as header_error:
+            logger.error(f"Failed to get unverified header: {header_error}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token format"
+                detail=f"Invalid token format: {str(header_error)}"
+            )
+        
+        # Decode token without verification to check issuer
+        # For HS256 tokens, we can use the anon key even without verification
+        # For RS256 tokens, we need a dummy key since we're not verifying
+        # IMPORTANT: Disable ALL verification including audience, expiration, etc.
+        try:
+            decode_options = {
+                "verify_signature": False,
+                "verify_aud": False,  # Don't verify audience
+                "verify_exp": False,  # Don't verify expiration
+                "verify_iat": False,  # Don't verify issued at
+                "verify_nbf": False,  # Don't verify not before
+            }
+            
+            if alg == "HS256":
+                # For HS256, use anon key (even without verification, jose needs a valid key format)
+                unverified_payload = jwt.decode(
+                    token,
+                    key=settings.SUPABASE_ANON_KEY,
+                    options=decode_options
+                )
+            else:
+                # For RS256 or unknown, use a dummy key
+                # Note: jose requires a key parameter even when verify_signature=False
+                unverified_payload = jwt.decode(
+                    token,
+                    key="dummy",  # Dummy key since we're not verifying signature
+                    options=decode_options
+                )
+        except JWTError as decode_error:
+            logger.error(f"Failed to decode token (unverified): {decode_error}", exc_info=True)
+            # If unverified decode fails, the token is malformed
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token format: {str(decode_error)}"
             )
         
         iss = unverified_payload.get("iss")
+        logger.info(f"Token issuer: {iss}, sub: {unverified_payload.get('sub')}")
         
         # Variables for logging (set based on token type)
         session_id_for_logging = None
@@ -644,17 +828,48 @@ def get_current_user(
             user = _fetch_user_by_identifier(db, user_id, is_supabase=False, iss=iss)
         elif iss:
             # Check if issuer is from Supabase - accept both external (localhost:54321) and internal (container:8000) URLs
+            # Use the is_supabase_issuer helper function for consistent checking
             if is_supabase_issuer(iss, settings.SUPABASE_URL):
                 # Supabase token - get supabase_user_id from token sub
-                payload = verify_supabase_token(token)
-                supabase_user_id = payload.get("sub")
-                if not supabase_user_id:
+                logger.info(f"Verifying Supabase token, issuer: {iss}")
+                try:
+                    payload = verify_supabase_token(token)
+                    supabase_user_id = payload.get("sub")
+                    logger.info(f"Token verified, supabase_user_id: {supabase_user_id}")
+                    if not supabase_user_id:
+                        logger.error("Token missing user ID (sub) in payload")
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Token missing user ID"
+                        )
+                    # Fetch user by supabase_user_id for Supabase tokens
+                    logger.info(f"Fetching user with supabase_user_id: {supabase_user_id}")
+                    user = _fetch_user_by_identifier(db, supabase_user_id, is_supabase=True, iss=iss)
+                    logger.info(f"User lookup result: {'found' if user else 'not found'}, email: {user.email if user else 'N/A'}")
+                except HTTPException:
+                    # Re-raise HTTP exceptions (authentication failures)
+                    raise
+                except Exception as e:
+                    # If Supabase verification fails, log and raise
+                    # Safely get supabase_user_id for logging
+                    supabase_user_id_for_log = None
+                    try:
+                        if 'supabase_user_id' in locals():
+                            supabase_user_id_for_log = supabase_user_id
+                    except:
+                        pass
+                    
+                    logger.error(
+                        f"Supabase token verification failed: {e}, "
+                        f"Exception type: {type(e).__name__}, "
+                        f"Exception repr: {repr(e)}, "
+                        f"Supabase user ID from token: {supabase_user_id_for_log or 'N/A'}",
+                        exc_info=True
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Token missing user ID"
+                        detail=f"Invalid token: {str(e)}"
                     )
-                # Fetch user by supabase_user_id for Supabase tokens
-                user = _fetch_user_by_identifier(db, supabase_user_id, is_supabase=True, iss=iss)
             else:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -672,69 +887,82 @@ def get_current_user(
             
             # For Supabase tokens, try to auto-create user if they don't exist
             # This handles cases where user signed in via OAuth or email/password but webhook didn't fire
-            if iss != "rekindle:xdevice" and supabase_user_id:
-                try:
-                    # Get email from token payload if available
-                    # Supabase JWT tokens include email for both OAuth and email/password users
-                    email = payload.get("email")
-                    email_verified = payload.get("email_verified", False)
-                    
-                    # Fallback: If email not in token (rare edge case), try to fetch from Supabase Admin API
-                    if not email:
+            if iss != "rekindle:xdevice" and supabase_user_id and 'payload' in locals():
+                # Get email from token payload if available
+                # Supabase JWT tokens include email for both OAuth and email/password users
+                user_email = payload.get("email")
+                email_verified = bool(payload.get("email_verified") or payload.get("email_confirmed_at"))
+                
+                # Extract metadata from token for richer user creation
+                user_metadata = payload.get("user_metadata") or {}
+                raw_meta = payload.get("raw_user_meta_data") or {}
+                combined_meta = {**raw_meta, **user_metadata}
+                
+                # Extract name fields
+                first_name = combined_meta.get("first_name") or combined_meta.get("name", "").split()[0] if combined_meta.get("name") else None
+                last_name = combined_meta.get("last_name") or (combined_meta.get("name", "").split()[1] if len(combined_meta.get("name", "").split()) > 1 else None)
+                profile_image_url = combined_meta.get("avatar_url") or combined_meta.get("picture") or combined_meta.get("avatar")
+                
+                # Fallback: If email not in token (rare edge case), try to fetch from Supabase Admin API
+                if not user_email:
+                    logger.warning(
+                        "Email not in token payload, attempting to fetch from Supabase API",
+                        extra={
+                            "event_type": "email_missing_from_token",
+                            "supabase_user_id": supabase_user_id,
+                        }
+                    )
+                    try:
+                        # Use Supabase Admin API to fetch user details
+                        admin_url = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/admin/users/{supabase_user_id}"
+                        headers = {
+                            "apikey": settings.SUPABASE_SERVICE_KEY,
+                            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                        }
+                        with httpx.Client(timeout=5.0) as client:
+                            response = client.get(admin_url, headers=headers)
+                            if response.status_code == 200:
+                                user_data = response.json()
+                                user_email = user_data.get("email")
+                                email_verified = bool(user_data.get("email_confirmed_at"))
+                                logger.info(
+                                    "Fetched email from Supabase Admin API",
+                                    extra={
+                                        "event_type": "email_fetched_from_api",
+                                        "supabase_user_id": supabase_user_id,
+                                        "email": user_email,
+                                    }
+                                )
+                    except Exception as e:
                         logger.warning(
-                            "Email not in token payload, attempting to fetch from Supabase API",
+                            "Failed to fetch email from Supabase API",
                             extra={
-                                "event_type": "email_missing_from_token",
+                                "event_type": "email_fetch_failed",
+                                "error": str(e),
                                 "supabase_user_id": supabase_user_id,
                             }
                         )
-                        try:
-                            # Use Supabase Admin API to fetch user details
-                            admin_url = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/admin/users/{supabase_user_id}"
-                            headers = {
-                                "apikey": settings.SUPABASE_SERVICE_KEY,
-                                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
-                            }
-                            with httpx.Client(timeout=5.0) as client:
-                                response = client.get(admin_url, headers=headers)
-                                if response.status_code == 200:
-                                    user_data = response.json()
-                                    email = user_data.get("email")
-                                    email_verified = bool(user_data.get("email_confirmed_at"))
-                                    logger.info(
-                                        "Fetched email from Supabase Admin API",
-                                        extra={
-                                            "event_type": "email_fetched_from_api",
-                                            "supabase_user_id": supabase_user_id,
-                                            "email": email,
-                                        }
-                                    )
-                        except Exception as e:
-                            logger.warning(
-                                "Failed to fetch email from Supabase API",
-                                extra={
-                                    "event_type": "email_fetch_failed",
-                                    "error": str(e),
-                                    "supabase_user_id": supabase_user_id,
-                                }
-                            )
+                
+                if user_email:
+                    logger.info(
+                        "Auto-creating user on first authentication",
+                        extra={
+                            "event_type": "user_auto_create",
+                            "supabase_user_id": supabase_user_id,
+                            "email": user_email,
+                            "ip_address": ip_address,
+                        }
+                    )
                     
-                    if email:
-                        logger.info(
-                            "Auto-creating user on first authentication",
-                            extra={
-                                "event_type": "user_auto_create",
-                                "supabase_user_id": supabase_user_id,
-                                "email": email,
-                                "ip_address": ip_address,
-                            }
-                        )
-                        
+                    try:
                         # Create user with free tier defaults
                         new_user = User(
                             supabase_user_id=supabase_user_id,
-                            email=email,
+                            email=user_email,
                             email_verified=email_verified,
+                            first_name=first_name,
+                            last_name=last_name,
+                            profile_image_url=profile_image_url,
                             subscription_tier="free",
                             subscription_status="active",
                             monthly_credits=3,  # Free tier default
@@ -754,44 +982,42 @@ def get_current_user(
                                 "event_type": "user_created",
                                 "user_id": str(new_user.id),
                                 "supabase_user_id": supabase_user_id,
-                                "email": email,
+                                "email": user_email,
                                 "source": "auto_create_on_auth",
                             }
                         )
                         
                         user = new_user
-                    else:
-                        # No email in token - can't auto-create
-                        logger.warning(
-                            "User not found and cannot auto-create (no email in token)",
+                    except Exception as e:
+                        db.rollback()
+                        logger.error(
+                            "Failed to auto-create user",
                             extra={
-                                "event_type": "user_not_found",
-                                "issuer": iss,
-                                "identifier": identifier,
+                                "event_type": "user_auto_create_error",
+                                "error": str(e),
+                                "supabase_user_id": supabase_user_id,
                                 "ip_address": ip_address,
-                                "token_type": "supabase",
-                            }
+                            },
+                            exc_info=True
                         )
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="User not found. Please complete sign-up."
-                        )
-                except Exception as e:
-                    db.rollback()
-                    logger.error(
-                        "Failed to auto-create user",
+                        # Fall through to raise error below
+                
+                # If user still not found (no email or creation failed), raise error
+                if not user:
+                    logger.warning(
+                        "User not found and cannot auto-create",
                         extra={
-                            "event_type": "user_auto_create_error",
-                            "error": str(e),
-                            "supabase_user_id": supabase_user_id,
+                            "event_type": "user_not_found",
+                            "issuer": iss,
+                            "identifier": identifier,
+                            "email": user_email,
                             "ip_address": ip_address,
-                        },
-                        exc_info=True
+                            "token_type": "supabase",
+                        }
                     )
-                    # Re-raise as user not found
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="User not found"
+                        detail=f"User not found. Please ensure your account is synced. Email: {user_email or 'unknown'}, Supabase ID: {identifier}"
                     )
             else:
                 # Cross-device token or no supabase_user_id - can't auto-create
@@ -871,26 +1097,29 @@ def get_current_user(
         raise
     except JWTError as e:
         ip_address = request.client.host if request and request.client else None
-        logger.warning(
-            "JWT decode error",
+        logger.error(
+            f"JWT decode error: {str(e)}",
             extra={
                 "event_type": "jwt_decode_error",
                 "error": str(e),
+                "error_type": type(e).__name__,
                 "ip_address": ip_address,
-            }
+                "token_preview": token[:50] + "..." if token and len(token) > 50 else "N/A",
+            },
+            exc_info=True
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail=f"Invalid token: {str(e)}"
         )
     except Exception as e:
         ip_address = request.client.host if request and request.client else None
         import traceback
         error_traceback = traceback.format_exc()
         logger.error(
-            "Unexpected error in authentication",
+            f"Unexpected error during authentication: {str(e)}",
             extra={
-                "event_type": "auth_error",
+                "event_type": "auth_unexpected_error",
                 "error": str(e),
                 "error_type": type(e).__name__,
                 "ip_address": ip_address,
@@ -899,8 +1128,32 @@ def get_current_user(
             exc_info=True
         )
         raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Authentication error: {str(e)}"
+        )
+    except Exception as e:
+        ip_address = request.client.host if request.client else None
+        error_type = type(e).__name__
+        error_message = str(e)
+        
+        logger.error(
+            "Unexpected error in authentication",
+            extra={
+                "event_type": "auth_error",
+                "error": error_message,
+                "error_type": error_type,
+                "ip_address": ip_address,
+                "has_credentials": credentials is not None,
+                "has_token": bool(credentials.credentials if credentials else None),
+            },
+            exc_info=True
+        )
+        
+        # Provide more specific error message for debugging
+        detail_message = f"Authentication error: {error_type}: {error_message}"
+        raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Authentication error: {type(e).__name__}: {str(e)}"
+            detail=detail_message
         )
 
 

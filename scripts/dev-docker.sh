@@ -130,6 +130,8 @@ if command -v jq &> /dev/null && supabase status --output json >/dev/null 2>&1; 
     # Use 'if .KEY then .KEY else empty end' to avoid jq outputting "null" as a string
     SUPABASE_ANON_KEY=$(supabase status --output json 2>/dev/null | jq -r 'if .ANON_KEY then .ANON_KEY elif .DB.APIKeys.anon then .DB.APIKeys.anon else empty end' 2>/dev/null || echo "")
     SUPABASE_SERVICE_KEY=$(supabase status --output json 2>/dev/null | jq -r 'if .SERVICE_ROLE_KEY then .SERVICE_ROLE_KEY elif .DB.APIKeys.service_role then .DB.APIKeys.service_role else empty end' 2>/dev/null || echo "")
+    # Extract JWT_SECRET for HS256 token verification (local Supabase)
+    SUPABASE_JWT_SECRET=$(supabase status --output json 2>/dev/null | jq -r '.JWT_SECRET' 2>/dev/null || echo "")
     
     # Filter out "null" strings that jq might output
     if [ "$SUPABASE_ANON_KEY" = "null" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
@@ -137,6 +139,9 @@ if command -v jq &> /dev/null && supabase status --output json >/dev/null 2>&1; 
     fi
     if [ "$SUPABASE_SERVICE_KEY" = "null" ] || [ -z "$SUPABASE_SERVICE_KEY" ]; then
         SUPABASE_SERVICE_KEY=""
+    fi
+    if [ "$SUPABASE_JWT_SECRET" = "null" ] || [ -z "$SUPABASE_JWT_SECRET" ]; then
+        SUPABASE_JWT_SECRET=""
     fi
     
     # If still empty, try alternative paths
@@ -152,9 +157,12 @@ if command -v jq &> /dev/null && supabase status --output json >/dev/null 2>&1; 
     fi
 else
     # Fallback: parse from text output
+    # Handle both "anon key:" and "Publishable key:" formats
     STATUS_OUTPUT=$(supabase status 2>/dev/null || echo "")
-    SUPABASE_ANON_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'anon key:\s+\K[^\s]+' | head -1 || echo "")
-    SUPABASE_SERVICE_KEY=$(echo "$STATUS_OUTPUT" | grep -oP 'service_role key:\s+\K[^\s]+' | head -1 || echo "")
+    SUPABASE_ANON_KEY=$(echo "$STATUS_OUTPUT" | grep -oP '(?:anon key|Publishable key):\s+\K[^\s]+' | head -1 || echo "")
+    SUPABASE_SERVICE_KEY=$(echo "$STATUS_OUTPUT" | grep -oP '(?:service_role key|Secret key):\s+\K[^\s]+' | head -1 || echo "")
+    # JWT_SECRET is not available in text output, will need to be set manually or extracted from JSON
+    SUPABASE_JWT_SECRET=""
 fi
 
 # Update backend/.env file with Supabase credentials (source of truth)
@@ -205,6 +213,13 @@ fi
 export SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
 export SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_KEY"
+# Export JWT_SECRET for HS256 token verification (local Supabase)
+if [ -n "$SUPABASE_JWT_SECRET" ]; then
+    export SUPABASE_JWT_SECRET="$SUPABASE_JWT_SECRET"
+fi
+
+# Also set frontend environment variables (containers access via host.docker.internal)
+# Note: These can be set in frontend/.env or frontend/.env.local, but script exports take precedence
 export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL_FOR_CONTAINERS"
 export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
@@ -212,15 +227,20 @@ if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ]; then
     echo "✅ Supabase environment variables configured"
     echo "   API URL: $SUPABASE_URL"
     echo "   Studio URL: http://localhost:54323"
+    if [ -n "$SUPABASE_JWT_SECRET" ]; then
+        echo "   JWT Secret: ✅ Extracted (for HS256 token verification)"
+    else
+        echo "   JWT Secret: ⚠️  Not found (may need manual configuration)"
+    fi
     echo ""
     echo "📝 Note: Frontend env vars are loaded from frontend/.env or frontend/.env.local"
     echo "   Script exports (above) will override file values if present"
 else
     echo "⚠️  Could not extract Supabase keys automatically"
     echo "   You may need to set them manually in your .env files:"
-    echo "   - backend/.env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY"
+    echo "   - backend/.env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET"
     echo "   - frontend/.env or frontend/.env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY"
-    echo "   Run 'supabase status' to see the keys"
+    echo "   Run 'supabase status --output json | jq .JWT_SECRET' to get JWT secret"
 fi
 
 # Ensure frontend .env files exist (Docker Compose requires them)

@@ -110,12 +110,71 @@ class PhotoService:
     ) -> Optional[Photo]:
         """
         Fetch a single photo scoped to the owner.
+        
+        Returns None if photo doesn't exist or doesn't belong to owner.
+        Use assert_owner() if you need to distinguish between these cases.
         """
         return (
             db.query(Photo)
             .filter(Photo.id == photo_id, Photo.owner_id == owner_id)
             .first()
         )
+
+    def assert_owner(
+        self,
+        db: Session,
+        *,
+        photo_id: UUIDType,
+        user_id: str,
+        ip_address: Optional[str] = None,
+    ) -> Photo:
+        """
+        Assert that a photo exists and belongs to the specified user.
+        
+        This method:
+        1. Checks if photo exists (by ID only, without owner filter)
+        2. If photo exists but belongs to another user, logs security violation
+        3. Returns Photo if ownership is valid
+        4. Raises appropriate exception if not found or ownership mismatch
+        
+        Args:
+            db: Database session
+            photo_id: Photo UUID
+            user_id: Supabase user ID (sub claim) of the requesting user
+            ip_address: Optional IP address for security logging
+            
+        Returns:
+            Photo instance if ownership is valid
+            
+        Raises:
+            ValueError: If photo doesn't exist or belongs to another user
+            (Callers should convert this to HTTPException with 404 status)
+        """
+        # First, check if photo exists at all (without owner filter)
+        photo = db.query(Photo).filter(Photo.id == photo_id).first()
+        
+        if not photo:
+            # Photo doesn't exist - return 404 without logging (normal case)
+            raise ValueError("Photo not found")
+        
+        # Photo exists - check ownership
+        if photo.owner_id != user_id:
+            # Security violation: user trying to access another user's photo
+            logger.warning(
+                "Photo ownership violation attempt",
+                extra={
+                    "event_type": "photo_ownership_violation",
+                    "requesting_user_id": user_id,
+                    "photo_id": str(photo_id),
+                    "photo_owner_id": photo.owner_id,  # Log actual owner for security analysis
+                    "ip_address": ip_address,
+                }
+            )
+            # Return 404 to avoid leaking existence of other users' photos
+            raise ValueError("Photo not found")
+        
+        # Ownership verified - return photo
+        return photo
 
     def update_photo_status(
         self,

@@ -209,3 +209,114 @@ if (typeof global.cv === 'undefined') {
   waitKey: jest.fn()
   };
 }
+
+// Set up Supabase environment variables for tests
+process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://test.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'test-anon-key';
+
+// Supabase client mocks for browser components
+const createMockQueryBuilder = () => {
+  const builder = {
+    select: jest.fn(function () { return this; }),
+    insert: jest.fn().mockResolvedValue({ data: null, error: null }),
+    update: jest.fn().mockResolvedValue({ data: null, error: null }),
+    upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
+    delete: jest.fn().mockResolvedValue({ data: null, error: null }),
+    eq: jest.fn(function () { return this; }),
+    neq: jest.fn(function () { return this; }),
+    order: jest.fn(function () { return this; }),
+    limit: jest.fn(function () { return this; }),
+    range: jest.fn(function () { return this; }),
+    single: jest.fn().mockResolvedValue({ data: null, error: null }),
+    maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+  };
+  return builder;
+};
+
+const baseSupabaseSession = {
+  access_token: 'eyJ.mock.access.token',
+  refresh_token: 'mock-refresh-token',
+  token_type: 'bearer',
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  user: {
+    id: 'test-user-id',
+    email: 'test@example.com',
+  },
+};
+
+let currentSupabaseSession = { ...baseSupabaseSession, user: { ...baseSupabaseSession.user } };
+
+const setSupabaseSession = (overrides = {}) => {
+  const userOverrides = overrides.user || {};
+  currentSupabaseSession = {
+    ...currentSupabaseSession,
+    ...overrides,
+    user: {
+      ...currentSupabaseSession.user,
+      ...userOverrides,
+    },
+  };
+};
+
+const resetSupabaseSession = () => {
+  currentSupabaseSession = {
+    ...baseSupabaseSession,
+    user: { ...baseSupabaseSession.user },
+  };
+};
+
+const createMockSupabaseClient = () => {
+  const auth = {
+    getSession: jest.fn(async () => ({
+      data: { session: currentSupabaseSession },
+      error: null,
+    })),
+    refreshSession: jest.fn(async () => ({
+      data: { session: currentSupabaseSession },
+      error: null,
+    })),
+    getUser: jest.fn(async () => ({
+      data: { user: currentSupabaseSession.user },
+      error: null,
+    })),
+    signOut: jest.fn(async () => ({ error: null })),
+    onAuthStateChange: jest.fn(() => ({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    })),
+  };
+
+  const storageBucketApi = {
+    upload: jest.fn().mockResolvedValue({ data: { Key: 'mock-key' }, error: null }),
+    download: jest.fn().mockResolvedValue({ data: new ArrayBuffer(8), error: null }),
+    remove: jest.fn().mockResolvedValue({ data: null, error: null }),
+    list: jest.fn().mockResolvedValue({ data: [], error: null }),
+  };
+
+  const storage = {
+    from: jest.fn(() => storageBucketApi),
+  };
+
+  return {
+    auth,
+    from: jest.fn(() => createMockQueryBuilder()),
+    rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
+    storage,
+  };
+};
+
+const mockSupabaseClient = createMockSupabaseClient();
+
+jest.mock('@/lib/supabase', () => {
+  const actual = jest.requireActual('@/lib/supabase');
+
+  return {
+    ...actual,
+    getSupabaseClient: jest.fn(() => mockSupabaseClient),
+    __supabaseTestUtils: {
+      client: mockSupabaseClient,
+      auth: mockSupabaseClient.auth,
+      setSession: setSupabaseSession,
+      resetSession: resetSupabaseSession,
+    },
+  };
+});

@@ -9,17 +9,16 @@ export const Navigation: React.FC = () => {
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
-  // Hide navigation on auth pages (sign-in, sign-up) when not logged in
-  const isAuthPage = pathname === '/sign-in' || pathname === '/sign-up' || pathname?.startsWith('/auth/');
-  
-  // Don't show navigation if not signed in (after loading completes)
-  // Also hide on auth pages when not logged in
-  if (!loading && !user) {
+  // SECURITY: Never show navigation if user is not authenticated
+  // This prevents any navigation links from being visible to unauthenticated users
+  // Even during loading, don't show navigation if we don't have a user
+  if (!user) {
     return null;
   }
   
-  // Hide on auth pages if not logged in (even during loading to prevent flash)
-  if (isAuthPage && !user) {
+  // During loading, also don't show navigation to prevent flash
+  // Only show navigation when we have confirmed authentication
+  if (loading) {
     return null;
   }
 

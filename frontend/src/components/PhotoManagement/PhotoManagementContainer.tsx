@@ -13,6 +13,8 @@ import { PhotoGallery } from './PhotoGallery';
 import { PhotoDetailDrawer } from './PhotoDetailDrawer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useJobEvents } from '../../hooks/useJobEvents';
+import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * PhotoManagementContainer
@@ -96,11 +98,29 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Error handling
   const handleError = useCallback((error: Error, context: string) => {
+    // Check if this is an authentication error (401)
+    const isAuthError = error.message.includes('401') || 
+                       error.message.includes('Unauthorized') ||
+                       error.message.includes('Authentication required') ||
+                       error.message.includes('Session expired') ||
+                       error.message.includes('Invalid token');
+    
+    if (isAuthError && typeof window !== 'undefined') {
+      console.error(`${context}: Authentication error detected, redirecting to sign-in`);
+      const currentPath = window.location.pathname;
+      const isOnSignInPage = currentPath === '/sign-in' || currentPath.startsWith('/sign-in');
+      if (!isOnSignInPage) {
+        // Redirect to sign-in - apiClient should have already tried refreshing
+        window.location.replace(`/sign-in?error=${encodeURIComponent('Session expired. Please sign in again.')}&next=${encodeURIComponent(currentPath)}`);
+        return; // Don't set error state, we're redirecting
+      }
+    }
+    
     const managementError: ManagementError = {
       type: 'load_error',
       message: `${context}: ${error.message}`,
-      retryable: true,
-      action: 'retry'
+      retryable: !isAuthError, // Don't allow retry for auth errors
+      action: isAuthError ? 'redirect' : 'retry'
     };
     
     setError(managementError);
@@ -144,6 +164,30 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Ensure we have a valid auth token before making API calls
+      const supabase = getSupabaseClient();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('No valid session found:', sessionError);
+        throw new Error('Authentication required. Please sign in again.');
+      }
+      
+      if (!session.access_token) {
+        console.error('Session exists but no access_token');
+        throw new Error('Authentication token missing. Please sign in again.');
+      }
+      
+      // Validate token format - must be a JWT (starts with "eyJ")
+      if (!session.access_token.startsWith('eyJ')) {
+        console.error(`Invalid token format! Token does not look like a JWT. Token preview: ${session.access_token.substring(0, 100)}`);
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshedSession || !refreshedSession.access_token || !refreshedSession.access_token.startsWith('eyJ')) {
+          throw new Error('Invalid authentication token. Please sign in again.');
+        }
+      }
       
       // Create abort controller for cleanup
       abortControllerRef.current = new AbortController();

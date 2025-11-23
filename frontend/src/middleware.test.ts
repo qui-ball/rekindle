@@ -37,7 +37,7 @@ describe('authentication middleware', () => {
     mockedCreateMiddlewareClient.mockReturnValueOnce({
       auth: {
         getSession: jest.fn().mockResolvedValue({
-          data: { session: { user: { id: 'user-123' } } },
+          data: { session: { user: { id: 'user-123' }, access_token: 'eyJ.mock.token' } },
         }),
       },
     });

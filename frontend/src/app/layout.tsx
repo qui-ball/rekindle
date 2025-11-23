@@ -4,8 +4,7 @@ import './globals.css';
 import { DevMenu } from '@/components/DevMenu';
 import { AppInitializationProvider } from '@/components/AppInitializationProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { Navigation } from '@/components/Navigation';
-import { GlobalCreditBalanceBar } from '@/components/GlobalCreditBalanceBar';
+import { AuthenticatedLayout } from '@/components/AuthenticatedLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -237,9 +236,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <AppInitializationProvider>
-            <Navigation />
-            <GlobalCreditBalanceBar />
-            {children}
+            <AuthenticatedLayout>
+              {children}
+            </AuthenticatedLayout>
             <DevMenu />
           </AppInitializationProvider>
         </AuthProvider>

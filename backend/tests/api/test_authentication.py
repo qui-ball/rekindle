@@ -249,16 +249,22 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
-            mock_get_claims.return_value = {
-                "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+        with patch("app.api.deps.jwt.get_unverified_header") as mock_get_header:
+            mock_get_header.return_value = {
+                "alg": "HS256",
+                "kid": "test-key-id"
             }
-            
-            user = get_current_user(Mock(), credentials, test_db_session)
-            
-            assert user.id == mock_user.id
-            assert user.supabase_user_id == mock_user.supabase_user_id
-            mock_verify_token.assert_called_once()
+            with patch("app.api.deps.jwt.decode") as mock_decode:
+                mock_decode.return_value = {
+                    "sub": mock_user.supabase_user_id,
+                    "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+                }
+                
+                user = get_current_user(Mock(), credentials, test_db_session)
+                
+                assert user.id == mock_user.id
+                assert user.supabase_user_id == mock_user.supabase_user_id
+                mock_verify_token.assert_called_once()
 
     @patch("app.api.deps.verify_cross_device_token")
     @patch("app.services.cross_device_session_service.CrossDeviceSessionService.get_active_session")
@@ -282,21 +288,28 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
-            mock_get_claims.return_value = {
-                "iss": "rekindle:xdevice"
+        with patch("app.api.deps.jwt.get_unverified_header") as mock_get_header:
+            mock_get_header.return_value = {
+                "alg": "HS256",
+                "kid": "test-key-id"
             }
-            
-            user = get_current_user(Mock(), credentials, test_db_session)
-            
-            assert user.id == mock_user.id
-            assert user.supabase_user_id == mock_user.supabase_user_id
-            # Cross-device tokens should not update last_login_at
-            assert user.last_login_at == mock_user.last_login_at
-            mock_verify_token.assert_called_once()
-            # get_active_session should be called twice: once in verify_cross_device_token,
-            # once in get_current_user
-            assert mock_get_session.call_count >= 1
+            with patch("app.api.deps.jwt.decode") as mock_decode:
+                mock_decode.return_value = {
+                    "sub": str(mock_user.id),
+                    "sid": session_id,
+                    "iss": "rekindle:xdevice"
+                }
+                
+                user = get_current_user(Mock(), credentials, test_db_session)
+                
+                assert user.id == mock_user.id
+                assert user.supabase_user_id == mock_user.supabase_user_id
+                # Cross-device tokens should not update last_login_at
+                assert user.last_login_at == mock_user.last_login_at
+                mock_verify_token.assert_called_once()
+                # get_active_session should be called twice: once in verify_cross_device_token,
+                # once in get_current_user
+                assert mock_get_session.call_count >= 1
 
     @patch("app.api.deps.verify_supabase_token")
     def test_get_current_user_user_not_found(
@@ -311,16 +324,22 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
-            mock_get_claims.return_value = {
-                "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+        with patch("app.api.deps.jwt.get_unverified_header") as mock_get_header:
+            mock_get_header.return_value = {
+                "alg": "HS256",
+                "kid": "test-key-id"
             }
-            
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user(Mock(), credentials, test_db_session)
-            
-            assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "not found" in exc_info.value.detail.lower()
+            with patch("app.api.deps.jwt.decode") as mock_decode:
+                mock_decode.return_value = {
+                    "sub": "non-existent-user-id",
+                    "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+                }
+                
+                with pytest.raises(HTTPException) as exc_info:
+                    get_current_user(Mock(), credentials, test_db_session)
+                
+                assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+                assert "not found" in exc_info.value.detail.lower()
 
     @patch("app.api.deps.verify_supabase_token")
     def test_get_current_user_account_suspended(
@@ -338,16 +357,22 @@ class TestGetCurrentUser:
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
-            mock_get_claims.return_value = {
-                "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+        with patch("app.api.deps.jwt.get_unverified_header") as mock_get_header:
+            mock_get_header.return_value = {
+                "alg": "HS256",
+                "kid": "test-key-id"
             }
-            
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user(Mock(), credentials, test_db_session)
-            
-            assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
-            assert "suspended" in exc_info.value.detail.lower()
+            with patch("app.api.deps.jwt.decode") as mock_decode:
+                mock_decode.return_value = {
+                    "sub": mock_user.supabase_user_id,
+                    "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+                }
+                
+                with pytest.raises(HTTPException) as exc_info:
+                    get_current_user(Mock(), credentials, test_db_session)
+                
+                assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+                assert "suspended" in exc_info.value.detail.lower()
 
     @patch("app.api.deps.verify_supabase_token")
     def test_get_current_user_updates_last_login(
@@ -364,31 +389,42 @@ class TestGetCurrentUser:
         
         initial_login_time = mock_user.last_login_at
         
-        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
-            mock_get_claims.return_value = {
-                "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+        with patch("app.api.deps.jwt.get_unverified_header") as mock_get_header:
+            mock_get_header.return_value = {
+                "alg": "HS256",
+                "kid": "test-key-id"
             }
-            
-            user = get_current_user(Mock(), credentials, test_db_session)
-            
-            assert user.last_login_at is not None
-            assert user.last_login_at != initial_login_time
+            with patch("app.api.deps.jwt.decode") as mock_decode:
+                mock_decode.return_value = {
+                    "sub": mock_user.supabase_user_id,
+                    "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
+                }
+                
+                user = get_current_user(Mock(), credentials, test_db_session)
+                
+                assert user.last_login_at is not None
+                assert user.last_login_at != initial_login_time
 
     def test_get_current_user_unknown_issuer(self, test_db_session):
         """Test get_current_user rejects tokens with unknown issuer"""
         credentials = Mock()
         credentials.credentials = "test-token"
         
-        with patch("app.api.deps.jwt.get_unverified_claims") as mock_get_claims:
-            mock_get_claims.return_value = {
-                "iss": "https://unknown-issuer.com"
+        with patch("app.api.deps.jwt.get_unverified_header") as mock_get_header:
+            mock_get_header.return_value = {
+                "alg": "HS256",
+                "kid": "test-key-id"
             }
-            
-            with pytest.raises(HTTPException) as exc_info:
-                get_current_user(Mock(), credentials, test_db_session)
-            
-            assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-            assert "Unknown token issuer" in exc_info.value.detail
+            with patch("app.api.deps.jwt.decode") as mock_decode:
+                mock_decode.return_value = {
+                    "iss": "https://unknown-issuer.com"
+                }
+                
+                with pytest.raises(HTTPException) as exc_info:
+                    get_current_user(Mock(), credentials, test_db_session)
+                
+                assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+                assert "Unknown token issuer" in exc_info.value.detail
 
 
 class TestJWKSCaching:

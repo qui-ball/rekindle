@@ -91,13 +91,31 @@ export async function middleware(request: NextRequest) {
   // This ensures the session is up-to-date before checking authentication
   const {
     data: { session },
+    error: sessionError,
   } = await supabase.auth.getSession();
 
-  // If no session, redirect to sign-in with return URL
-  if (!session) {
-    const signInUrl = new URL('/sign-in', request.url);
-    signInUrl.searchParams.set('next', pathname); // Preserve the intended destination
-    return NextResponse.redirect(signInUrl);
+  // If no session or session error, redirect to sign-in with return URL
+  // But only if not already going to sign-in (prevent redirect loops)
+  if (!session || sessionError) {
+    // Don't redirect if already on sign-in page
+    if (pathname !== '/sign-in' && !pathname.startsWith('/sign-in')) {
+      const signInUrl = new URL('/sign-in', request.url);
+      signInUrl.searchParams.set('next', pathname); // Preserve the intended destination
+      return NextResponse.redirect(signInUrl);
+    }
+    // If already on sign-in, allow through
+    return NextResponse.next();
+  }
+  
+  // Check if session has a valid access token
+  if (!session.access_token) {
+    // Session exists but no token - redirect to sign-in
+    if (pathname !== '/sign-in' && !pathname.startsWith('/sign-in')) {
+      const signInUrl = new URL('/sign-in', request.url);
+      signInUrl.searchParams.set('next', pathname);
+      return NextResponse.redirect(signInUrl);
+    }
+    return NextResponse.next();
   }
 
   // User is authenticated, allow access to protected route

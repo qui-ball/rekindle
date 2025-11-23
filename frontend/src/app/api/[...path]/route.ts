@@ -37,8 +37,14 @@ export async function GET(
     
     // Forward Authorization header if present (for JWT authentication)
     const authHeader = request.headers.get('authorization');
+    console.log(`[API Proxy] Forwarding request to backend: ${path}`);
+    console.log(`[API Proxy] Authorization header present: ${!!authHeader}`);
     if (authHeader) {
       headers['Authorization'] = authHeader;
+      console.log(`[API Proxy] Authorization header forwarded: ${authHeader.substring(0, 30)}...`);
+    } else {
+      console.warn(`[API Proxy] WARNING: No Authorization header found in request!`);
+      console.log(`[API Proxy] All request headers:`, Object.fromEntries(request.headers.entries()));
     }
     
     // Forward other relevant headers
@@ -53,10 +59,24 @@ export async function GET(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Backend API error: ${response.status} ${response.statusText}`, errorText);
+      let errorData: any;
+      try {
+        const errorText = await response.text();
+        try {
+          // Try to parse as JSON (FastAPI returns JSON errors)
+          errorData = JSON.parse(errorText);
+        } catch {
+          // If not JSON, wrap in error object with 'detail' field (FastAPI format)
+          errorData = { detail: errorText || 'Backend API error' };
+        }
+      } catch (error) {
+        errorData = { detail: 'Failed to read error response' };
+      }
+      
+      console.error(`Backend API error: ${response.status} ${response.statusText}`, errorData);
+      // Return error in FastAPI format (with 'detail' field)
       return NextResponse.json(
-        { error: errorText || 'Backend API error', status: response.status },
+        errorData,
         { status: response.status }
       );
     }
@@ -103,10 +123,33 @@ export async function POST(
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Backend API error: ${response.status} ${response.statusText}`, errorText);
+        let errorData: any;
+        let errorText = '';
+        try {
+          errorText = await response.text();
+          console.error(`Backend API error raw response:`, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            body: errorText.substring(0, 500) // First 500 chars
+          });
+          
+          try {
+            // Try to parse as JSON (FastAPI returns JSON errors)
+            errorData = JSON.parse(errorText);
+          } catch (parseError) {
+            // If not JSON, wrap in error object with 'detail' field (FastAPI format)
+            errorData = { detail: errorText || 'Backend API error' };
+          }
+        } catch (error) {
+          console.error('Failed to read error response:', error);
+          errorData = { detail: 'Failed to read error response' };
+        }
+        
+        console.error(`Backend API error parsed:`, errorData);
+        // Return error in FastAPI format (with 'detail' field)
         return NextResponse.json(
-          { error: errorText || 'Backend API error', status: response.status },
+          errorData,
           { status: response.status }
         );
       }
@@ -124,10 +167,33 @@ export async function POST(
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Backend API error: ${response.status} ${response.statusText}`, errorText);
+        let errorData: any;
+        let errorText = '';
+        try {
+          errorText = await response.text();
+          console.error(`Backend API error raw response:`, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            body: errorText.substring(0, 500) // First 500 chars
+          });
+          
+          try {
+            // Try to parse as JSON (FastAPI returns JSON errors)
+            errorData = JSON.parse(errorText);
+          } catch (parseError) {
+            // If not JSON, wrap in error object with 'detail' field (FastAPI format)
+            errorData = { detail: errorText || 'Backend API error' };
+          }
+        } catch (error) {
+          console.error('Failed to read error response:', error);
+          errorData = { detail: 'Failed to read error response' };
+        }
+        
+        console.error(`Backend API error parsed:`, errorData);
+        // Return error in FastAPI format (with 'detail' field)
         return NextResponse.json(
-          { error: errorText || 'Backend API error', status: response.status },
+          errorData,
           { status: response.status }
         );
       }
@@ -170,10 +236,24 @@ export async function DELETE(
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Backend API error: ${response.status} ${response.statusText}`, errorText);
+      let errorData: any;
+      try {
+        const errorText = await response.text();
+        try {
+          // Try to parse as JSON (FastAPI returns JSON errors)
+          errorData = JSON.parse(errorText);
+        } catch {
+          // If not JSON, wrap in error object with 'detail' field (FastAPI format)
+          errorData = { detail: errorText || 'Backend API error' };
+        }
+      } catch (error) {
+        errorData = { detail: 'Failed to read error response' };
+      }
+      
+      console.error(`Backend API error: ${response.status} ${response.statusText}`, errorData);
+      // Return error in FastAPI format (with 'detail' field)
       return NextResponse.json(
-        { error: errorText || 'Backend API error', status: response.status },
+        errorData,
         { status: response.status }
       );
     }

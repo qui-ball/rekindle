@@ -146,7 +146,8 @@ def override_get_current_user(mock_user, test_db_session):
 
     app.dependency_overrides[get_current_user] = _get_test_user
     yield user
-    del app.dependency_overrides[get_current_user]
+    if get_current_user in app.dependency_overrides:
+        del app.dependency_overrides[get_current_user]
 
 
 @pytest_asyncio.fixture
@@ -237,11 +238,12 @@ def animation_attempt_factory(test_db_session):
 @pytest.fixture
 def photo_factory(test_db_session):
     """Factory for creating photo records"""
-
+    import uuid
+    
     def _create_photo(**kwargs):
         defaults = {
             "owner_id": "test_user_123",
-            "original_key": "users/test_user_123/raw/test.jpg",
+            "original_key": f"users/test_user_123/raw/test_{uuid.uuid4()}.jpg",
             "checksum_sha256": "a" * 64,
             "storage_bucket": "rekindle-uploads",
             "status": "uploaded",

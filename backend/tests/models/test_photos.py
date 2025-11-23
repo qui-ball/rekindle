@@ -16,7 +16,8 @@ class TestPhotoModel:
 
         assert photo.id is not None
         assert photo.owner_id == "test_user_123"
-        assert photo.original_key == "users/test_user_123/raw/test.jpg"
+        assert photo.original_key.startswith("users/test_user_123/raw/test_")
+        assert photo.original_key.endswith(".jpg")
         assert photo.status == "uploaded"
         assert photo.storage_bucket == "rekindle-uploads"
         assert len(photo.checksum_sha256) == 64
@@ -65,5 +66,6 @@ class TestPhotoModel:
         with pytest.raises(IntegrityError):
             test_db_session.commit()
         test_db_session.rollback()
+
 
 

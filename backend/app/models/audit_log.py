@@ -22,7 +22,7 @@ class AuditLog(Base):
     action = Column(String(50), nullable=False, index=True)  # e.g., 'data_export', 'account_deletion_requested'
     ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
     user_agent = Column(String(500), nullable=True)
-    metadata_json = Column(JSON, nullable=True)  # Additional context (counts, sizes, etc.)
+    extra_data = Column(JSON, nullable=True)  # Additional context (counts, sizes, etc.) - renamed from 'metadata' (SQLAlchemy reserved)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
 
     def __repr__(self):

@@ -4,6 +4,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * Sign-In Page
@@ -28,11 +29,29 @@ export default function SignInPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Redirect if already logged in
+  // Redirect if already logged in (but only if we have a valid session)
   useEffect(() => {
     if (!authLoading && user) {
-      const redirectTo = searchParams?.get('next') || '/upload';
-      router.replace(redirectTo);
+      // Double-check we have a valid session before redirecting
+      // This prevents redirect loops when the session is invalid
+      const checkSession = async () => {
+        try {
+          const supabase = getSupabaseClient();
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          // Only redirect if we have a valid session with an access token
+          if (!error && session && session.access_token) {
+            const redirectTo = searchParams?.get('next') || '/upload';
+            router.replace(redirectTo);
+          }
+          // If no valid session, stay on sign-in page
+        } catch (err) {
+          // Session check failed, stay on sign-in page
+          console.error('Session check failed:', err);
+        }
+      };
+      
+      checkSession();
     }
   }, [authLoading, user, router, searchParams]);
   

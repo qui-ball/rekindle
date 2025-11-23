@@ -3,7 +3,7 @@ Jobs API endpoints - new architecture
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 from typing import List, Optional
 from loguru import logger
@@ -435,88 +435,120 @@ async def list_jobs(
     db: Session = Depends(get_db),
 ):
     """
-    List jobs for the current user, with thumbnail URLs and all restore/animation attempts.
-    
-    **Requires:** Authentication - only returns jobs belonging to the current user
+    List jobs for the current authenticated user.
+    All queries are automatically scoped to the authenticated user's email.
+    Returns empty list [] if user has no jobs - this is a valid response.
     """
-    # Only return jobs for the authenticated user
-    query = db.query(Job).filter(Job.email == current_user.email)
-    
-    jobs = query.offset(skip).limit(limit).all()
+    try:
+        logger.info(f"Listing jobs for user {current_user.email} (skip={skip}, limit={limit})")
+        
+        # Eagerly load relationships to avoid lazy loading issues
+        query = db.query(Job).options(
+            joinedload(Job.restore_attempts),
+            joinedload(Job.animation_attempts)
+        ).filter(Job.email == current_user.email)
+        
+        jobs = query.offset(skip).limit(limit).all()
+        
+        logger.info(f"Found {len(jobs)} jobs for user {current_user.email}")
+        
+        # Empty result is valid - user just has no jobs yet
+        if not jobs:
+            return []
+        
+    except Exception as e:
+        logger.error(f"Error querying jobs for user {current_user.email}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve jobs: {str(e)}"
+        )
     
     # Convert to response format with thumbnail presigned URLs and relations
     job_responses = []
     for job in jobs:
-        job_dict = {
-            "id": job.id,
-            "email": job.email,
-            "created_at": job.created_at,
-            "selected_restore_id": job.selected_restore_id,
-            "latest_animation_id": job.latest_animation_id,
-            "thumbnail_s3_key": job.thumbnail_s3_key,
-            "thumbnail_url": None,
-            "restore_attempts": [],
-            "animation_attempts": []
-        }
-        
-        # Generate presigned URL for thumbnail if key exists
-        if job.thumbnail_s3_key:
-            try:
-                # Clean the key to remove any query parameters that might have been stored incorrectly
-                clean_key = s3_service.clean_s3_key(job.thumbnail_s3_key)
-                job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
-                    "get_object",
-                    Params={"Bucket": s3_service.bucket, "Key": clean_key},
-                    ExpiresIn=3600  # 1 hour expiration
-                )
-            except Exception as e:
-                logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
-        
-        # Add restore attempts with URLs (only include successful ones with valid S3 keys)
-        for restore in job.restore_attempts:
-            # Skip restore attempts without valid S3 keys (empty, pending, or failed)
-            if not restore.s3_key or restore.s3_key == "" or restore.s3_key == "pending" or restore.s3_key == "failed":
-                continue
-                
-            restore_dict = {
-                "id": restore.id,
-                "job_id": restore.job_id,
-                "s3_key": restore.s3_key,
-                "model": restore.model,
-                "params": restore.params,
-                "created_at": restore.created_at,
+        try:
+            job_dict = {
+                "id": job.id,
+                "email": job.email,
+                "created_at": job.created_at,
+                "selected_restore_id": job.selected_restore_id,
+                "latest_animation_id": job.latest_animation_id,
+                "thumbnail_s3_key": job.thumbnail_s3_key,
+                "thumbnail_url": None,
+                "restore_attempts": [],
+                "animation_attempts": []
             }
-            restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
-            job_dict["restore_attempts"].append(restore_dict)
+            
+            # Generate presigned URL for thumbnail if key exists
+            if job.thumbnail_s3_key:
+                try:
+                    # Clean the key to remove any query parameters that might have been stored incorrectly
+                    clean_key = s3_service.clean_s3_key(job.thumbnail_s3_key)
+                    job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
+                        "get_object",
+                        Params={"Bucket": s3_service.bucket, "Key": clean_key},
+                        ExpiresIn=3600  # 1 hour expiration
+                    )
+                except Exception as e:
+                    logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
+            
+            # Add restore attempts with URLs (only include successful ones with valid S3 keys)
+            for restore in job.restore_attempts:
+                # Skip restore attempts without valid S3 keys (empty, pending, or failed)
+                if not restore.s3_key or restore.s3_key == "" or restore.s3_key == "pending" or restore.s3_key == "failed":
+                    continue
+                    
+                try:
+                    restore_dict = {
+                        "id": restore.id,
+                        "job_id": restore.job_id,
+                        "s3_key": restore.s3_key,
+                        "model": restore.model,
+                        "params": restore.params,
+                        "created_at": restore.created_at,
+                    }
+                    restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
+                    job_dict["restore_attempts"].append(restore_dict)
+                except Exception as e:
+                    logger.error(f"Error processing restore attempt {restore.id}: {e}")
+                    continue
 
-        # Add animation attempts with URLs
-        for animation in job.animation_attempts:
-            animation_dict = {
-                "id": animation.id,
-                "job_id": animation.job_id,
-                "restore_id": animation.restore_id,
-                "preview_s3_key": animation.preview_s3_key or "",
-                "result_s3_key": animation.result_s3_key,
-                "thumb_s3_key": animation.thumb_s3_key,
-                "model": animation.model,
-                "params": animation.params,
-                "created_at": animation.created_at,
-            }
-            if animation.preview_s3_key and animation.preview_s3_key != "pending":
-                animation_dict["preview_url"] = s3_service.get_s3_url(
-                    animation.preview_s3_key
-                )
-            if animation.result_s3_key:
-                animation_dict["result_url"] = s3_service.get_s3_url(
-                    animation.result_s3_key
-                )
-            if animation.thumb_s3_key:
-                animation_dict["thumb_url"] = s3_service.get_s3_url(
-                    animation.thumb_s3_key
-                )
-            job_dict["animation_attempts"].append(animation_dict)
-        
-        job_responses.append(JobWithRelations(**job_dict))
+            # Add animation attempts with URLs
+            for animation in job.animation_attempts:
+                try:
+                    animation_dict = {
+                        "id": animation.id,
+                        "job_id": animation.job_id,
+                        "restore_id": animation.restore_id,
+                        "preview_s3_key": animation.preview_s3_key or "",
+                        "result_s3_key": animation.result_s3_key,
+                        "thumb_s3_key": animation.thumb_s3_key,
+                        "model": animation.model,
+                        "params": animation.params,
+                        "created_at": animation.created_at,
+                    }
+                    if animation.preview_s3_key and animation.preview_s3_key != "pending":
+                        animation_dict["preview_url"] = s3_service.get_s3_url(
+                            animation.preview_s3_key
+                        )
+                    if animation.result_s3_key:
+                        animation_dict["result_url"] = s3_service.get_s3_url(
+                            animation.result_s3_key
+                        )
+                    if animation.thumb_s3_key:
+                        animation_dict["thumb_url"] = s3_service.get_s3_url(
+                            animation.thumb_s3_key
+                        )
+                    job_dict["animation_attempts"].append(animation_dict)
+                except Exception as e:
+                    logger.error(f"Error processing animation attempt {animation.id}: {e}")
+                    continue
+            
+            job_responses.append(JobWithRelations(**job_dict))
+        except Exception as e:
+            logger.error(f"Error processing job {job.id}: {e}")
+            # Continue processing other jobs even if one fails
+            continue
     
     return job_responses
 

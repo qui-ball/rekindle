@@ -46,6 +46,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<AuthError | null>(null);
   const [supabase, setSupabase] = useState<ReturnType<typeof getSupabaseClient> | null>(null);
+  
+  // Load lastActivityTime from localStorage, or use current time if not set
+  const getStoredLastActivityTime = (): number => {
+    if (typeof window === 'undefined') {
+      return Date.now();
+    }
+    const stored = localStorage.getItem('lastActivityTime');
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      // Validate stored time is reasonable (not in the future, not too old)
+      const now = Date.now();
+      if (!isNaN(parsed) && parsed <= now && parsed > now - 365 * 24 * 60 * 60 * 1000) {
+        return parsed;
+      }
+    }
+    return Date.now();
+  };
+  
+  const [lastActivityTime, setLastActivityTime] = useState<number>(getStoredLastActivityTime());
+  
+  // Update both state and localStorage when activity time changes
+  const updateLastActivityTime = useCallback((time: number) => {
+    setLastActivityTime(time);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lastActivityTime', time.toString());
+    }
+  }, []);
 
   // Initialize Supabase client only in browser environment
   useEffect(() => {
@@ -64,33 +91,98 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Get current session and user
   const getSession = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] getSession: No supabase client yet`);
+      return;
+    }
     
     try {
       setLoading(true);
       setError(null);
 
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] getSession: Fetching session...`);
       const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
-        console.error('Error getting session:', sessionError);
+        console.error(`[${timestamp}] getSession: Error getting session:`, sessionError);
         setError(sessionError);
         setSession(null);
         setUser(null);
+        setLoading(false);
+        // Clear stored activity time on error
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('lastActivityTime');
+        }
         return;
       }
 
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+      console.log(`[${timestamp}] getSession: Session result:`, currentSession ? `has session, user: ${currentSession.user?.email}` : 'no session');
+      
+      // CRITICAL SECURITY CHECK: Verify idle timeout BEFORE setting user/session
+      // This prevents the menu from showing for users who haven't been active
+      if (currentSession) {
+        const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+        const storedLastActivity = getStoredLastActivityTime();
+        const timeSinceLastActivity = Date.now() - storedLastActivity;
+        
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] getSession: Checking idle timeout - last activity: ${new Date(storedLastActivity).toISOString()}, time since: ${Math.round(timeSinceLastActivity / 1000 / 60)} minutes`);
+        
+        if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
+          const timestamp = new Date().toISOString();
+          console.log(`[${timestamp}] getSession: Idle timeout exceeded, signing out immediately`);
+          // Sign out immediately - don't set session/user
+          await supabase.auth.signOut({ scope: 'local' });
+          setSession(null);
+          setUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActivityTime');
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // Session is valid and not idle - set session and user
+        setSession(currentSession);
+        setUser(currentSession.user ?? null);
+        
+        if (currentSession.user) {
+          const timestamp = new Date().toISOString();
+          console.log(`[${timestamp}] getSession: User set successfully:`, currentSession.user.email);
+          // Update activity time to now since we're loading an active session
+          // This ensures the timer starts fresh when the page loads
+          updateLastActivityTime(Date.now());
+        } else {
+          const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] getSession: No user in session`);
+        }
+      } else {
+        // No session - clear everything
+        setSession(null);
+        setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('lastActivityTime');
+        }
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] getSession: No session found`);
+      }
     } catch (err) {
-      console.error('Unexpected error getting session:', err);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] getSession: Unexpected error:`, err);
       setError(err as AuthError);
       setSession(null);
       setUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('lastActivityTime');
+      }
     } finally {
       setLoading(false);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] getSession: Loading set to false`);
     }
-  }, [supabase]);
+  }, [supabase, updateLastActivityTime]);
 
   // Initialize auth state on mount (only when supabase client is available)
   useEffect(() => {
@@ -108,7 +200,106 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] Auth state change:`, event, session ? 'has session' : 'no session');
+      
+      // Handle explicit sign-out events
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        setError(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('lastActivityTime');
+        }
+        // Redirect to sign-in if we're on a protected route (but not if already on sign-in)
+        if (typeof window !== 'undefined') {
+          const pathname = window.location.pathname;
+          const isOnSignInPage = pathname === '/sign-in' || pathname.startsWith('/sign-in');
+          const protectedRoutes = ['/upload', '/gallery', '/dashboard', '/photos', '/settings'];
+          const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+          // Only redirect if on protected route AND not already on sign-in page
+          if (isProtectedRoute && !isOnSignInPage) {
+            window.location.href = `/sign-in?error=Session expired. Please sign in again.&next=${encodeURIComponent(pathname)}`;
+          }
+        }
+        return;
+      }
+
+      // Handle INITIAL_SESSION with no session - this means there's genuinely no session
+      // (user signed out, session expired, etc.) - we should clear state
+      if (event === 'INITIAL_SESSION' && !session) {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] INITIAL_SESSION with no session - clearing auth state`);
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        setError(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('lastActivityTime');
+        }
+        return;
+      }
+
+      // Handle null session for other events (might be temporary during refresh)
+      // Only skip clearing state for TOKEN_REFRESHED events which might temporarily have null session
+      if (!session && event !== 'TOKEN_REFRESHED') {
+        // For other events with null session, clear state to be safe
+        console.log('Session is null for event:', event, '- clearing auth state');
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('lastActivityTime');
+        }
+        return;
+      }
+
+      // Reset activity timer ONLY on sign in (not on automatic token refresh)
+      // Token refresh happens automatically and should NOT reset idle timeout
+      // Only actual user activity should reset the idle timer
+      if (event === 'SIGNED_IN') {
+        updateLastActivityTime(Date.now());
+      }
+      // NOTE: We intentionally do NOT reset activity time on TOKEN_REFRESHED
+      // because automatic token refreshes should not extend the idle timeout
+
+      // CRITICAL SECURITY: Check idle timeout when TOKEN_REFRESHED event fires
+      // If user is idle, we should NOT accept the refreshed token
+      if (event === 'TOKEN_REFRESHED' && session) {
+        const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+        const now = Date.now();
+        const timeSinceLastActivity = now - lastActivityTime;
+        
+        if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
+          // User is idle but Supabase auto-refreshed the token
+          // Reject this refresh and sign out immediately
+          const timestamp = new Date().toISOString();
+          console.log(`[${timestamp}] SECURITY: TOKEN_REFRESHED event but user is idle (${Math.round(timeSinceLastActivity / 1000 / 60)} minutes), rejecting refresh and signing out`);
+          await supabase.auth.signOut({ scope: 'local' });
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActivityTime');
+            const pathname = window.location.pathname;
+            const isOnSignInPage = pathname === '/sign-in' || pathname.startsWith('/sign-in');
+            const protectedRoutes = ['/upload', '/gallery', '/dashboard', '/photos', '/settings'];
+            const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+            console.log(`[${timestamp}] Idle timeout: pathname=${pathname}, isProtectedRoute=${isProtectedRoute}, isOnSignInPage=${isOnSignInPage}`);
+            if (isProtectedRoute && !isOnSignInPage) {
+              console.log(`[${timestamp}] Redirecting idle user to sign-in from ${pathname}`);
+              // Use window.location.replace to ensure navigation happens
+              window.location.replace(`/sign-in?error=${encodeURIComponent('Session expired due to inactivity. Please sign in again.')}`);
+              return; // Ensure we return early
+            }
+          }
+          return;
+        }
+      }
+
+      // Update session and user
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -120,6 +311,179 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       subscription.unsubscribe();
     };
   }, [supabase, getSession]);
+
+
+  // Update last activity time on user interaction
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) {
+      return;
+    }
+
+    const updateActivity = () => {
+      updateLastActivityTime(Date.now());
+    };
+
+    // Track various user activities
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      window.addEventListener(event, updateActivity, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, updateActivity);
+      });
+    };
+  }, [user]);
+
+  // Check session expiration periodically and handle automatic logout
+  useEffect(() => {
+    if (!supabase || typeof window === 'undefined') {
+      return;
+    }
+
+    const checkSessionExpiration = async () => {
+      const timestamp = new Date().toISOString();
+      try {
+        // CRITICAL: Check idle timeout FIRST before doing anything else
+        // This prevents session refresh when user is idle
+        const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+        const now = Date.now();
+        const timeSinceLastActivity = now - lastActivityTime;
+        
+        if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
+          // User has been idle for too long - sign out immediately
+          // DO NOT refresh session - this is a security requirement
+          console.log(`[${timestamp}] SECURITY: Idle timeout exceeded (${Math.round(timeSinceLastActivity / 1000 / 60)} minutes idle), signing out immediately`);
+          await supabase.auth.signOut({ scope: 'local' });
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActivityTime');
+          }
+          // Clear state immediately to prevent UI from showing
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          // Redirect to sign-in if on protected route
+          if (typeof window !== 'undefined') {
+            const pathname = window.location.pathname;
+            const isOnSignInPage = pathname === '/sign-in' || pathname.startsWith('/sign-in');
+            const protectedRoutes = ['/upload', '/gallery', '/dashboard', '/photos', '/settings'];
+            const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+            if (isProtectedRoute && !isOnSignInPage) {
+              window.location.href = `/sign-in?error=Session expired due to inactivity. Please sign in again.`;
+            }
+          }
+          return;
+        }
+
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        // If there's an error getting session, don't clear state - might be temporary
+        if (sessionError) {
+          console.warn(`[${timestamp}] Error checking session expiration:`, sessionError);
+          return;
+        }
+        
+        if (!currentSession) {
+          // No session - clear state
+          console.log(`[${timestamp}] No session found, clearing state`);
+          setSession(null);
+          setUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActivityTime');
+          }
+          return;
+        }
+
+        // Check if access token is expired (expires_at is in seconds)
+        const expiresAt = currentSession.expires_at;
+        if (expiresAt) {
+          const expirationTime = expiresAt * 1000; // Convert to milliseconds
+          const timeUntilExpiration = expirationTime - now;
+
+          // CRITICAL: Only refresh if:
+          // 1. Token is expiring soon (< 5 minutes)
+          // 2. User is NOT idle (activity within last hour)
+          // This prevents automatic token refresh from extending idle sessions
+          if (timeUntilExpiration < 5 * 60 * 1000 && timeSinceLastActivity < IDLE_TIMEOUT_MS) {
+            console.log(`[${timestamp}] Session expiring soon (${Math.round(timeUntilExpiration / 1000 / 60)} minutes), user is active (${Math.round(timeSinceLastActivity / 1000 / 60)} minutes since activity), attempting refresh...`);
+            const { data: { session: refreshedSession }, error: refreshError } = 
+              await supabase.auth.refreshSession();
+
+            if (refreshError || !refreshedSession) {
+              // Refresh failed - session is truly expired, sign out
+              console.warn(`[${timestamp}] Session refresh failed, signing out:`, refreshError);
+              await supabase.auth.signOut({ scope: 'local' });
+              setSession(null);
+              setUser(null);
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('lastActivityTime');
+              }
+              return;
+            }
+
+            // Session refreshed successfully
+            // NOTE: We do NOT reset lastActivityTime here - only user activity should reset it
+            console.log(`[${timestamp}] Session refreshed successfully (user still active)`);
+            setSession(refreshedSession);
+            setUser(refreshedSession.user);
+          } else if (timeUntilExpiration < 0) {
+            // Token is already expired
+            console.log(`[${timestamp}] Session token expired, signing out`);
+            await supabase.auth.signOut({ scope: 'local' });
+            setSession(null);
+            setUser(null);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('lastActivityTime');
+            }
+          } else if (timeUntilExpiration < 5 * 60 * 1000 && timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
+            // Token is expiring but user is idle - DO NOT refresh, sign out instead
+            console.log(`[${timestamp}] SECURITY: Token expiring but user is idle (${Math.round(timeSinceLastActivity / 1000 / 60)} minutes), signing out instead of refreshing`);
+            await supabase.auth.signOut({ scope: 'local' });
+            setSession(null);
+            setUser(null);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('lastActivityTime');
+            }
+            // Redirect to sign-in
+            if (typeof window !== 'undefined') {
+              const pathname = window.location.pathname;
+              const isOnSignInPage = pathname === '/sign-in' || pathname.startsWith('/sign-in');
+              const protectedRoutes = ['/upload', '/gallery', '/dashboard', '/photos', '/settings'];
+              const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+              if (isProtectedRoute && !isOnSignInPage) {
+                window.location.href = `/sign-in?error=Session expired due to inactivity. Please sign in again.`;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[${timestamp}] Error checking session expiration:`, error);
+        // On error, try to get current session to verify it still exists
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          // Session is gone, sign out
+          console.log(`[${timestamp}] Session not found after error, signing out`);
+          await supabase.auth.signOut({ scope: 'local' });
+          setSession(null);
+          setUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActivityTime');
+          }
+        }
+      }
+    };
+
+    // Check immediately
+    checkSessionExpiration();
+
+    // Check every minute (60000ms) for session expiration and idle timeout
+    const intervalId = setInterval(checkSessionExpiration, 60000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [supabase, lastActivityTime, updateLastActivityTime]);
 
   // Sign in with email and password
   const signIn = useCallback(async (email: string, password: string) => {

@@ -71,19 +71,34 @@ export class S3UploadService implements UploadService {
 
   /**
    * Get authentication token from Supabase session
+   * Returns null if no session or error - does NOT redirect (caller handles auth errors)
    */
   private async getAuthToken(): Promise<string | null> {
     try {
       const supabase = getSupabaseClient();
       const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (error || !session) {
+      if (error) {
+        console.error('Error getting session:', error);
+        // Don't redirect here - let the caller handle auth errors
+        return null;
+      }
+      
+      if (!session) {
+        console.warn('No active session found');
+        // Don't redirect here - let the caller handle auth errors
+        return null;
+      }
+      
+      if (!session.access_token) {
+        console.error('Session exists but no access token');
         return null;
       }
       
       return session.access_token;
     } catch (error) {
       console.error('Error getting auth token:', error);
+      // Don't redirect here - let the caller handle auth errors
       return null;
     }
   }
@@ -103,15 +118,30 @@ export class S3UploadService implements UploadService {
     }
 
     try {
-      // Get auth token
-      const token = await this.getAuthToken();
+      // Get auth token - try refreshing session if needed
+      let token = await this.getAuthToken();
       if (!token) {
-        throw this.createUploadError(
-          'AUTH_REQUIRED',
-          'Authentication required. Please sign in.',
-          ErrorType.PERMISSION_ERROR,
-          false
-        );
+        // Try refreshing the session before giving up
+        try {
+          const supabase = getSupabaseClient();
+          const { data: { session }, error } = await supabase.auth.refreshSession();
+          if (!error && session?.access_token) {
+            token = session.access_token;
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh session:', refreshError);
+        }
+        
+        if (!token) {
+          // Still no token after refresh - throw error but don't redirect
+          // Let the UI handle the auth error appropriately
+          throw this.createUploadError(
+            'AUTH_REQUIRED',
+            'Authentication required. Please sign in.',
+            ErrorType.PERMISSION_ERROR,
+            false
+          );
+        }
       }
 
       // Create FormData for multipart upload
@@ -128,9 +158,41 @@ export class S3UploadService implements UploadService {
       );
 
       if (!response.ok) {
-        // Handle 401 - redirect to login
+        // Handle 401 - try refreshing session first, then redirect if still failing
         if (response.status === 401) {
-          window.location.href = '/sign-in?error=Session expired. Please sign in again.';
+          // Try refreshing the session before redirecting
+          try {
+            const supabase = getSupabaseClient();
+            const { data: { session }, error } = await supabase.auth.refreshSession();
+            if (!error && session?.access_token) {
+              // Session refreshed - retry the upload with new token
+              const retryResponse = await this.uploadWithProgress(
+                `${this.baseUrl}/v1/photos/upload`,
+                formData,
+                uploadId,
+                abortController.signal,
+                session.access_token
+              );
+              
+              if (retryResponse.ok) {
+                // Retry succeeded - return the result
+                const result: PhotoUploadResponse = await retryResponse.json();
+                this.activeUploads.delete(uploadId);
+                this.progressCallbacks.delete(uploadId);
+                return this.mapToUploadResult(result, file);
+              }
+              // Retry still failed with 401 - proceed to redirect
+            }
+          } catch (refreshError) {
+            console.error('Failed to refresh session on 401:', refreshError);
+          }
+          
+          // Session refresh failed or retry still returned 401 - redirect to sign-in
+          // Only redirect on actual authentication failures from the server
+          if (typeof window !== 'undefined') {
+            const currentPath = window.location.pathname;
+            window.location.href = `/sign-in?error=Session expired. Please sign in again.&next=${encodeURIComponent(currentPath)}`;
+          }
           throw this.createUploadError(
             'AUTH_REQUIRED',
             'Authentication required',
@@ -139,13 +201,42 @@ export class S3UploadService implements UploadService {
           );
         }
 
-        const errorData: ApiError = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        // Try to parse error response
+        let errorDetail = 'Unknown error';
+        let errorData: ApiError = { detail: errorDetail };
+        
+        try {
+          const text = await response.text();
+          if (text) {
+            try {
+              errorData = JSON.parse(text);
+              errorDetail = errorData.detail || errorData.message || `Server error (${response.status})`;
+            } catch (parseError) {
+              // If JSON parsing fails, use the raw text
+              errorDetail = text || `Server error (${response.status})`;
+            }
+          } else {
+            errorDetail = `Server error (${response.status})`;
+          }
+        } catch (error) {
+          console.error('Failed to parse error response:', error);
+          errorDetail = `Server error (${response.status})`;
+        }
+
+        console.error('Upload failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorDetail,
+          errorData: JSON.stringify(errorData, null, 2),
+          fullErrorData: errorData
+        });
+
         throw this.createUploadError(
           'UPLOAD_FAILED',
-          `Upload failed: ${errorData.detail}`,
+          `Upload failed: ${errorDetail}`,
           ErrorType.UPLOAD_ERROR,
           true,
-          { status: response.status, detail: errorData.detail }
+          { status: response.status, detail: errorDetail, errorData }
         );
       }
 
@@ -189,9 +280,23 @@ export class S3UploadService implements UploadService {
    * Uses new photo API endpoint
    */
   async generatePresignedUrl(fileName: string, fileType: string): Promise<string> {
-    const token = await this.getAuthToken();
+    // Get auth token - try refreshing session if needed
+    let token = await this.getAuthToken();
     if (!token) {
-      throw new Error('Authentication required');
+      // Try refreshing the session before giving up
+      try {
+        const supabase = getSupabaseClient();
+        const { data: { session }, error } = await supabase.auth.refreshSession();
+        if (!error && session?.access_token) {
+          token = session.access_token;
+        }
+      } catch (refreshError) {
+        console.error('Failed to refresh session:', refreshError);
+      }
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
     }
 
     const maxSizeBytes = 50 * 1024 * 1024; // 50MB
@@ -207,8 +312,38 @@ export class S3UploadService implements UploadService {
     );
 
     if (!response.ok) {
+      // Handle 401 - try refreshing session first, then redirect if still failing
       if (response.status === 401) {
-        window.location.href = '/sign-in?error=Session expired. Please sign in again.';
+        // Try refreshing the session before redirecting
+        try {
+          const supabase = getSupabaseClient();
+          const { data: { session }, error } = await supabase.auth.refreshSession();
+          if (!error && session?.access_token) {
+            // Retry with refreshed token
+            const retryResponse = await fetch(
+              `${this.baseUrl}/v1/photos/presigned-upload?filename=${encodeURIComponent(fileName)}&content_type=${encodeURIComponent(fileType)}&max_size_bytes=${maxSizeBytes}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+              }
+            );
+            
+            if (retryResponse.ok) {
+              const data: PresignedUploadResponse = await retryResponse.json();
+              return data.url;
+            }
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh session on 401:', refreshError);
+        }
+        
+        // Session refresh failed or retry still returned 401 - redirect to sign-in
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          window.location.href = `/sign-in?error=Session expired. Please sign in again.&next=${encodeURIComponent(currentPath)}`;
+        }
         throw new Error('Authentication required');
       }
       const error = await response.json();

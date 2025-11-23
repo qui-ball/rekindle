@@ -285,7 +285,7 @@ describe('API Proxy Route', () => {
       // The route should preserve the status code from the fetch response
       expect(response.status).toBe(404);
       const data = await response.json();
-      expect(data.error).toBe('Not found');
+    expect(data.detail).toBe('Not found');
     });
   });
 });

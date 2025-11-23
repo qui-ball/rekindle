@@ -41,3 +41,4 @@ COMMENT ON COLUMN photos.processed_key IS 'S3 object key for the processed/resto
 COMMENT ON COLUMN photos.thumbnail_key IS 'S3 object key for the thumbnail asset.';
 
 
+
