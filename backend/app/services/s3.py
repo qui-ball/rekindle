@@ -276,23 +276,60 @@ class S3Service:
         """
         return self.generate_presigned_download_url(key, expiration=3600)
 
+    def clean_s3_key(self, key: str) -> str:
+        """
+        Clean an S3 key by removing query parameters and URL-encoded characters
+        This is useful when keys were incorrectly stored with query parameters
+        """
+        from urllib.parse import unquote
+        
+        # Strip query parameters if present (handles both ? and %3F)
+        key = key.split('?')[0]
+        key = key.split('%3F')[0]  # Handle URL-encoded ?
+        
+        # URL decode in case it was double-encoded (may decode %253F to %3F to ?)
+        # Keep decoding until no more changes occur
+        prev_key = ""
+        decoded = key
+        while decoded != prev_key:
+            prev_key = decoded
+            decoded = unquote(decoded)
+            # Strip query parameters after each decode
+            decoded = decoded.split('?')[0]
+            decoded = decoded.split('%3F')[0]
+        
+        return decoded
+
     def extract_key_from_url(self, url: str) -> str:
         """
-        Extract the S3 key from an S3 URL
+        Extract the S3 key from an S3 URL (handles presigned URLs with query parameters)
         """
-        if f"{self.bucket}.s3" in url:
+        # Strip query parameters from presigned URLs
+        # Presigned URLs have format: https://bucket.s3.region.amazonaws.com/key?X-Amz-Algorithm=...
+        url_without_query = url.split('?')[0]
+        
+        if f"{self.bucket}.s3" in url_without_query:
             # S3 URL format: https://bucket.s3.region.amazonaws.com/key
-            if f".s3.{self.region}.amazonaws.com/" in url:
-                return url.split(f".s3.{self.region}.amazonaws.com/")[1]
-            elif ".s3.amazonaws.com/" in url:
-                return url.split(".s3.amazonaws.com/")[1]
-        elif f"/{self.bucket}/" in url and "s3" in url and "amazonaws.com" in url:
+            if f".s3.{self.region}.amazonaws.com/" in url_without_query:
+                key = url_without_query.split(f".s3.{self.region}.amazonaws.com/")[1]
+                # URL decode the key in case it contains encoded characters
+                from urllib.parse import unquote
+                return unquote(key)
+            elif ".s3.amazonaws.com/" in url_without_query:
+                key = url_without_query.split(".s3.amazonaws.com/")[1]
+                from urllib.parse import unquote
+                return unquote(key)
+        elif f"/{self.bucket}/" in url_without_query and "s3" in url_without_query and "amazonaws.com" in url_without_query:
             # Regional S3 URL format: https://s3.region.amazonaws.com/bucket/key
-            parts = url.split(f"/{self.bucket}/")
+            parts = url_without_query.split(f"/{self.bucket}/")
             if len(parts) > 1:
-                return parts[1]
-        # Assume it's already a key
-        return url
+                key = parts[1]
+                from urllib.parse import unquote
+                return unquote(key)
+        # Assume it's already a key (but still strip query params if present)
+        key = url_without_query
+        from urllib.parse import unquote
+        return unquote(key)
 
 
 # Global instance

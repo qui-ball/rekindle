@@ -43,6 +43,20 @@ const nextConfig = {
   },
   images: {
     domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.s3.*.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.s3.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'rekindle-media.s3.amazonaws.com',
+      },
+    ],
     formats: ['image/webp', 'image/avif'],
   },
   // Webpack configuration for JScanify and OpenCV.js

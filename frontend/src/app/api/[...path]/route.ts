@@ -16,7 +16,13 @@ export async function GET(
   }
   
   const searchParams = request.nextUrl.searchParams.toString();
-  const url = `http://backend:8000/api/${path}${searchParams ? `?${searchParams}` : ''}`;
+  // Add trailing slash for collection endpoints to avoid 307 redirects from FastAPI
+  // FastAPI automatically redirects /api/v1/jobs to /api/v1/jobs/ when route is defined with "/"
+  // Only add trailing slash if path doesn't already have one and doesn't end with a UUID
+  const hasTrailingSlash = path.endsWith('/');
+  const isUuidPath = path.match(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  const trailingSlash = (!hasTrailingSlash && !isUuidPath && path) ? '/' : '';
+  const url = `http://backend:8000/api/${path}${trailingSlash}${searchParams ? `?${searchParams}` : ''}`;
 
   try {
     const response = await fetch(url, {

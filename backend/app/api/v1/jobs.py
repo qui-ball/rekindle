@@ -76,13 +76,20 @@ async def upload_and_process(
 
         # Generate and upload thumbnail
         try:
-            thumbnail_url = s3_service.upload_job_thumbnail(
+            # Generate thumbnail key directly (don't extract from URL to avoid issues)
+            thumbnail_key = f"thumbnails/{job.id}.jpg"
+            thumbnail_bytes = s3_service.generate_thumbnail(
                 image_content=file_content,
-                job_id=str(job.id),
-                extension=extension
+                max_size=(400, 400),
+                quality=85
             )
-            # Extract S3 key from URL
-            thumbnail_key = s3_service.extract_key_from_url(thumbnail_url)
+            # Upload thumbnail to S3
+            s3_service.s3_client.put_object(
+                Bucket=s3_service.bucket,
+                Key=thumbnail_key,
+                Body=thumbnail_bytes,
+                ContentType="image/jpeg"
+            )
             job.thumbnail_s3_key = thumbnail_key
             logger.info(f"Thumbnail generated for job {job.id}: {thumbnail_key}")
         except Exception as thumb_error:
@@ -250,9 +257,11 @@ async def get_job(
     thumbnail_url = None
     if job.thumbnail_s3_key:
         try:
+            # Clean the key to remove any query parameters that might have been stored incorrectly
+            clean_key = s3_service.clean_s3_key(job.thumbnail_s3_key)
             thumbnail_url = s3_service.s3_client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                Params={"Bucket": s3_service.bucket, "Key": clean_key},
                 ExpiresIn=3600  # 1 hour expiration
             )
         except Exception as e:
@@ -381,9 +390,11 @@ async def list_jobs(
         # Generate presigned URL for thumbnail if key exists
         if job.thumbnail_s3_key:
             try:
+                # Clean the key to remove any query parameters that might have been stored incorrectly
+                clean_key = s3_service.clean_s3_key(job.thumbnail_s3_key)
                 job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
                     "get_object",
-                    Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                    Params={"Bucket": s3_service.bucket, "Key": clean_key},
                     ExpiresIn=3600  # 1 hour expiration
                 )
             except Exception as e:
