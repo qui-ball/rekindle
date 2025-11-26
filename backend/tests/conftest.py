@@ -17,23 +17,29 @@ import os
 # Only override env vars if not running integration tests
 # Integration tests need to use real environment variables
 if not os.getenv("RUN_INTEGRATION_TESTS"):
-    os.environ.update(
-        {
-            "SECRET_KEY": "test_secret_key_for_testing_only",
-            # Use in-memory SQLite for tests
-            "DATABASE_URL": "sqlite:///:memory:",
-            "REDIS_URL": "redis://localhost:6379/1",
-            "AUTH0_DOMAIN": "test.auth0.com",
-            "AUTH0_AUDIENCE": "test_audience",
-            "STRIPE_SECRET_KEY": "sk_test_test_key",
-            "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
-            "RUNPOD_API_KEY": "test_runpod_key",
-            "AWS_ACCESS_KEY_ID": "test_aws_key",
-            "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
-            "AWS_REGION": "us-east-2",
-            "S3_BUCKET": "rekindle-media",
-        }
-    )
+    defaults = {
+        "SECRET_KEY": "test_secret_key_for_testing_only",
+        # Use in-memory SQLite for tests by default (unless overridden)
+        "DATABASE_URL": "sqlite:///:memory:",
+        "REDIS_URL": "redis://localhost:6379/1",
+        "AUTH0_DOMAIN": "test.auth0.com",
+        "AUTH0_AUDIENCE": "test_audience",
+        "STRIPE_SECRET_KEY": "sk_test_test_key",
+        "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
+        "RUNPOD_API_KEY": "test_runpod_key",
+        "AWS_ACCESS_KEY_ID": "test_aws_key",
+        "AWS_SECRET_ACCESS_KEY": "test_aws_secret",
+        "AWS_REGION": "us-east-2",
+        "S3_BUCKET": "rekindle-media",
+        "XDEVICE_JWT_SECRET": "test_xdevice_jwt_secret_at_least_32_chars_long_for_testing",
+        "SUPABASE_URL": "https://test.supabase.co",
+        "SUPABASE_ANON_KEY": "test_anon_key",
+        "SUPABASE_SERVICE_KEY": "test_service_key",
+        "SUPABASE_WEBHOOK_SECRET": "test_webhook_secret",
+        "BACKEND_BASE_URL": "http://localhost:8000",
+    }
+    for key, value in defaults.items():
+        os.environ.setdefault(key, value)
 else:
     # For integration tests, we still need some test values for non-AWS settings
     # that aren't in the .env file. DATABASE_URL should come from environment.
@@ -45,6 +51,12 @@ else:
         "STRIPE_SECRET_KEY": "sk_test_test_key",
         "STRIPE_WEBHOOK_SECRET": "whsec_test_secret",
         "RUNPOD_API_KEY": "test_runpod_key",
+        "XDEVICE_JWT_SECRET": "test_xdevice_jwt_secret_at_least_32_chars_long_for_testing",
+        "SUPABASE_URL": "https://test.supabase.co",
+        "SUPABASE_ANON_KEY": "test_anon_key",
+        "SUPABASE_SERVICE_KEY": "test_service_key",
+        "SUPABASE_WEBHOOK_SECRET": "test_webhook_secret",
+        "BACKEND_BASE_URL": "http://localhost:8000",
     }
     # Only set test values for keys that aren't already in environment
     for key, value in test_env.items():
@@ -55,6 +67,7 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.api.deps import get_current_user
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
+from app.models.photo import Photo
 
 
 # Test database setup
@@ -84,7 +97,11 @@ def test_db_session(test_engine):
         yield session
     finally:
         session.close()
-        transaction.rollback()
+        try:
+            if transaction.is_active:
+                transaction.rollback()
+        except Exception:
+            pass  # Transaction may already be closed
         connection.close()
 
 
@@ -102,23 +119,38 @@ def override_get_db(test_db_session):
 
 @pytest.fixture
 def mock_user():
-    """Mock authenticated user"""
+    """Mock authenticated user ID (legacy - returns string)"""
     return "test_user_123"
 
 
 @pytest.fixture
-def override_get_current_user(mock_user):
-    """Override authentication dependency"""
+def override_get_current_user(mock_user, test_db_session):
+    """Override authentication dependency with User object"""
+    from app.models.user import User
+    import uuid
+    
+    # Create a mock User object for testing
+    user = User(
+        id=uuid.uuid4(),
+        supabase_user_id=mock_user if isinstance(mock_user, str) else str(mock_user),
+        email="test@example.com",
+        account_status="active",
+        subscription_tier="free",
+    )
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
 
     def _get_test_user():
-        return mock_user
+        return user
 
     app.dependency_overrides[get_current_user] = _get_test_user
-    yield
-    del app.dependency_overrides[get_current_user]
+    yield user
+    if get_current_user in app.dependency_overrides:
+        del app.dependency_overrides[get_current_user]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client(override_get_db, override_get_current_user):
     """Async test client with overridden dependencies"""
     async with AsyncClient(
@@ -201,6 +233,29 @@ def animation_attempt_factory(test_db_session):
     
     return _create_animation
 
+
+# New photo factory
+@pytest.fixture
+def photo_factory(test_db_session):
+    """Factory for creating photo records"""
+    import uuid
+    
+    def _create_photo(**kwargs):
+        defaults = {
+            "owner_id": "test_user_123",
+            "original_key": f"users/test_user_123/raw/test_{uuid.uuid4()}.jpg",
+            "checksum_sha256": "a" * 64,
+            "storage_bucket": "rekindle-uploads",
+            "status": "uploaded",
+        }
+        defaults.update(kwargs)
+        photo = Photo(**defaults)
+        test_db_session.add(photo)
+        test_db_session.commit()
+        test_db_session.refresh(photo)
+        return photo
+
+    return _create_photo
 
 # Legacy restoration_job_factory removed - use job_factory instead
 

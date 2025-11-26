@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PhotoUploadContainer } from './PhotoUploadContainer';
 
@@ -20,7 +20,7 @@ jest.mock('./CameraCaptureFlow', () => ({
       {isOpen && (
         <div>
           <button onClick={onClose} data-testid="flow-close">Close Flow</button>
-          <button onClick={() => onCapture('mock-image-data')} data-testid="flow-capture">
+          <button onClick={() => onCapture('data:image/jpeg;base64,mock-image-data')} data-testid="flow-capture">
             Capture Photo
           </button>
         </div>
@@ -29,12 +29,68 @@ jest.mock('./CameraCaptureFlow', () => ({
   )
 }));
 
+// Mock file utilities
+jest.mock('../../utils/fileUtils', () => ({
+  base64ToFile: jest.fn((data: string, filename: string, mimeType: string) => {
+    return new File([data], filename, { type: mimeType });
+  }),
+  validateFile: jest.fn(() => ({ valid: true, error: null })),
+  getImageDimensionsFromBase64: jest.fn(() => Promise.resolve({ width: 1920, height: 1080 }))
+}));
+
+// Mock the usePhotoUpload hook
+const mockUploadPhoto = jest.fn();
+const mockResetUpload = jest.fn();
+
+// Track upload state for testing
+let uploadStateStatus: 'idle' | 'uploading' | 'complete' | 'error' = 'idle';
+
+jest.mock('../../hooks/usePhotoUpload', () => ({
+  usePhotoUpload: () => ({
+    uploadPhoto: async (file: File, options?: any) => {
+      uploadStateStatus = 'uploading';
+      // Simulate upload progress
+      if (options?.onProgress) {
+        options.onProgress(50);
+        await new Promise(resolve => setTimeout(resolve, 10));
+        options.onProgress(100);
+      }
+      
+      uploadStateStatus = 'complete';
+      const result = {
+        success: true,
+        data: {
+          uploadId: 'camera-123',
+          fileKey: 'camera-capture-123.jpg',
+          originalFileName: 'camera-capture-123.jpg',
+          processingStatus: 'queued'
+        }
+      };
+      
+      return result;
+    },
+    uploadState: {
+      get status() { return uploadStateStatus; },
+      progress: uploadStateStatus === 'complete' ? 100 : 0,
+      uploadResult: uploadStateStatus === 'complete' ? {
+        uploadId: 'camera-123',
+        fileKey: 'camera-capture-123.jpg',
+        originalFileName: 'camera-capture-123.jpg',
+        processingStatus: 'queued'
+      } : null,
+      error: null
+    },
+    resetUpload: mockResetUpload
+  })
+}));
+
 describe('PhotoUploadContainer', () => {
   const mockOnUploadComplete = jest.fn();
   const mockOnError = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    uploadStateStatus = 'idle';
   });
 
   it('should render upload method selection initially', () => {
@@ -87,8 +143,8 @@ describe('PhotoUploadContainer', () => {
     expect(screen.queryByTestId('flow-close')).not.toBeInTheDocument();
   });
 
-  it('should handle photo capture from flow', () => {
-    render(
+  it('should handle photo capture from flow', async () => {
+    const { rerender } = render(
       <PhotoUploadContainer
         onUploadComplete={mockOnUploadComplete}
         onError={mockOnError}
@@ -99,11 +155,13 @@ describe('PhotoUploadContainer', () => {
     fireEvent.click(screen.getByText('📷 Take Photo'));
     fireEvent.click(screen.getByTestId('flow-capture'));
 
-    // Should complete upload directly (no preview step)
-    expect(mockOnUploadComplete).toHaveBeenCalled();
+    // Wait for async upload to complete
+    await waitFor(() => {
+      expect(mockOnUploadComplete).toHaveBeenCalled();
+    }, { timeout: 3000 });
   });
 
-  it('should complete upload directly after capture', () => {
+  it('should complete upload directly after capture', async () => {
     render(
       <PhotoUploadContainer
         onUploadComplete={mockOnUploadComplete}
@@ -111,12 +169,16 @@ describe('PhotoUploadContainer', () => {
       />
     );
 
-    // Capture photo - should complete directly
+    // Capture photo - should trigger upload
     fireEvent.click(screen.getByText('📷 Take Photo'));
     fireEvent.click(screen.getByTestId('flow-capture'));
 
-    // Should show completion state directly
-    expect(screen.getByText('✅ Photo uploaded successfully!')).toBeInTheDocument();
+    // Wait for upload completion callback
+    await waitFor(() => {
+      expect(mockOnUploadComplete).toHaveBeenCalled();
+    }, { timeout: 3000 });
+
+    // Verify callback was called with correct data
     expect(mockOnUploadComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         uploadId: expect.stringContaining('camera-'),

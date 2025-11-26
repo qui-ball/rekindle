@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { PhotoDetailDrawerProps, PhotoAction, ProcessingOptions, Photo, PhotoResult } from '../../types/photo-management';
 import { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
 import { PhotoResultCard } from './PhotoResultCard';
+import { apiClient } from '../../services/apiClient';
 
 /**
  * PhotoDetailDrawer Component
@@ -34,7 +35,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
   photo,
   onClose,
   onPhotoAction,
-  onProcessingStart
+  onProcessingStart,
+  onPhotoUpdate
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -139,7 +141,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
     
     try {
       // Fetch the presigned URL for download
-      const response = await fetch(`/api/v1/jobs/${photo.id}/image-url`);
+      const response = await fetch(`/api/v1/photos/${photo.id}/download-url?key_type=original`);
       if (!response.ok) {
         throw new Error('Failed to get download URL');
       }
@@ -168,17 +170,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/v1/jobs/${photo.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete photo');
-      }
-
-      // Close drawer and notify parent
+      await onPhotoAction('delete', photo);
       onClose();
-      onPhotoAction('delete', photo);
     } catch (error) {
       console.error('Error deleting photo:', error);
       alert('Failed to delete photo. Please try again.');
@@ -188,13 +181,13 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
   // Handle download for result
   const handleDownloadResult = async (result: PhotoResult) => {
     try {
-      // Fetch the job data to get the presigned URL
-      const response = await fetch(`/api/v1/jobs/${result.photoId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch result URL');
-      }
-
-      const jobData = await response.json();
+      // Fetch the job data to get the presigned URL using authenticated API client
+      const jobData = await apiClient.get<{
+        restore_attempts?: Array<{
+          id: string;
+          url?: string;
+        }>;
+      }>(`/v1/jobs/${result.photoId}`);
       
       // Find the matching restore attempt
       const restoreAttempt = jobData.restore_attempts?.find(
@@ -221,19 +214,31 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
   // Handle delete for result
   const handleDeleteResult = async (result: PhotoResult) => {
     try {
-      // For now, we'll delete the entire restore attempt
-      // In the future, this should be updated to delete only the specific result
-      const response = await fetch(`/api/v1/jobs/${result.photoId}/restore/${result.id}`, {
-        method: 'DELETE'
-      });
+      // Delete the restore attempt using authenticated API client
+      await apiClient.delete(`/v1/jobs/${result.photoId}/restore/${result.id}`);
 
-      if (!response.ok) {
-        throw new Error('Failed to delete result');
+      // Refresh photo details from server to get updated results
+      if (photo) {
+        const { photoManagementService } = await import('../../services/photoManagementService');
+        const photoDetails = await photoManagementService.getPhotoDetails(photo.id);
+        
+        // Adjust current result index if needed
+        const updatedResults = photoDetails.results;
+        if (currentResultIndex >= updatedResults.length && updatedResults.length > 0) {
+          setCurrentResultIndex(updatedResults.length - 1);
+        } else if (updatedResults.length === 0) {
+          setCurrentResultIndex(0);
+        }
+        
+        // Notify parent to update the photo with fresh data
+        if (onPhotoUpdate) {
+          onPhotoUpdate({
+            ...photo,
+            ...photoDetails.photo,
+            results: photoDetails.results
+          });
+        }
       }
-
-      // Reload the photo data to reflect the deletion
-      // TODO: Implement a more efficient way to update the local state
-      window.location.reload();
     } catch (error) {
       console.error('Error deleting result:', error);
       throw error; // Re-throw to be handled by PhotoResultCard

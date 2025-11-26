@@ -88,6 +88,7 @@ export default function SignUpSuccessPage() {
                   <li>Check your spam/junk folder</li>
                   <li>Make sure you entered the correct email address</li>
                   <li>Wait a few minutes and check again</li>
+                  <li>Still nothing? Return to the <Link href="/sign-in" className="text-blue-600 hover:text-blue-700 font-medium">sign-in page</Link> to request a new link or contact <a className="text-blue-600 hover:text-blue-700 font-medium" href="mailto:support@rekindle.app">support@rekindle.app</a></li>
                 </ul>
               </div>
             </div>

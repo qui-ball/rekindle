@@ -15,6 +15,7 @@ from app.workers.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.core.config import settings
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
+from app.models.photo import Photo
 from app.services.s3 import s3_service
 from app.services.comfyui import comfyui_service
 
@@ -47,18 +48,38 @@ def process_restoration(
             f"Starting restoration for job {job_id}, mode: {settings.COMFYUI_MODE}"
         )
 
-        # Download uploaded image from S3
-        uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
-        # Try common extensions if default fails
+        # Check if this is a photo-based restoration (job_id = photo_id)
+        # If so, download from the photo's original_key instead of job-based path
+        photo = db.query(Photo).filter(Photo.id == job_uuid).first()
         image_data = None
-        for ext in ["jpg", "png", "webp", "heic"]:
+        uploaded_key = None
+        
+        if photo:
+            # This is a photo-based restoration - use photo's original_key
+            logger.info(f"Photo-based restoration detected, using original_key: {photo.original_key}")
             try:
-                key = f"uploaded/{job_id}.{ext}"
-                image_data = s3_service.download_file(key)
-                uploaded_key = key
-                break
-            except Exception:
-                continue
+                # Use storage_service to download from user-scoped storage
+                from app.services.storage_service import storage_service
+                image_data = storage_service.download_file(
+                    photo.original_key,
+                    photo.owner_id
+                )
+                uploaded_key = photo.original_key
+            except Exception as e:
+                logger.error(f"Failed to download photo original_key {photo.original_key}: {e}")
+                raise ValueError(f"Failed to download photo image: {e}")
+        else:
+            # Legacy job-based restoration - try job-based paths
+            uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
+            # Try common extensions if default fails
+            for ext in ["jpg", "png", "webp", "heic"]:
+                try:
+                    key = f"uploaded/{job_id}.{ext}"
+                    image_data = s3_service.download_file(key)
+                    uploaded_key = key
+                    break
+                except Exception:
+                    continue
 
         if not image_data:
             raise ValueError(f"No uploaded image found for job {job_id}")
@@ -67,8 +88,12 @@ def process_restoration(
         denoise = params.get("denoise", 0.7)
         megapixels = params.get("megapixels", 1.0)
 
+        # In development, always use pod mode and just copy the image (no ComfyUI needed)
+        # In production, respect COMFYUI_MODE setting
+        use_dev_copy = settings.ENVIRONMENT == "development"
+        
         # Route based on mode
-        if settings.COMFYUI_MODE == "serverless":
+        if settings.COMFYUI_MODE == "serverless" and not use_dev_copy:
             # Serverless mode - submit and exit
             from app.services.runpod_serverless import runpod_serverless_service
 
@@ -130,37 +155,81 @@ def process_restoration(
             }
 
         else:
-            # Pod mode - existing synchronous behavior
-            restored_image_data = comfyui_service.restore_image(
-                image_data=image_data,
-                filename=f"job_{job_id}.jpg",
-                denoise=denoise,
-                megapixels=megapixels,
-            )
+            # Pod mode
+            if use_dev_copy:
+                # Development mode: just copy the image (quick, no ComfyUI needed)
+                logger.info(f"Development mode: Copying image as restored version for job {job_id}")
+                restored_image_data = image_data  # Simple copy for development
+            else:
+                # Production pod mode: use ComfyUI to actually restore
+                restored_image_data = comfyui_service.restore_image(
+                    image_data=image_data,
+                    filename=f"job_{job_id}.jpg",
+                    denoise=denoise,
+                    megapixels=megapixels,
+                )
 
-            # Create restore attempt record
-            restore = RestoreAttempt(
-                job_id=job_uuid,
-                s3_key="",  # Will be set below
-                model=model or "comfyui_pod",
-                params=params,
-            )
-            db.add(restore)
+            # Check if a restore attempt already exists (created by endpoint)
+            # If so, use it; otherwise create a new one
+            restore = db.query(RestoreAttempt).filter(
+                RestoreAttempt.job_id == job_uuid,
+                RestoreAttempt.s3_key == "",  # Not yet processed
+            ).order_by(RestoreAttempt.created_at.desc()).first()
+            
+            if not restore:
+                # Create new restore attempt record
+                restore = RestoreAttempt(
+                    job_id=job_uuid,
+                    s3_key="",  # Will be set below
+                    model=model or "comfyui_pod",
+                    params=params,
+                )
+                db.add(restore)
+            else:
+                # Update existing restore attempt with model/params if provided
+                if model:
+                    restore.model = model
+                if params:
+                    restore.params = params
+            
             db.flush()  # Get the restore ID
 
             # Generate timestamp ID for this restore attempt
             restore_timestamp_id = s3_service.generate_timestamp_id()
 
-            # Upload restored image to S3 with timestamp ID
-            restored_url = s3_service.upload_restored_image(
-                image_content=restored_image_data,
-                job_id=job_id,
-                restore_id=restore_timestamp_id,
-                extension="jpg",
-            )
-
-            # Update restore attempt with S3 key using timestamp
-            restore.s3_key = f"restored/{job_id}/{restore_timestamp_id}.jpg"
+            # Upload restored image to S3
+            # For photo-based restorations, use user-scoped storage
+            # For legacy job-based restorations, use job-based storage
+            if photo:
+                # Photo-based: upload to user-scoped processed storage
+                from app.services.storage_service import storage_service
+                # Upload to user-scoped location (generates key internally)
+                restored_url = storage_service.upload_file(
+                    file_content=restored_image_data,
+                    user_id=photo.owner_id,
+                    photo_id=job_uuid,
+                    category="processed",
+                    filename=f"restored_{restore_timestamp_id}.jpg",
+                    content_type="image/jpeg"
+                )
+                # Get the generated key
+                processed_key = storage_service.generate_user_scoped_key(
+                    user_id=photo.owner_id,
+                    photo_id=job_uuid,
+                    category="processed",
+                    filename=f"restored_{restore_timestamp_id}.jpg"
+                )
+                restore.s3_key = processed_key
+                logger.info(f"Uploaded restored image to user-scoped storage: {processed_key}")
+            else:
+                # Legacy job-based: upload to job-based storage
+                restored_url = s3_service.upload_restored_image(
+                    image_content=restored_image_data,
+                    job_id=job_id,
+                    restore_id=restore_timestamp_id,
+                    extension="jpg",
+                )
+                restore.s3_key = f"restored/{job_id}/{restore_timestamp_id}.jpg"
 
             # Generate and upload thumbnail for restored image
             try:
@@ -180,6 +249,16 @@ def process_restoration(
 
             # Update job's selected restore
             job.selected_restore_id = restore.id
+
+            # Update the associated Photo model if job_id matches a photo_id
+            # (When restoration is triggered from a photo, job_id = photo_id)
+            # Note: photo variable is already set above if this is a photo-based restoration
+            if photo:
+                # Update photo's processed_key to point to the restored image
+                # For photo-based restorations, this is already in user-scoped storage
+                photo.processed_key = restore.s3_key
+                photo.status = "ready"
+                logger.info(f"Updated photo {photo.id} with processed_key: {restore.s3_key}")
 
             db.commit()
 

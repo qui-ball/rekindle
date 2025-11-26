@@ -5,6 +5,7 @@ Application configuration settings
 from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import Field, ConfigDict
+import pydantic
 
 
 class Settings(BaseSettings):
@@ -31,6 +32,32 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = Field(..., description="Supabase project URL")
     SUPABASE_ANON_KEY: str = Field(..., description="Supabase anonymous key")
     SUPABASE_SERVICE_KEY: str = Field(..., description="Supabase service role key")
+    SUPABASE_JWT_SECRET: str = Field(
+        default="",
+        description="Supabase JWT secret for HS256 token verification (local dev). If not set, uses SUPABASE_ANON_KEY."
+    )
+    SUPABASE_WEBHOOK_SECRET: str = Field(
+        default="",
+        description="Supabase webhook secret for signature verification"
+    )
+
+    # Cross-Device Authentication
+    XDEVICE_JWT_SECRET: str = Field(
+        ..., 
+        description="Secret key for signing cross-device temporary JWTs (HS256, 32+ bytes)",
+        min_length=32,
+    )
+    
+    @pydantic.field_validator("XDEVICE_JWT_SECRET", mode="before")
+    @classmethod
+    def validate_xdevice_jwt_secret(cls, v: str) -> str:
+        """Validate XDEVICE_JWT_SECRET is at least 32 bytes"""
+        if len(v.encode("utf-8")) < 32:
+            raise ValueError(
+                "XDEVICE_JWT_SECRET must be at least 32 bytes (characters) long for security. "
+                "Generate a secure random secret using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        return v
 
     # Stripe
     STRIPE_SECRET_KEY: str = Field(..., description="Stripe secret key")

@@ -46,8 +46,16 @@ services:
     environment:
       - ENVIRONMENT=development
       - REDIS_URL=redis://redis:6379/0
+      # Supabase env vars (can be overridden by env_file or dev-docker.sh exports)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:-}
     env_file:
       - ./backend/.env
+    extra_hosts:
+      # Map host.docker.internal to host gateway (for Linux compatibility)
+      - "host.docker.internal:host-gateway"
     networks:
       - rekindle-network
     depends_on:
@@ -97,6 +105,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
+    extra_hosts:
+      # Map host.docker.internal to host gateway (for Linux compatibility)
+      - "host.docker.internal:host-gateway"
     networks:
       - rekindle-network
     depends_on:
@@ -118,6 +129,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
     env_file:
       - ./backend/.env
+    extra_hosts:
+      # Map host.docker.internal to host gateway (for Linux compatibility)
+      - "host.docker.internal:host-gateway"
     networks:
       - rekindle-network
     depends_on:

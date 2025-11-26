@@ -75,7 +75,16 @@ function loadCertificates() {
 
 const httpsOptions = loadCertificates();
 
-app.prepare().then(() => {
+// Wait for Next.js to be ready and ensure initial compilation is complete
+app.prepare().then(async () => {
+  // In development mode, wait a bit longer to ensure initial compilation is complete
+  // This prevents the "Invalid or unexpected token" error on first load
+  if (dev) {
+    console.log('⏳ Waiting for initial compilation to complete...');
+    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+    console.log('✅ Ready to serve requests');
+  }
+
   // Create HTTPS server
   const httpsServer = createServer(httpsOptions, async (req, res) => {
     try {
@@ -102,4 +111,7 @@ app.prepare().then(() => {
       // Quiet startup - main info shown by dev-docker.sh
     });
 
+}).catch((err) => {
+  console.error('Failed to prepare Next.js app:', err);
+  process.exit(1);
 });

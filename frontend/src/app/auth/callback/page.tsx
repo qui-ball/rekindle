@@ -2,7 +2,7 @@
 
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getSupabaseClient } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * OAuth Callback Page

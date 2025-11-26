@@ -27,6 +27,16 @@ class TestS3ServiceMocked:
         """S3 service instance with mocked client"""
         # Use real settings from environment
         service = S3Service()
+
+        def presigned_url(operation, Params, ExpiresIn):
+            custom = mock_s3_client.generate_presigned_url.return_value
+            if custom is not None:
+                return custom
+            key = Params["Key"]
+            return f"https://{service.bucket}.s3.{service.region}.amazonaws.com/{key}"
+
+        mock_s3_client.generate_presigned_url.return_value = None
+        mock_s3_client.generate_presigned_url.side_effect = presigned_url
         return service
 
     def test_upload_file_success(self, s3_service, mock_s3_client):
@@ -315,6 +325,84 @@ class TestS3ServiceMocked:
         # Generate two IDs and ensure they're different
         timestamp_id2 = s3_service.generate_timestamp_id()
         assert timestamp_id != timestamp_id2, "Timestamp IDs should be unique"
+
+    def test_clean_s3_key_removes_query_parameters(self, s3_service):
+        """Test that clean_s3_key removes query parameters from keys"""
+        # Arrange - key with query parameters (simulating old bug)
+        dirty_key = "thumbnails/job-123.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIA"
+        
+        # Act
+        clean_key = s3_service.clean_s3_key(dirty_key)
+        
+        # Assert
+        assert clean_key == "thumbnails/job-123.jpg"
+        assert "?" not in clean_key
+        assert "X-Amz" not in clean_key
+
+    def test_clean_s3_key_handles_url_encoded_query(self, s3_service):
+        """Test that clean_s3_key handles URL-encoded query parameters"""
+        # Arrange - key with URL-encoded query parameters
+        dirty_key = "thumbnails/job-123.jpg%3FX-Amz-Algorithm%3DAWS4-HMAC-SHA256"
+        
+        # Act
+        clean_key = s3_service.clean_s3_key(dirty_key)
+        
+        # Assert
+        assert clean_key == "thumbnails/job-123.jpg"
+        assert "?" not in clean_key
+        assert "%3F" not in clean_key
+
+    def test_clean_s3_key_handles_clean_key(self, s3_service):
+        """Test that clean_s3_key returns clean keys unchanged"""
+        # Arrange
+        clean_key = "thumbnails/job-123.jpg"
+        
+        # Act
+        result = s3_service.clean_s3_key(clean_key)
+        
+        # Assert
+        assert result == clean_key
+
+    def test_clean_s3_key_handles_double_encoded(self, s3_service):
+        """Test that clean_s3_key handles double-encoded query parameters"""
+        # Arrange - key with double-encoded query parameters
+        dirty_key = "thumbnails/job-123.jpg%253FX-Amz-Algorithm%253D"
+        
+        # Act
+        clean_key = s3_service.clean_s3_key(dirty_key)
+        
+        # Assert
+        assert clean_key == "thumbnails/job-123.jpg"
+        assert "?" not in clean_key
+
+    def test_upload_job_thumbnail_stores_clean_key(self, s3_service, mock_s3_client):
+        """Test that upload_job_thumbnail generates and uploads thumbnail correctly"""
+        # Arrange
+        from PIL import Image
+        import io
+        
+        # Create a simple test image
+        img = Image.new('RGB', (100, 100), color='red')
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format='JPEG')
+        image_content = img_bytes.getvalue()
+        job_id = "test-job-123"
+        
+        # Mock presigned URL generation
+        mock_s3_client.generate_presigned_url.return_value = "https://presigned-url.com/thumbnails/test-job-123.jpg"
+        
+        # Act
+        result = s3_service.upload_job_thumbnail(image_content, job_id, extension="jpg")
+        
+        # Assert
+        # Verify thumbnail was generated and uploaded
+        assert mock_s3_client.put_object.called
+        call_args = mock_s3_client.put_object.call_args
+        assert call_args[1]['Key'] == "thumbnails/test-job-123.jpg"
+        assert call_args[1]['ContentType'] == "image/jpeg"
+        # Verify the key is clean (no query parameters)
+        assert "?" not in call_args[1]['Key']
+        assert result  # Should return a URL
 
 
 @pytest.mark.integration

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CreditBalance } from '../types/photo-management';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
@@ -20,12 +20,18 @@ export const GlobalCreditBalanceBar: React.FC = () => {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
 
   // Mock user ID - in real app, get from auth context
-  const userId = 'user-123';
+  const userId = user?.id || 'user-123';
 
   useEffect(() => {
+    // Only load credit balance if user is authenticated
+    if (!user) {
+      return;
+    }
+
     const loadCreditBalance = async () => {
       try {
         setIsLoading(true);
@@ -52,15 +58,28 @@ export const GlobalCreditBalanceBar: React.FC = () => {
     };
 
     loadCreditBalance();
-  }, [userId]);
+  }, [userId, user]);
+
+  // SECURITY: Never show credit bar if user is not authenticated
+  // This prevents credit information from being visible to unauthenticated users
+  // NOTE: All hooks must be called before any conditional returns
+  if (!user) {
+    return null;
+  }
+  
+  // During auth loading, don't show credit bar to prevent flash
+  if (authLoading) {
+    return null;
+  }
 
   const handlePurchaseCredits = () => {
     // Navigate to subscription page
     router.push('/subscription');
   };
 
-  // Don't render if not signed in, loading, or no balance
-  if (authLoading || !user || isLoading || !creditBalance) {
+  // Don't render if still loading credit balance or no balance available
+  // User check is already done above
+  if (isLoading || !creditBalance) {
     return null;
   }
 

@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
  * - "Get Started Free" heading with value proposition
  * - "3 free credits" prominently displayed
  * - Email/password form
- * - Social signup buttons (Google, Facebook, Apple)
+ * - Google social signup (Facebook and Apple coming later)
  * - Terms of service checkbox
  * - Links to sign-in
  * - Loading states and error handling
@@ -87,15 +87,15 @@ export default function SignUpPage() {
     }
   };
 
-  const handleSocialSignUp = async (provider: 'google' | 'facebook' | 'apple') => {
+  const handleSocialSignUp = async () => {
     setError(null);
     setIsLoading(true);
 
     try {
-      const { error: oauthError } = await signInWithOAuth(provider);
+      const { error: oauthError } = await signInWithOAuth('google');
       
       if (oauthError) {
-        setError(oauthError.message || `Failed to sign up with ${provider}. Please try again.`);
+        setError(oauthError.message || 'Failed to sign up with Google. Please try again.');
         setIsLoading(false);
         return;
       }
@@ -104,7 +104,7 @@ export default function SignUpPage() {
       // User will be redirected back to /auth/callback
       // Terms acceptance will be handled after OAuth callback
     } catch (err) {
-      setError(`An unexpected error occurred with ${provider} sign up. Please try again.`);
+      setError('An unexpected error occurred with Google sign up. Please try again.');
       setIsLoading(false);
     }
   };
@@ -348,14 +348,14 @@ export default function SignUpPage() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with social</span>
+              <span className="px-2 bg-white text-gray-500">Or continue with Google</span>
             </div>
           </div>
 
           {/* Social Signup Buttons */}
           <div className="space-y-3">
             <button
-              onClick={() => handleSocialSignUp('google')}
+              onClick={handleSocialSignUp}
               disabled={isLoadingState}
               className="w-full flex items-center justify-center space-x-3 px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -380,32 +380,14 @@ export default function SignUpPage() {
               <span>Continue with Google</span>
             </button>
 
-            <button
-              onClick={() => handleSocialSignUp('facebook')}
-              disabled={isLoadingState}
-              className="w-full flex items-center justify-center space-x-3 px-4 py-3 bg-[#1877F2] border-2 border-[#1877F2] rounded-lg text-white font-medium hover:bg-[#166FE5] hover:border-[#166FE5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-              <span>Continue with Facebook</span>
-            </button>
-
-            <button
-              onClick={() => handleSocialSignUp('apple')}
-              disabled={isLoadingState}
-              className="w-full flex items-center justify-center space-x-3 px-4 py-3 bg-black border-2 border-black rounded-lg text-white font-medium hover:bg-gray-900 hover:border-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-              </svg>
-              <span>Continue with Apple</span>
-            </button>
+            <p className="text-xs text-center text-gray-500">
+              Additional providers will be available post-launch.
+            </p>
           </div>
-          
+
           {/* Terms Notice for OAuth */}
           <p className="mt-4 text-xs text-gray-500 text-center">
-            By continuing with social, you agree to our{' '}
+            By continuing with Google, you agree to our{' '}
             <Link href="/terms" className="text-blue-600 hover:underline">
               Terms of Service
             </Link>{' '}

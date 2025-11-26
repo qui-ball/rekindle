@@ -9,8 +9,16 @@ export const Navigation: React.FC = () => {
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
-  // Don't show navigation if not signed in
-  if (!loading && !user) {
+  // SECURITY: Never show navigation if user is not authenticated
+  // This prevents any navigation links from being visible to unauthenticated users
+  // Even during loading, don't show navigation if we don't have a user
+  if (!user) {
+    return null;
+  }
+  
+  // During loading, also don't show navigation to prevent flash
+  // Only show navigation when we have confirmed authentication
+  if (loading) {
     return null;
   }
 

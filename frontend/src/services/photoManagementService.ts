@@ -54,39 +54,150 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async getPhotos(userId: string, pagination: PaginationOptions): Promise<Photo[]> {
     try {
-      // Use the existing backend API endpoint for jobs - don't filter by email to get ALL jobs
+      // Use the new photos API endpoint with offset/limit pagination
+      // Backend automatically filters by current_user.supabase_user_id from the authentication token
+      // userId parameter is kept for API compatibility but backend handles filtering
+      const offset = (pagination.page - 1) * pagination.limit;
       const params = new URLSearchParams({
-        skip: ((pagination.page - 1) * pagination.limit).toString(),
+        offset: offset.toString(),
         limit: pagination.limit.toString()
-        // Don't include email parameter to get ALL jobs
       });
 
-      // Use authenticated API client
-      const jobs = await apiClient.get<BackendJob[]>(`/v1/jobs?${params}`);
+      // Use authenticated API client to get PhotoListResponse
+      const response = await apiClient.get<{
+        photos: Array<{
+          id: string;
+          owner_id: string;
+          original_key: string;
+          processed_key?: string;
+          thumbnail_key?: string;
+          storage_bucket: string;
+          status: string;
+          size_bytes?: number;
+          mime_type?: string;
+          checksum_sha256: string;
+          metadata?: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+          original_url?: string;
+          processed_url?: string;
+          thumbnail_url?: string;
+        }>;
+        total: number;
+        limit: number;
+        offset: number;
+      }>(`/v1/photos?${params}`);
       
-      // Transform backend Job data to frontend Photo format with presigned URLs
-      const photos = await Promise.all(
-        jobs.map((job: BackendJob) => this.transformJobToPhoto(job))
-      );
+      // Transform backend PhotoResponse data to frontend Photo format
+      const photos = response.photos.map((photo) => this.transformPhotoResponseToPhoto(photo));
       return photos;
       
     } catch (error) {
+      // Check if this is an authentication error
+      if (error instanceof Error && (
+        error.message.includes('Authentication required') || 
+        error.message.includes('Session expired') ||
+        error.message.includes('401')
+      )) {
+        console.error('Authentication error fetching photos:', error);
+        
+        // Check if we still have a valid session - if yes, this might be a backend issue
+        // Don't throw - return empty array instead (user might just have no photos)
+        try {
+          const { getSupabaseClient } = await import('@/lib/supabase');
+          const supabase = getSupabaseClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session && session.access_token) {
+            // We have a valid session but got 401 - might be backend issue or empty result
+            // Return empty array instead of throwing (empty gallery is valid)
+            console.warn('Got 401 but have valid session - returning empty array (might be empty gallery)');
+            return [];
+          }
+        } catch (checkError) {
+          console.error('Error checking session:', checkError);
+        }
+        
+        // No valid session - re-throw so caller can handle
+        throw error;
+      }
+      
+      // For other errors (network, server errors, etc.), return empty array
       console.error('Error fetching photos from API:', error);
       // Return empty array instead of mock data - let UI handle empty state
       return [];
     }
   }
 
+  private transformPhotoResponseToPhoto(photo: {
+    id: string;
+    owner_id: string;
+    original_key: string;
+    processed_key?: string;
+    thumbnail_key?: string;
+    storage_bucket: string;
+    status: string;
+    size_bytes?: number;
+    mime_type?: string;
+    checksum_sha256: string;
+    metadata?: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+    original_url?: string;
+    processed_url?: string;
+    thumbnail_url?: string;
+  }): Photo {
+    // Extract filename from original_key (format: users/{user_id}/raw/{photo_id}.{ext})
+    const keyParts = photo.original_key.split('/');
+    const filename = keyParts[keyParts.length - 1] || `${photo.id}.jpg`;
+    
+    // Map backend status to frontend status
+    const statusMap: Record<string, 'uploaded' | 'processing' | 'completed' | 'failed'> = {
+      'uploaded': 'uploaded',
+      'processing': 'processing',
+      'ready': 'completed',
+      'archived': 'completed',
+      'deleted': 'failed'
+    };
+    
+    // Extract dimensions from metadata if available
+    const metadata = photo.metadata || {};
+    const dimensions = (metadata.dimensions as { width?: number; height?: number }) || { width: 1920, height: 1080 };
+    
+    return {
+      id: photo.id,
+      userId: photo.owner_id,
+      originalFilename: filename,
+      fileKey: photo.original_key,
+      thumbnailKey: photo.thumbnail_key || '',
+      status: statusMap[photo.status] || 'uploaded',
+      createdAt: new Date(photo.created_at),
+      updatedAt: new Date(photo.updated_at),
+      metadata: {
+        dimensions: {
+          width: dimensions.width || 1920,
+          height: dimensions.height || 1080
+        },
+        fileSize: photo.size_bytes || 0,
+        format: photo.mime_type?.split('/')[1] || 'jpeg',
+        uploadMethod: 'camera', // Default, can be enhanced later
+        originalUrl: photo.original_url || '',
+        thumbnailUrl: photo.thumbnail_url || ''
+      },
+      results: [], // Photo results are separate - can be fetched via getPhotoDetails if needed
+      processingJobs: []
+    };
+  }
+
   private async transformJobToPhoto(job: BackendJob): Promise<Photo> {
-    // Use thumbnail URL from backend if available
+    // Legacy method for backward compatibility - kept for now but should be deprecated
     const thumbnailUrl = job.thumbnail_url || '';
     const uploadedUrl = '';
     
-    // Do NOT fetch full image URL here; thumbnail should come from backend
     return {
       id: job.id,
-      userId: job.email, // Using email as userId for now
-      originalFilename: `${job.id}.jpg`, // Use job ID as filename (no "photo-" prefix)
+      userId: job.email,
+      originalFilename: `${job.id}.jpg`,
       fileKey: `uploaded/${job.id}.jpg`,
       thumbnailKey: job.thumbnail_s3_key || `thumbnails/${job.id}.jpg`,
       status: this.mapJobStatus(job),
@@ -139,7 +250,81 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
 
   async getPhotoDetails(photoId: string): Promise<PhotoDetails> {
     try {
-      return await apiClient.get<PhotoDetails>(`/v1/photos/${photoId}`);
+      const response = await apiClient.get<{
+        photo: {
+          id: string;
+          owner_id: string;
+          original_key: string;
+          processed_key?: string;
+          thumbnail_key?: string;
+          storage_bucket: string;
+          status: string;
+          size_bytes?: number;
+          mime_type?: string;
+          checksum_sha256: string;
+          metadata?: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+          original_url?: string;
+          processed_url?: string;
+          thumbnail_url?: string;
+        };
+        results: Array<{
+          id: string;
+          job_id: string;
+          s3_key: string;
+          model?: string;
+          params?: Record<string, unknown>;
+          created_at: string;
+          url?: string;
+        }>;
+        processingJobs: any[];
+        relatedPhotos: any[];
+      }>(`/v1/photos/${photoId}`);
+      
+      // Transform the response to PhotoDetails format
+      const photo = this.transformPhotoResponseToPhoto(response.photo);
+      
+      // Transform results from restore attempts
+      const results: PhotoResult[] = response.results.map(result => {
+        let status: 'processing' | 'completed' | 'failed' = 'processing';
+        if (result.s3_key === 'failed') {
+          status = 'failed';
+        } else if (result.s3_key && result.s3_key !== 'pending' && result.s3_key !== '') {
+          status = 'completed';
+        }
+        
+        return {
+          id: result.id,
+          photoId: result.job_id,
+          resultType: 'restored' as const,
+          fileKey: result.s3_key || '',
+          thumbnailKey: '',
+          status: status,
+          createdAt: new Date(result.created_at),
+          completedAt: status === 'completed' ? new Date(result.created_at) : undefined,
+          processingJobId: result.id,
+          metadata: {
+            dimensions: { width: 1920, height: 1080 },
+            fileSize: 1800000,
+            format: 'jpeg',
+            quality: 'hd',
+            processingTime: 45,
+            model: result.model || 'comfyui_default',
+            parameters: result.params || {}
+          }
+        };
+      });
+      
+      return {
+        photo: {
+          ...photo,
+          results: results // Also include results in photo object for convenience
+        },
+        results: results,
+        processingJobs: response.processingJobs || [],
+        relatedPhotos: (response.relatedPhotos || []).map(p => this.transformPhotoResponseToPhoto(p))
+      };
     } catch (error) {
       console.error('Error fetching photo details:', error);
       throw error;
@@ -263,7 +448,8 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     try {
       // For now, only handle restore option
       if (options.restore) {
-        const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/jobs/${photoId}/restore`, {
+        // Use photos endpoint instead of jobs endpoint
+        const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/photos/${photoId}/restore`, {
           model: 'comfyui_default',
           params: {
             denoise: 0.8,

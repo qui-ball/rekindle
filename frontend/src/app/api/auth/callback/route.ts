@@ -7,9 +7,9 @@
  * For new users, checks if they've accepted terms and redirects to terms acceptance if needed.
  */
 
-import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   // Log immediately to verify route is being hit
@@ -38,52 +38,25 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     
     // Get Supabase URL and normalize for server-side use
-    let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing Supabase configuration');
-      return NextResponse.redirect(new URL('/sign-in?error=Missing Supabase configuration', requestUrl.origin));
-    }
-
-    // For server-side, we can use host.docker.internal if needed
-    // But for local Supabase, we should use localhost
-    supabaseUrl = supabaseUrl.replace(/host\.docker\.internal/g, '127.0.0.1');
-
-    console.log('Creating Supabase client with URL:', supabaseUrl.replace(/\/\/.*@/, '//***@'));
-
-    // Create a Supabase client for server-side operations
-    const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch (error) {
-              // The `set` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-              console.warn('Cookie set warning:', error);
-            }
-          },
-          remove(name: string, options: any) {
-            try {
-              cookieStore.set({ name, value: '', ...options });
-            } catch (error) {
-              // The `delete` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-              console.warn('Cookie remove warning:', error);
-            }
-          },
-        },
-      }
-    );
+    const supabase = createSupabaseServerClient({
+      get(name: string) {
+        return cookieStore.get(name)?.value;
+      },
+      set(name: string, value: string, options: any) {
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch (error) {
+          console.warn('Cookie set warning:', error);
+        }
+      },
+      remove(name: string, options: any) {
+        try {
+          cookieStore.set({ name, value: '', ...options });
+        } catch (error) {
+          console.warn('Cookie remove warning:', error);
+        }
+      },
+    });
 
     console.log('Exchanging code for session...');
     // Exchange the code for a session

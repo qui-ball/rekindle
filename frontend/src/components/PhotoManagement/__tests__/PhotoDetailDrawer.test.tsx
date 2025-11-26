@@ -258,7 +258,7 @@ describe('PhotoDetailDrawer', () => {
     });
 
     it('should call onPhotoAction when delete button clicked with confirmation', async () => {
-      const mockOnPhotoAction = jest.fn();
+      const mockOnPhotoAction = jest.fn().mockResolvedValue(undefined);
       const mockOnClose = jest.fn();
       (global.confirm as jest.Mock).mockReturnValue(true);
       
@@ -269,7 +269,8 @@ describe('PhotoDetailDrawer', () => {
 
       await waitFor(() => {
         expect(global.confirm).toHaveBeenCalled();
-        expect(global.fetch).toHaveBeenCalled();
+        expect(mockOnPhotoAction).toHaveBeenCalledWith('delete', expect.objectContaining({ id: mockPhoto.id }));
+        expect(mockOnClose).toHaveBeenCalled();
       });
     });
 

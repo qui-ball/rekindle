@@ -3,13 +3,16 @@ Jobs API endpoints - new architecture
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 from typing import List, Optional
 from loguru import logger
+import uuid
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.api.deps import require_tier, require_credits, get_current_user
+from app.models.user import User
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.schemas.jobs import (
     JobResponse,
@@ -30,10 +33,13 @@ router = APIRouter()
 async def upload_and_process(
     file: UploadFile = File(...),
     email: str = Form(...),
+    current_user: User = Depends(require_tier("cherish")),  # Batch upload requires Cherish tier
     db: Session = Depends(get_db),
 ):
     """
-    Upload an image and create a new job
+    Upload an image and create a new job.
+    
+    **Requires:** Cherish tier or higher (batch upload feature)
     """
     # Validate file type
     if file.content_type not in settings.ALLOWED_FILE_TYPES:
@@ -53,10 +59,9 @@ async def upload_and_process(
         )
 
     try:
-        # Create job record
-        job = Job(email=email)
-        db.add(job)
-        db.flush()  # Get the job ID
+        # Prepare job record but defer persistence until thumbnail exists
+        job_id = uuid.uuid4()
+        job = Job(id=job_id, email=email)
 
         # Upload processed image to S3
         mime_to_ext = {
@@ -69,25 +74,37 @@ async def upload_and_process(
 
         processed_url = s3_service.upload_processed_image(
             image_content=file_content,
-            job_id=str(job.id),
+            job_id=str(job_id),
             extension=extension,
             content_type=file.content_type,
         )
 
         # Generate and upload thumbnail
         try:
-            thumbnail_url = s3_service.upload_job_thumbnail(
+            # Generate thumbnail key directly (don't extract from URL to avoid issues)
+            thumbnail_key = f"thumbnails/{job_id}.jpg"
+            thumbnail_bytes = s3_service.generate_thumbnail(
                 image_content=file_content,
-                job_id=str(job.id),
-                extension=extension
+                max_size=(400, 400),
+                quality=85
             )
-            # Extract S3 key from URL
-            thumbnail_key = s3_service.extract_key_from_url(thumbnail_url)
+            # Upload thumbnail to S3
+            s3_service.s3_client.put_object(
+                Bucket=s3_service.bucket,
+                Key=thumbnail_key,
+                Body=thumbnail_bytes,
+                ContentType="image/jpeg"
+            )
             job.thumbnail_s3_key = thumbnail_key
-            logger.info(f"Thumbnail generated for job {job.id}: {thumbnail_key}")
+            logger.info(f"Thumbnail generated for job {job_id}: {thumbnail_key}")
         except Exception as thumb_error:
-            logger.error(f"Failed to generate thumbnail for job {job.id}: {thumb_error}")
-            # Continue without thumbnail - non-critical error
+            logger.error(f"Failed to generate thumbnail for job {job_id}: {thumb_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate thumbnail"
+            )
+
+        db.add(job)
 
         db.commit()
 
@@ -109,17 +126,27 @@ async def upload_and_process(
 async def create_restore_attempt(
     job_id: UUID,
     restore_data: RestoreAttemptCreate,
+    current_user: User = Depends(require_credits(2)),  # Restoration costs 2 credits
     db: Session = Depends(get_db),
 ):
     """
-    Create a new restore attempt for a job
+    Create a new restore attempt for a job.
+    
+    **Requires:** 2 credits
     """
-    # Verify job exists
+    # Verify job exists and belongs to the user
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     try:
@@ -165,17 +192,48 @@ async def create_restore_attempt(
 async def create_animation_attempt(
     job_id: UUID,
     animation_data: AnimationAttemptCreate,
+    # Animation requires "remember" tier AND 8 credits
+    # We use require_tier first, then require_credits will also check tier implicitly
+    current_user: User = Depends(require_tier("remember")),  # Animation requires Remember tier
     db: Session = Depends(get_db),
 ):
     """
-    Create a new animation attempt for a job
+    Create a new animation attempt for a job.
+    
+    **Requires:** 
+    - Remember tier or higher
+    - 8 credits
     """
+    # Check credits after tier check (can't combine dependencies easily, so check manually)
+    if current_user.total_credits < 8:
+        logger.warning(
+            "Insufficient credits for animation",
+            extra={
+                "event_type": "permission_denied",
+                "user_id": str(current_user.id),
+                "required_credits": 8,
+                "available_credits": current_user.total_credits,
+                "reason": "insufficient_credits",
+            }
+        )
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Insufficient credits. Required: 8, Available: {current_user.total_credits}. "
+                   f"Please purchase more credits to continue.",
+        )
     # Verify job and restore attempt exist
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     restore = (
@@ -234,10 +292,13 @@ async def create_animation_attempt(
 @router.get("/{job_id}", response_model=JobWithRelations)
 async def get_job(
     job_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get a job with all its restore and animation attempts
+    Get a job with all its restore and animation attempts.
+    
+    **Requires:** Authentication and ownership verification
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
@@ -245,14 +306,23 @@ async def get_job(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
         )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
+        )
 
     # Convert to response model with presigned URLs
     thumbnail_url = None
     if job.thumbnail_s3_key:
         try:
+            # Clean the key to remove any query parameters that might have been stored incorrectly
+            clean_key = s3_service.clean_s3_key(job.thumbnail_s3_key)
             thumbnail_url = s3_service.s3_client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
+                Params={"Bucket": s3_service.bucket, "Key": clean_key},
                 ExpiresIn=3600  # 1 hour expiration
             )
         except Exception as e:
@@ -319,16 +389,26 @@ async def get_job(
 @router.get("/{job_id}/image-url")
 async def get_job_image_url(
     job_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get presigned URL for a job's uploaded image
+    Get presigned URL for a job's uploaded image.
+    
+    **Requires:** Authentication and ownership verification
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     # Generate presigned URL for the uploaded image
@@ -349,108 +429,221 @@ async def get_job_image_url(
 
 @router.get("/", response_model=List[JobWithRelations])
 async def list_jobs(
-    email: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    List jobs with optional email filter, thumbnail URLs, and all restore/animation attempts
+    List jobs for the current authenticated user.
+    All queries are automatically scoped to the authenticated user's email.
+    Returns empty list [] if user has no jobs - this is a valid response.
     """
-    query = db.query(Job)
-    if email:
-        query = query.filter(Job.email == email)
-    
-    jobs = query.offset(skip).limit(limit).all()
+    try:
+        logger.info(f"Listing jobs for user {current_user.email} (skip={skip}, limit={limit})")
+        
+        # Eagerly load relationships to avoid lazy loading issues
+        query = db.query(Job).options(
+            joinedload(Job.restore_attempts),
+            joinedload(Job.animation_attempts)
+        ).filter(Job.email == current_user.email)
+        
+        jobs = query.offset(skip).limit(limit).all()
+        
+        logger.info(f"Found {len(jobs)} jobs for user {current_user.email}")
+        
+        # Empty result is valid - user just has no jobs yet
+        if not jobs:
+            return []
+        
+    except Exception as e:
+        logger.error(f"Error querying jobs for user {current_user.email}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve jobs: {str(e)}"
+        )
     
     # Convert to response format with thumbnail presigned URLs and relations
     job_responses = []
     for job in jobs:
-        job_dict = {
-            "id": job.id,
-            "email": job.email,
-            "created_at": job.created_at,
-            "selected_restore_id": job.selected_restore_id,
-            "latest_animation_id": job.latest_animation_id,
-            "thumbnail_s3_key": job.thumbnail_s3_key,
-            "thumbnail_url": None,
-            "restore_attempts": [],
-            "animation_attempts": []
-        }
-        
-        # Generate presigned URL for thumbnail if key exists
-        if job.thumbnail_s3_key:
-            try:
-                job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
-                    "get_object",
-                    Params={"Bucket": s3_service.bucket, "Key": job.thumbnail_s3_key},
-                    ExpiresIn=3600  # 1 hour expiration
-                )
-            except Exception as e:
-                logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
-        
-        # Add restore attempts with URLs (only include successful ones with valid S3 keys)
-        for restore in job.restore_attempts:
-            # Skip restore attempts without valid S3 keys (empty, pending, or failed)
-            if not restore.s3_key or restore.s3_key == "" or restore.s3_key == "pending" or restore.s3_key == "failed":
-                continue
-                
-            restore_dict = {
-                "id": restore.id,
-                "job_id": restore.job_id,
-                "s3_key": restore.s3_key,
-                "model": restore.model,
-                "params": restore.params,
-                "created_at": restore.created_at,
+        try:
+            job_dict = {
+                "id": job.id,
+                "email": job.email,
+                "created_at": job.created_at,
+                "selected_restore_id": job.selected_restore_id,
+                "latest_animation_id": job.latest_animation_id,
+                "thumbnail_s3_key": job.thumbnail_s3_key,
+                "thumbnail_url": None,
+                "restore_attempts": [],
+                "animation_attempts": []
             }
-            restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
-            job_dict["restore_attempts"].append(restore_dict)
+            
+            # Generate presigned URL for thumbnail if key exists
+            if job.thumbnail_s3_key:
+                try:
+                    # Clean the key to remove any query parameters that might have been stored incorrectly
+                    clean_key = s3_service.clean_s3_key(job.thumbnail_s3_key)
+                    job_dict["thumbnail_url"] = s3_service.s3_client.generate_presigned_url(
+                        "get_object",
+                        Params={"Bucket": s3_service.bucket, "Key": clean_key},
+                        ExpiresIn=3600  # 1 hour expiration
+                    )
+                except Exception as e:
+                    logger.error(f"Error generating presigned URL for thumbnail {job.thumbnail_s3_key}: {e}")
+            
+            # Add restore attempts with URLs (only include successful ones with valid S3 keys)
+            for restore in job.restore_attempts:
+                # Skip restore attempts without valid S3 keys (empty, pending, or failed)
+                if not restore.s3_key or restore.s3_key == "" or restore.s3_key == "pending" or restore.s3_key == "failed":
+                    continue
+                    
+                try:
+                    restore_dict = {
+                        "id": restore.id,
+                        "job_id": restore.job_id,
+                        "s3_key": restore.s3_key,
+                        "model": restore.model,
+                        "params": restore.params,
+                        "created_at": restore.created_at,
+                    }
+                    restore_dict["url"] = s3_service.get_s3_url(restore.s3_key)
+                    job_dict["restore_attempts"].append(restore_dict)
+                except Exception as e:
+                    logger.error(f"Error processing restore attempt {restore.id}: {e}")
+                    continue
 
-        # Add animation attempts with URLs
-        for animation in job.animation_attempts:
-            animation_dict = {
-                "id": animation.id,
-                "job_id": animation.job_id,
-                "restore_id": animation.restore_id,
-                "preview_s3_key": animation.preview_s3_key or "",
-                "result_s3_key": animation.result_s3_key,
-                "thumb_s3_key": animation.thumb_s3_key,
-                "model": animation.model,
-                "params": animation.params,
-                "created_at": animation.created_at,
-            }
-            if animation.preview_s3_key and animation.preview_s3_key != "pending":
-                animation_dict["preview_url"] = s3_service.get_s3_url(
-                    animation.preview_s3_key
-                )
-            if animation.result_s3_key:
-                animation_dict["result_url"] = s3_service.get_s3_url(
-                    animation.result_s3_key
-                )
-            if animation.thumb_s3_key:
-                animation_dict["thumb_url"] = s3_service.get_s3_url(
-                    animation.thumb_s3_key
-                )
-            job_dict["animation_attempts"].append(animation_dict)
-        
-        job_responses.append(JobWithRelations(**job_dict))
+            # Add animation attempts with URLs
+            for animation in job.animation_attempts:
+                try:
+                    animation_dict = {
+                        "id": animation.id,
+                        "job_id": animation.job_id,
+                        "restore_id": animation.restore_id,
+                        "preview_s3_key": animation.preview_s3_key or "",
+                        "result_s3_key": animation.result_s3_key,
+                        "thumb_s3_key": animation.thumb_s3_key,
+                        "model": animation.model,
+                        "params": animation.params,
+                        "created_at": animation.created_at,
+                    }
+                    if animation.preview_s3_key and animation.preview_s3_key != "pending":
+                        animation_dict["preview_url"] = s3_service.get_s3_url(
+                            animation.preview_s3_key
+                        )
+                    if animation.result_s3_key:
+                        animation_dict["result_url"] = s3_service.get_s3_url(
+                            animation.result_s3_key
+                        )
+                    if animation.thumb_s3_key:
+                        animation_dict["thumb_url"] = s3_service.get_s3_url(
+                            animation.thumb_s3_key
+                        )
+                    job_dict["animation_attempts"].append(animation_dict)
+                except Exception as e:
+                    logger.error(f"Error processing animation attempt {animation.id}: {e}")
+                    continue
+            
+            job_responses.append(JobWithRelations(**job_dict))
+        except Exception as e:
+            logger.error(f"Error processing job {job.id}: {e}")
+            # Continue processing other jobs even if one fails
+            continue
     
     return job_responses
+
+
+@router.delete("/{job_id}/restore/{restore_id}")
+async def delete_restore_attempt(
+    job_id: UUID,
+    restore_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a restore attempt.
+    
+    **Requires:** Authentication and ownership verification
+    """
+    # Verify job exists and belongs to the user
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
+        )
+    
+    # Verify restore attempt exists and belongs to the job
+    restore = db.query(RestoreAttempt).filter(
+        RestoreAttempt.id == restore_id,
+        RestoreAttempt.job_id == job_id
+    ).first()
+    
+    if not restore:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Restore attempt not found",
+        )
+    
+    try:
+        # If this was the selected restore, clear the selection
+        if job.selected_restore_id == restore_id:
+            job.selected_restore_id = None
+        
+        # Delete the restore attempt
+        db.delete(restore)
+        db.commit()
+        
+        # TODO: Add S3 cleanup task to delete associated files if needed
+        
+        logger.info(
+            f"Deleted restore attempt {restore_id} for job {job_id}",
+            user_id=current_user.email,
+            job_id=str(job_id),
+            restore_id=str(restore_id),
+        )
+        
+        return {"message": "Restore attempt deleted successfully"}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting restore attempt {restore_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting restore attempt: {str(e)}",
+        )
 
 
 @router.delete("/{job_id}")
 async def delete_job(
     job_id: UUID,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Delete a job and all its associated data
+    Delete a job and all its associated data.
+    
+    **Requires:** Authentication and ownership verification
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
+        )
+    
+    # Verify job belongs to the current user (email-based ownership)
+    if job.email != current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Job does not belong to the current user",
         )
 
     try:

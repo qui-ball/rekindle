@@ -3,23 +3,23 @@ Database models for jobs, restore attempts, and animation attempts
 """
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 
 from app.core.database import Base
+from app.core.types import GUID
 
 
 class Job(Base):
     """Represents a user's upload session"""
     __tablename__ = "jobs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     email = Column(String, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    selected_restore_id = Column(UUID(as_uuid=True), nullable=True)
-    latest_animation_id = Column(UUID(as_uuid=True), nullable=True)
+    selected_restore_id = Column(GUID(), nullable=True)
+    latest_animation_id = Column(GUID(), nullable=True)
     thumbnail_s3_key = Column(String, nullable=True)  # Thumbnail path in S3
     
     # Relationships
@@ -41,9 +41,9 @@ class RestoreAttempt(Base):
     """Represents every restore step on a job"""
     __tablename__ = "restore_attempts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     job_id = Column(
-        UUID(as_uuid=True), 
+        GUID(), 
         ForeignKey("jobs.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -66,15 +66,15 @@ class AnimationAttempt(Base):
     """Represents every animation of a restored image"""
     __tablename__ = "animation_attempts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     job_id = Column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("jobs.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     restore_id = Column(
-        UUID(as_uuid=True),
+        GUID(),
         ForeignKey("restore_attempts.id"),
         nullable=True
     )

@@ -5,6 +5,22 @@ import { UploadOptions, ErrorType } from '../../types/upload';
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
+// Mock Supabase client
+jest.mock('@/lib/supabase', () => ({
+  getSupabaseClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn(() => Promise.resolve({
+        data: {
+          session: {
+            access_token: 'mock-token'
+          }
+        },
+        error: null
+      }))
+    }
+  }))
+}));
+
 describe('S3UploadService', () => {
   let uploadService: S3UploadService;
 
@@ -20,14 +36,20 @@ describe('S3UploadService', () => {
         onProgress: jest.fn()
       };
 
-      // Mock successful response
+      // Mock successful response - PhotoUploadResponse structure
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({
-          job_id: 'test-123',
-          message: 'Success',
-          processed_url: 'https://example.com/uploaded.jpg'
+          id: 'test-123',
+          owner_id: 'user-123',
+          original_key: 'users/user-123/raw/test-123/original.jpg',
+          thumbnail_key: 'users/user-123/thumbs/test-123.jpg',
+          status: 'pending',
+          size_bytes: file.size,
+          mime_type: 'image/jpeg',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
       });
 
@@ -67,10 +89,21 @@ describe('S3UploadService', () => {
   });
 
   describe('generatePresignedUrl', () => {
-    it('should throw error as not implemented', async () => {
+    it('should throw error when authentication is required', async () => {
+      // Mock getSupabaseClient to return no session
+      const { getSupabaseClient } = require('@/lib/supabase');
+      getSupabaseClient.mockReturnValueOnce({
+        auth: {
+          getSession: jest.fn(() => Promise.resolve({
+            data: { session: null },
+            error: null
+          }))
+        }
+      });
+
       await expect(
         uploadService.generatePresignedUrl('test.jpg', 'image/jpeg')
-      ).rejects.toThrow('Presigned URLs not implemented');
+      ).rejects.toThrow('Authentication required');
     });
   });
 

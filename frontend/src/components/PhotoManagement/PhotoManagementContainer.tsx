@@ -13,6 +13,8 @@ import { PhotoGallery } from './PhotoGallery';
 import { PhotoDetailDrawer } from './PhotoDetailDrawer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useJobEvents } from '../../hooks/useJobEvents';
+import { useAuth } from '@/contexts/AuthContext';
+import { getSupabaseClient } from '@/lib/supabase';
 
 /**
  * PhotoManagementContainer
@@ -65,6 +67,19 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       
       // Refresh the specific photo to get updated restore attempts
       try {
+        // Update the selected photo in the drawer to show the new restoration
+        if (selectedPhoto && selectedPhoto.id === data.job_id) {
+          // Fetch full photo details to get results
+          const photoDetails = await photoManagementService.getPhotoDetails(data.job_id);
+          setSelectedPhoto({
+            ...selectedPhoto,
+            ...photoDetails.photo,
+            results: photoDetails.results,
+            processingJobs: photoDetails.processingJobs,
+          });
+        }
+        
+        // Also refresh the photos list
         const updatedPhotos = await photoManagementService.getPhotos(userId, {
           page: 1,
           limit: 100,
@@ -72,14 +87,6 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
           sortOrder: 'desc'
         });
         setPhotos(updatedPhotos);
-        
-        // Update the selected photo in the drawer to show the new restoration
-        if (selectedPhoto && selectedPhoto.id === data.job_id) {
-          const updatedSelectedPhoto = updatedPhotos.find(p => p.id === data.job_id);
-          if (updatedSelectedPhoto) {
-            setSelectedPhoto(updatedSelectedPhoto);
-          }
-        }
       } catch (err) {
         console.error('Error refreshing photos after job completion:', err);
       }
@@ -91,11 +98,29 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Error handling
   const handleError = useCallback((error: Error, context: string) => {
+    // Check if this is an authentication error (401)
+    const isAuthError = error.message.includes('401') || 
+                       error.message.includes('Unauthorized') ||
+                       error.message.includes('Authentication required') ||
+                       error.message.includes('Session expired') ||
+                       error.message.includes('Invalid token');
+    
+    if (isAuthError && typeof window !== 'undefined') {
+      console.error(`${context}: Authentication error detected, redirecting to sign-in`);
+      const currentPath = window.location.pathname;
+      const isOnSignInPage = currentPath === '/sign-in' || currentPath.startsWith('/sign-in');
+      if (!isOnSignInPage) {
+        // Redirect to sign-in - apiClient should have already tried refreshing
+        window.location.replace(`/sign-in?error=${encodeURIComponent('Session expired. Please sign in again.')}&next=${encodeURIComponent(currentPath)}`);
+        return; // Don't set error state, we're redirecting
+      }
+    }
+    
     const managementError: ManagementError = {
       type: 'load_error',
       message: `${context}: ${error.message}`,
-      retryable: true,
-      action: 'retry'
+      retryable: !isAuthError, // Don't allow retry for auth errors
+      action: isAuthError ? 'redirect' : 'retry'
     };
     
     setError(managementError);
@@ -140,6 +165,30 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       setIsLoading(true);
       setError(null);
       
+      // Ensure we have a valid auth token before making API calls
+      const supabase = getSupabaseClient();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('No valid session found:', sessionError);
+        throw new Error('Authentication required. Please sign in again.');
+      }
+      
+      if (!session.access_token) {
+        console.error('Session exists but no access_token');
+        throw new Error('Authentication token missing. Please sign in again.');
+      }
+      
+      // Validate token format - must be a JWT (starts with "eyJ")
+      if (!session.access_token.startsWith('eyJ')) {
+        console.error(`Invalid token format! Token does not look like a JWT. Token preview: ${session.access_token.substring(0, 100)}`);
+        // Try to refresh the session
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshedSession || !refreshedSession.access_token || !refreshedSession.access_token.startsWith('eyJ')) {
+          throw new Error('Invalid authentication token. Please sign in again.');
+        }
+      }
+      
       // Create abort controller for cleanup
       abortControllerRef.current = new AbortController();
       
@@ -168,43 +217,20 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
 
   // Handle photo selection
   const handlePhotoClick = useCallback(async (photo: Photo) => {
+    // Always fetch full photo details to get results
     let photoToSelect = photo;
-    
-    // Fetch full image URL if not already loaded (for drawer display)
-    if (!photo.metadata.originalUrl) {
-      try {
-        const response = await fetch(`/api/v1/jobs/${photo.id}/image-url`);
-        if (response.ok) {
-          const data = await response.json();
-          // Create a new photo object with updated URL
-          photoToSelect = {
-            ...photo,
-            metadata: {
-              ...photo.metadata,
-              originalUrl: data.url
-            }
-          };
-        } else {
-          // Fallback to thumbnail if full image fails
-          photoToSelect = {
-            ...photo,
-            metadata: {
-              ...photo.metadata,
-              originalUrl: photo.metadata.thumbnailUrl
-            }
-          };
-        }
-      } catch (error) {
-        console.error('Error fetching full image URL:', error);
-        // Fallback to thumbnail if full image fails
-        photoToSelect = {
-          ...photo,
-          metadata: {
-            ...photo.metadata,
-            originalUrl: photo.metadata.thumbnailUrl
-          }
-        };
-      }
+    try {
+      const photoDetails = await photoManagementService.getPhotoDetails(photo.id);
+      photoToSelect = {
+        ...photo,
+        ...photoDetails.photo,
+        results: photoDetails.results, // Include results from details
+        processingJobs: photoDetails.processingJobs,
+      };
+    } catch (error) {
+      console.error('Error fetching photo details:', error);
+      // Fallback to original photo if details fetch fails
+      photoToSelect = photo;
     }
     
     setSelectedPhoto(photoToSelect);
@@ -272,7 +298,9 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
           console.warn('Unknown photo action:', action);
       }
     } catch (err) {
-      handleError(err as Error, `Failed to ${action} photo`);
+      const error = err instanceof Error ? err : new Error(String(err));
+      handleError(error, `Failed to ${action} photo`);
+      throw error;
     }
   }, [handleError]);
 
@@ -436,6 +464,21 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
               onClose={handleDrawerClose}
               onPhotoAction={handlePhotoAction}
               onProcessingStart={handleProcessingStart}
+              onPhotoUpdate={async (updatedPhoto) => {
+                // Update the selected photo with fresh data from server
+                try {
+                  const photoDetails = await photoManagementService.getPhotoDetails(updatedPhoto.id);
+                  setSelectedPhoto({
+                    ...updatedPhoto,
+                    ...photoDetails.photo,
+                    results: photoDetails.results
+                  });
+                } catch (error) {
+                  console.error('Error refreshing photo details:', error);
+                  // Fallback to local update if refresh fails
+                  setSelectedPhoto(updatedPhoto);
+                }
+              }}
             />
           </ErrorBoundary>
         )}

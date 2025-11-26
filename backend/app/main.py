@@ -3,8 +3,13 @@ Rekindle - Photo Restoration Service
 Main FastAPI application entry point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from loguru import logger
 
 from app.core.config import settings
 from app.api.routes import api_router
@@ -17,6 +22,39 @@ app = FastAPI(
     docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
     redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
 )
+
+# Configure rate limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """
+    Custom rate limit exception handler with logging.
+    
+    Logs rate limit hits for security monitoring without excessive verbosity.
+    """
+    # Extract endpoint and IP for logging
+    endpoint = request.url.path
+    ip_address = get_remote_address(request)
+    
+    # Log rate limit hit (WARNING level - security event)
+    logger.warning(
+        "Rate limit exceeded",
+        extra={
+            "event_type": "rate_limit_exceeded",
+            "endpoint": endpoint,
+            "ip_address": ip_address,
+            "method": request.method,
+            "limit": str(exc.retry_after) if hasattr(exc, 'retry_after') else "unknown",
+        }
+    )
+    
+    # Use default handler for response
+    return _rate_limit_exceeded_handler(request, exc)
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
 # Add CORS middleware
 app.add_middleware(

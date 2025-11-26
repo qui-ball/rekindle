@@ -15,6 +15,7 @@ This document explains where environment variables should be located for the Rek
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_URL` - Redis connection string
 - `SECRET_KEY` - JWT signing secret
+- `XDEVICE_JWT_SECRET` - **SENSITIVE** - Secret key for signing cross-device temporary JWTs (HS256, 32+ bytes)
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` - AWS S3 credentials
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` - Stripe credentials
 - `RUNPOD_API_KEY` - RunPod API key
@@ -63,6 +64,7 @@ This means:
 SUPABASE_URL=http://host.docker.internal:54321
 SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_KEY=<your-service-key>  # SENSITIVE - backend only
+XDEVICE_JWT_SECRET=<32-byte-random-secret>  # SENSITIVE - for cross-device auth
 ```
 
 **Frontend (`frontend/.env` or `frontend/.env.local`):**

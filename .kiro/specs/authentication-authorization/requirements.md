@@ -141,6 +141,13 @@ Implement user authentication and authorization system using Supabase Auth to en
 - Free tier: Apply small watermark to processed images
 - Paid tiers: No watermark on processed images
 
+**FR-4.4: Photo Storage Isolation**
+- Every uploaded asset (raw, processed, thumbnails) must be tied to a single owning user ID.
+- Users can only list, download, or delete assets where `user_id` matches their authenticated identity.
+- Storage keys must follow a per-user namespace (`s3://rekindle-uploads/users/{user_id}/...`) to prevent collisions.
+- Presigned URLs must embed ownership validation (server-side verification before issuance).
+- Administrative tooling must support secure impersonation workflows without exposing other users’ assets.
+
 ### FR-5: Cross-Device Session Management
 
 **FR-5.1: QR Code Upload Flow**
