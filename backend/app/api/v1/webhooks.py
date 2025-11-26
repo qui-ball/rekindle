@@ -64,8 +64,9 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
         job_id = str(job.id)
 
         if payload.status == "COMPLETED":
-            # Extract output file paths from handler response
+            # Extract output from handler response
             output_files = payload.output.get("files", []) if payload.output else []
+            files_with_data = payload.output.get("files_with_data", []) if payload.output else []
 
             if not output_files:
                 logger.error(f"No output files in webhook for job {job_id}")
@@ -74,20 +75,45 @@ async def handle_runpod_completion(payload: RunPodWebhookPayload):
                 db.commit()
                 return {"status": "error", "message": "No output files"}
 
-            # Download first output file from network volume
-            # Path format: /workspace/outputs/filename.jpg → outputs/filename.jpg
-            output_path = output_files[0].replace("/workspace/", "")
-
-            try:
-                restored_image_data = runpod_serverless_service.download_output_from_volume(
-                    output_path=output_path
-                )
-            except Exception as download_error:
-                logger.error(f"Failed to download output from volume: {download_error}")
-                restore.s3_key = "failed_download"
-                restore.params = {**restore.params, "error": str(download_error)}
-                db.commit()
-                return {"status": "error", "message": "Failed to download output"}
+            # Get restored image data
+            # If files_with_data is present, use base64 data from payload (for CA-MTL-3, etc.)
+            # Otherwise download from network volume via S3 API
+            if files_with_data and len(files_with_data) > 0:
+                logger.info("Using output data from webhook payload (non-S3 datacenter)")
+                first_file = files_with_data[0]
+                
+                if "data" not in first_file:
+                    logger.error(f"No data in file info for job {job_id}")
+                    restore.s3_key = "failed_no_data"
+                    restore.params = {**restore.params, "error": "No file data in response"}
+                    db.commit()
+                    return {"status": "error", "message": "No file data in response"}
+                
+                try:
+                    import base64
+                    restored_image_data = base64.b64decode(first_file["data"])
+                    output_path = first_file.get("path", "unknown")
+                except Exception as decode_error:
+                    logger.error(f"Failed to decode output data: {decode_error}")
+                    restore.s3_key = "failed_decode"
+                    restore.params = {**restore.params, "error": str(decode_error)}
+                    db.commit()
+                    return {"status": "error", "message": "Failed to decode output data"}
+            else:
+                # Download from network volume via S3 API (for supported datacenters)
+                logger.info("Downloading output from network volume via S3 API")
+                output_path = output_files[0].replace("/workspace/", "")
+                
+                try:
+                    restored_image_data = runpod_serverless_service.download_output_from_volume(
+                        output_path=output_path
+                    )
+                except Exception as download_error:
+                    logger.error(f"Failed to download output from volume: {download_error}")
+                    restore.s3_key = "failed_download"
+                    restore.params = {**restore.params, "error": str(download_error)}
+                    db.commit()
+                    return {"status": "error", "message": "Failed to download output"}
 
             # Generate timestamp ID for this restore
             restore_timestamp_id = s3_service.generate_timestamp_id()

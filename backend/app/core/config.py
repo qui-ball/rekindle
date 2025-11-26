@@ -3,8 +3,12 @@ Application configuration settings
 """
 
 from typing import List
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
+
+# Base directory for the app
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -43,7 +47,7 @@ class Settings(BaseSettings):
     RUNPOD_NETWORK_VOLUME_ID: str = Field(default="366etpkt4g", description="RunPod network volume ID")
     RUNPOD_S3_ENDPOINT: str = Field(
         default="https://s3api-eu-cz-1.runpod.io/",
-        description="RunPod S3 API endpoint URL"
+        description="RunPod S3 API endpoint URL (automatically detects if available)"
     )
     RUNPOD_S3_REGION: str = Field(default="eu-cz-1", description="RunPod network volume region")
 

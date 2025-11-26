@@ -10,7 +10,7 @@ from loguru import logger
 from typing import Dict, Any, Optional
 from pathlib import Path
 
-from app.core.config import settings
+from app.core.config import settings, BASE_DIR
 
 
 class ComfyUIService:
@@ -19,7 +19,7 @@ class ComfyUIService:
             from app.core.config import settings
             base_url = settings.COMFYUI_URL
         self.base_url = base_url
-        self.workflow_path = Path(__file__).parent.parent / "workflows" / "restore.json"
+        self.workflow_path = BASE_DIR / "workflows" / "restore.json"
 
     def queue_prompt(self, prompt: Dict[str, Any]) -> Dict[str, Any]:
         """Queue a prompt for processing"""
