@@ -13,7 +13,7 @@ import random
 
 from app.workers.celery_app import celery_app
 from app.core.database import SessionLocal
-from app.core.config import settings
+from app.core.config import settings, BASE_DIR
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.models.photo import Photo
 from app.services.s3 import s3_service
@@ -97,42 +97,53 @@ def process_restoration(
             # Serverless mode - submit and exit
             from app.services.runpod_serverless import runpod_serverless_service
 
-            # Upload image to network volume
-            volume_path = runpod_serverless_service.upload_image_to_volume(
-                image_data=image_data, job_id=job_id, extension="jpg"
-            )
+            # Prepare image filename
+            image_filename = f"job_{job_id}.jpg"
+
+            # Upload image to network volume (only if S3 API is available)
+            if runpod_serverless_service.s3_available:
+                logger.info("Using S3 API to upload image to network volume")
+                volume_path = runpod_serverless_service.upload_image_to_volume(
+                    image_data=image_data, job_id=job_id, extension="jpg"
+                )
+            else:
+                logger.info("S3 API not available - will send image in job payload")
 
             # ===== FULL RESTORE WORKFLOW (Uncomment this section when ready) =====
-            # workflow_path = (
-            #     Path(__file__).parent.parent.parent / "workflows" / "restore.json"
-            # )
+            # workflow_path = BASE_DIR / "workflows" / "restore.json"
             # with open(workflow_path, "r") as f:
             #     workflow = json.load(f)
             # # Update workflow parameters
-            # workflow["78"]["inputs"]["image"] = f"job_{job_id}.jpg"  # Filename only
+            # workflow["78"]["inputs"]["image"] = image_filename  # Filename only
             # workflow["93"]["inputs"]["megapixels"] = megapixels
             # workflow["3"]["inputs"]["denoise"] = denoise
             # workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
             # ===== END FULL RESTORE WORKFLOW =====
 
             # ===== DUMMY WORKFLOW FOR TESTING (Comment out when using restore) =====
-            workflow_path = (
-                Path(__file__).parent.parent.parent
-                / "workflows"
-                / "dummy_workflow.json"
-            )
+            workflow_path = BASE_DIR / "workflows" / "dummy_workflow.json"
             with open(workflow_path, "r") as f:
                 workflow = json.load(f)
             # Update input image path for dummy workflow (node 1 = LoadImage)
-            workflow["1"]["inputs"]["image"] = f"job_{job_id}.jpg"
+            workflow["1"]["inputs"]["image"] = image_filename
             # ===== END DUMMY WORKFLOW =====
 
             # Submit job with webhook
             webhook_url = (
                 f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/runpod-completion"
             )
+
+            # Include image data in payload if S3 upload is disabled
             runpod_job_id = runpod_serverless_service.submit_job(
-                workflow=workflow, webhook_url=webhook_url, job_id=job_id
+                workflow=workflow,
+                webhook_url=webhook_url,
+                job_id=job_id,
+                image_data=(
+                    None if runpod_serverless_service.s3_available else image_data
+                ),
+                image_filename=(
+                    None if runpod_serverless_service.s3_available else image_filename
+                ),
             )
 
             # Create restore attempt record (pending state)

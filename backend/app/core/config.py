@@ -3,9 +3,13 @@ Application configuration settings
 """
 
 from typing import List
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field, ConfigDict
 import pydantic
+
+# Base directory for the app
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
