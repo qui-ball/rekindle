@@ -446,32 +446,60 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
 
   async createProcessingJob(photoId: string, options: ProcessingOptions): Promise<PhotoProcessingJob> {
     try {
-      // For now, only handle restore option
+      let costCredits = 0;
+      let restoreId: string | undefined;
+      const resultIds: string[] = [];
+      
+      // Handle restore option
       if (options.restore) {
-        // Use photos endpoint instead of jobs endpoint
         const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/photos/${photoId}/restore`, {
           model: 'comfyui_default',
           params: {
-            denoise: 0.8,
-            megapixels: options.quality === 'hd' ? 2.0 : 1.0
+            denoise: options.parameters?.restore?.denoiseLevel || 0.7,
+            megapixels: options.quality === 'hd' ? 2.0 : 1.0,
+            prompt: options.parameters?.restore?.userPrompt
           }
         });
-        
-        // Transform to PhotoProcessingJob format
-        return {
-          id: restoreAttempt.id,
-          photoId: photoId,
-          userId: '', // Will be filled by parent component
-          options: options,
-          status: 'queued',
-          priority: 1,
-          costCredits: 2, // Restore costs 2 credits
-          createdAt: new Date(restoreAttempt.created_at),
-          resultIds: [restoreAttempt.id]
-        };
-      } else {
-        throw new Error('Only restore option is currently supported');
+        restoreId = restoreAttempt.id;
+        resultIds.push(restoreAttempt.id);
+        costCredits += 2;
       }
+      
+      // Handle animate option
+      if (options.animate) {
+        // Use restoreId if available (from restore in same request), otherwise animate original photo
+        const animationAttempt = await apiClient.post(`/v1/jobs/${photoId}/animate`, {
+          restore_id: restoreId || undefined, // Use restore if available, otherwise undefined (will use original)
+          model: 'wan_default',
+          params: {
+            prompt: options.parameters?.animate?.userPrompt,
+            width: 480,
+            height: 832,
+            length: Math.floor((options.parameters?.animate?.videoDuration || 5) * 30 / 0.033), // Convert seconds to frames
+            fps: 30
+          }
+        });
+        resultIds.push(animationAttempt.id);
+        costCredits += 8;
+      }
+      
+      // Handle bringTogether option
+      if (options.bringTogether) {
+        throw new Error('Bring Together option is not yet implemented');
+      }
+      
+      // Return the job (using the first result ID as the primary job ID)
+      return {
+        id: resultIds[0],
+        photoId: photoId,
+        userId: '', // Will be filled by parent component
+        options: options,
+        status: 'queued',
+        priority: 1,
+        costCredits: costCredits,
+        createdAt: new Date(),
+        resultIds: resultIds
+      };
     } catch (error) {
       console.error('Error creating processing job:', error);
       throw error;

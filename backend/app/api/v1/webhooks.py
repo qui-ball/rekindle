@@ -10,7 +10,7 @@ from loguru import logger
 from sqlalchemy import cast, String, text
 
 from app.core.database import SessionLocal
-from app.models.jobs import Job, RestoreAttempt
+from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.services.s3 import s3_service
 from app.services.runpod_serverless import runpod_serverless_service
 from app.api.v1.events import job_events
@@ -96,7 +96,9 @@ async def handle_runpod_completion(request: Request):
         if payload.status == "COMPLETED":
             # Extract output from handler response
             output_files = payload.output.get("files", []) if payload.output else []
-            files_with_data = payload.output.get("files_with_data", []) if payload.output else []
+            files_with_data = (
+                payload.output.get("files_with_data", []) if payload.output else []
+            )
 
             if not output_files:
                 logger.error(f"No output files in webhook for job {job_id}")
@@ -109,18 +111,24 @@ async def handle_runpod_completion(request: Request):
             # If files_with_data is present, use base64 data from payload (for CA-MTL-3, etc.)
             # Otherwise download from network volume via S3 API
             if files_with_data and len(files_with_data) > 0:
-                logger.info("Using output data from webhook payload (non-S3 datacenter)")
+                logger.info(
+                    "Using output data from webhook payload (non-S3 datacenter)"
+                )
                 first_file = files_with_data[0]
 
                 if "data" not in first_file:
                     logger.error(f"No data in file info for job {job_id}")
                     restore.s3_key = "failed_no_data"
-                    restore.params = {**restore.params, "error": "No file data in response"}
+                    restore.params = {
+                        **restore.params,
+                        "error": "No file data in response",
+                    }
                     db.commit()
                     return {"status": "error", "message": "No file data in response"}
 
                 try:
                     import base64
+
                     restored_image_data = base64.b64decode(first_file["data"])
                     output_path = first_file.get("path", "unknown")
                 except Exception as decode_error:
@@ -128,7 +136,10 @@ async def handle_runpod_completion(request: Request):
                     restore.s3_key = "failed_decode"
                     restore.params = {**restore.params, "error": str(decode_error)}
                     db.commit()
-                    return {"status": "error", "message": "Failed to decode output data"}
+                    return {
+                        "status": "error",
+                        "message": "Failed to decode output data",
+                    }
             else:
                 # Download from network volume via S3 API (for supported datacenters)
                 logger.info("Downloading output from network volume via S3 API")
@@ -147,7 +158,9 @@ async def handle_runpod_completion(request: Request):
                         )
                     )
                 except Exception as download_error:
-                    logger.error(f"Failed to download output from volume: {download_error}")
+                    logger.error(
+                        f"Failed to download output from volume: {download_error}"
+                    )
                     restore.s3_key = "failed_download"
                     restore.params = {**restore.params, "error": str(download_error)}
                     db.commit()
@@ -186,12 +199,15 @@ async def handle_runpod_completion(request: Request):
                 # Update the associated Photo model if job_id matches a photo_id
                 # (When restoration is triggered from a photo, job_id = photo_id)
                 from app.models.photo import Photo
+
                 photo = db.query(Photo).filter(Photo.id == job_uuid).first()
                 if photo:
                     # Update photo's processed_key to point to the restored image
                     photo.processed_key = restore.s3_key
                     photo.status = "ready"
-                    logger.info(f"Updated photo {photo.id} with processed_key: {restore.s3_key}")
+                    logger.info(
+                        f"Updated photo {photo.id} with processed_key: {restore.s3_key}"
+                    )
 
                 # Add execution metrics to params
                 restore.params = {
@@ -258,6 +274,246 @@ async def handle_runpod_completion(request: Request):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing webhook: {str(e)}",
+        )
+
+    finally:
+        db.close()
+
+
+@router.post("/runpod-animation-completion", status_code=200)
+async def handle_runpod_animation_completion(request: Request):
+    """
+    Handle RunPod serverless animation job completion webhook
+
+    Expected payload from RunPod:
+    {
+        "id": "runpod-job-id",
+        "status": "COMPLETED",
+        "delayTime": 824,
+        "executionTime": 3391,
+        "output": {
+            "prompt_id": "...",
+            "files": ["/workspace/outputs/video/ComfyUI_00001.mp4"],
+            "file_count": 1
+        }
+    }
+    """
+    # Parse JSON and log
+    try:
+        payload_dict = await request.json()
+        logger.info(f"📥 Raw animation webhook payload: {payload_dict}")
+    except Exception as e:
+        logger.error(f"❌ Failed to parse animation webhook JSON: {e}")
+        return {"status": "error", "message": "Invalid JSON"}
+
+    # Validate with Pydantic
+    try:
+        payload = RunPodWebhookPayload.model_validate(payload_dict)
+        logger.info(
+            f"✅ Validated animation webhook: job_id={payload.id}, status={payload.status}"
+        )
+    except Exception as e:
+        logger.error(f"❌ Pydantic validation failed: {e}")
+        logger.error(f"Payload keys received: {list(payload_dict.keys())}")
+        logger.error(f"Payload values: {payload_dict}")
+        return {"status": "error", "message": f"Validation failed: {str(e)}"}
+
+    db = SessionLocal()
+    try:
+        # Find AnimationAttempt by RunPod job ID
+        animation = (
+            db.query(AnimationAttempt)
+            .filter(text("params->>'runpod_job_id' = :job_id"))
+            .params(job_id=payload.id)
+            .first()
+        )
+
+        if not animation:
+            logger.warning(f"No AnimationAttempt found for RunPod job {payload.id}")
+            return {"status": "not_found", "message": "Job not found in database"}
+
+        job = db.query(Job).filter(Job.id == animation.job_id).first()
+        if not job:
+            logger.error(
+                f"Job {animation.job_id} not found for animation {animation.id}"
+            )
+            return {"status": "error", "message": "Associated job not found"}
+
+        job_id = str(job.id)
+        job_uuid = job.id
+
+        if payload.status == "COMPLETED":
+            # Extract output from handler response
+            output_files = payload.output.get("files", []) if payload.output else []
+            files_with_data = (
+                payload.output.get("files_with_data", []) if payload.output else []
+            )
+
+            if not output_files:
+                logger.error(f"No output files in animation webhook for job {job_id}")
+                animation.preview_s3_key = "failed_no_output"
+                animation.params = {
+                    **animation.params,
+                    "error": "No output files",
+                }
+                db.commit()
+                return {"status": "error", "message": "No output files"}
+
+            # Get animated video data
+            if files_with_data and len(files_with_data) > 0:
+                logger.info(
+                    "Using animation output data from webhook payload (non-S3 datacenter)"
+                )
+                first_file = files_with_data[0]
+
+                if "data" not in first_file:
+                    logger.error(f"No data in file info for animation {job_id}")
+                    animation.preview_s3_key = "failed_no_data"
+                    animation.params = {
+                        **animation.params,
+                        "error": "No file data in response",
+                    }
+                    db.commit()
+                    return {"status": "error", "message": "No file data in response"}
+
+                try:
+                    import base64
+
+                    video_data = base64.b64decode(first_file["data"])
+                    output_path = first_file.get("path", "unknown")
+                except Exception as decode_error:
+                    logger.error(
+                        f"Failed to decode animation output data: {decode_error}"
+                    )
+                    animation.preview_s3_key = "failed_decode"
+                    animation.params = {
+                        **animation.params,
+                        "error": str(decode_error),
+                    }
+                    db.commit()
+                    return {
+                        "status": "error",
+                        "message": "Failed to decode output data",
+                    }
+            else:
+                # Download from network volume via S3 API
+                logger.info(
+                    "Downloading animation output from network volume via S3 API"
+                )
+                # Path format: /workspace/outputs/video/ComfyUI_00001.mp4 → outputs/video/ComfyUI_00001.mp4
+                output_path = (
+                    output_files[0]
+                    .replace("/workspace/", "")
+                    .replace("/runpod-volume/", "")
+                )
+
+                try:
+                    video_data = runpod_serverless_service.download_output_from_volume(
+                        output_path=output_path
+                    )
+                except Exception as download_error:
+                    logger.error(
+                        f"Failed to download animation output from volume: {download_error}"
+                    )
+                    animation.preview_s3_key = "failed_download"
+                    animation.params = {
+                        **animation.params,
+                        "error": str(download_error),
+                    }
+                    db.commit()
+                    return {"status": "error", "message": "Failed to download output"}
+
+            # Generate timestamp ID for this animation
+            animation_timestamp_id = s3_service.generate_timestamp_id()
+
+            # Upload to AWS S3
+            try:
+                video_url = s3_service.upload_animation(
+                    video_content=video_data,
+                    job_id=job_id,
+                    animation_id=animation_timestamp_id,
+                    is_preview=True,
+                )
+
+                # Update animation attempt with S3 key
+                animation.preview_s3_key = (
+                    f"animated/{job_id}/{animation_timestamp_id}_preview.mp4"
+                )
+
+                # Generate thumbnail from first frame (optional - can be implemented later)
+                # For now, we'll skip thumbnail generation for videos
+
+                # Update job's latest animation
+                job.latest_animation_id = animation.id
+
+                # Commit all changes
+                db.commit()
+
+                logger.success(
+                    f"✅ Animation webhook processed successfully for job {job_id}"
+                )
+
+                # Send SSE event
+                await job_events.send_job_update(
+                    job_id=job_id,
+                    event_data={
+                        "status": "animation_completed",
+                        "job_id": job_id,
+                        "animation_id": str(animation.id),
+                        "video_url": video_url,
+                    },
+                )
+
+                return {
+                    "status": "success",
+                    "job_id": job_id,
+                    "animation_id": str(animation.id),
+                    "video_url": video_url,
+                }
+
+            except Exception as upload_error:
+                logger.error(f"Failed to upload animation to S3: {upload_error}")
+                animation.preview_s3_key = "failed_upload"
+                animation.params = {
+                    **animation.params,
+                    "error": str(upload_error),
+                }
+                db.commit()
+                return {"status": "error", "message": "Failed to upload to S3"}
+
+        elif payload.status == "FAILED":
+            # Mark animation as failed
+            logger.error(f"RunPod animation job failed for job {job_id}")
+            animation.preview_s3_key = "failed"
+            animation.params = {
+                **animation.params,
+                "status": "FAILED",
+                "output": payload.output,
+            }
+            db.commit()
+
+            return {
+                "status": "failed",
+                "job_id": job_id,
+                "message": "RunPod animation job failed",
+            }
+
+        else:
+            # Unknown status
+            logger.warning(
+                f"Unknown RunPod animation status: {payload.status} for job {job_id}"
+            )
+            return {
+                "status": "unknown",
+                "message": f"Unknown status: {payload.status}",
+            }
+
+    except Exception as e:
+        logger.error(f"Error processing RunPod animation webhook: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing animation webhook: {str(e)}",
         )
 
     finally:

@@ -309,11 +309,6 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     if (!selectedPhoto) return;
     
     try {
-      // For now, only handle restore option
-      if (!options.restore) {
-        throw new Error('Only restore option is currently supported');
-      }
-      
       // Mock credit data - skip API calls for now
       const mockCreditBalance = {
         totalCredits: 100,
@@ -328,19 +323,22 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
         }
       };
       
-      // Calculate cost for restore only (2 credits)
-      const restoreCost = 2;
+      // Calculate cost based on selected options
+      let totalCost = 0;
+      if (options.restore) totalCost += 2;
+      if (options.animate) totalCost += 8;
+      if (options.bringTogether) totalCost += 10;
       
       // Check credit availability (using mock data)
-      if (restoreCost > mockCreditBalance.totalCredits) {
+      if (totalCost > mockCreditBalance.totalCredits) {
         throw new Error('Insufficient credits for processing');
       }
       
-      // Create processing job (restore only)
+      // Create processing job
       const job = await processingJobService.createProcessingJob(selectedPhoto.id, options);
       
       // Skip credit deduction for now (mock data)
-      console.log(`Mock: Deducted ${restoreCost} credits from user ${userId}`);
+      console.log(`Mock: Deducted ${totalCost} credits from user ${userId}`);
       
       // Start listening for SSE events on this job
       setActiveJobId(selectedPhoto.id);
@@ -356,7 +354,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       onProcessingComplete?.({
         photoId: selectedPhoto.id,
         resultId: job.id,
-        resultType: 'restored',
+        resultType: options.animate ? 'animated' : 'restored',
         fileUrl: '',
         thumbnailUrl: ''
       });

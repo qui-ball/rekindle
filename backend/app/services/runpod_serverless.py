@@ -186,6 +186,13 @@ class RunPodServerlessService:
             # Initialize endpoint
             endpoint = runpod.Endpoint(self.endpoint_id)
 
+            # Check endpoint health/status
+            try:
+                endpoint_health = endpoint.health()
+                logger.info(f"Endpoint health: {endpoint_health}")
+            except Exception as health_err:
+                logger.warning(f"Could not check endpoint health: {health_err}")
+
             # Build input payload
             input_payload = {"workflow_api": workflow}
 
@@ -211,8 +218,14 @@ class RunPodServerlessService:
                 }
             )
 
-            # Get job ID
+            # Get job ID and status
             runpod_job_id = run_request.job_id
+
+            # Log detailed response for debugging
+            logger.info(f"RunPod response: {run_request}")
+            logger.info(
+                f"RunPod job status: {getattr(run_request, 'status', 'unknown')}"
+            )
 
             logger.success(
                 f"Successfully submitted job {job_id} to RunPod (job_id: {runpod_job_id})"
@@ -260,6 +273,7 @@ class RunPodServerlessService:
 # Global service instance (lazy initialization)
 _runpod_serverless_service: Optional[RunPodServerlessService] = None
 
+
 def get_runpod_serverless_service() -> RunPodServerlessService:
     """Get or create the RunPod serverless service instance (lazy initialization)"""
     global _runpod_serverless_service
@@ -267,10 +281,13 @@ def get_runpod_serverless_service() -> RunPodServerlessService:
         _runpod_serverless_service = RunPodServerlessService()
     return _runpod_serverless_service
 
+
 # For backward compatibility, create a property-like accessor
 class _RunPodServiceProxy:
     """Proxy class to maintain backward compatibility with direct attribute access"""
+
     def __getattr__(self, name):
         return getattr(get_runpod_serverless_service(), name)
+
 
 runpod_serverless_service = _RunPodServiceProxy()

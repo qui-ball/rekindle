@@ -11,13 +11,15 @@ from typing import Optional, Dict, Any, List
 # Job Schemas
 class JobCreate(BaseModel):
     """Schema for creating a new job"""
+
     email: EmailStr
 
 
 class JobResponse(BaseModel):
     """Schema for job responses"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     email: str
     created_at: datetime
@@ -30,14 +32,16 @@ class JobResponse(BaseModel):
 # Restore Attempt Schemas
 class RestoreAttemptCreate(BaseModel):
     """Schema for creating a restore attempt"""
+
     model: Optional[str] = None
     params: Optional[Dict[str, Any]] = None
 
 
 class RestoreAttemptResponse(BaseModel):
     """Schema for restore attempt responses"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     job_id: UUID
     s3_key: str
@@ -50,15 +54,19 @@ class RestoreAttemptResponse(BaseModel):
 # Animation Attempt Schemas
 class AnimationAttemptCreate(BaseModel):
     """Schema for creating an animation attempt"""
-    restore_id: UUID
+
+    restore_id: Optional[UUID] = (
+        None  # Optional: if not provided, will use original photo
+    )
     model: Optional[str] = None
     params: Optional[Dict[str, Any]] = None
 
 
 class AnimationAttemptResponse(BaseModel):
     """Schema for animation attempt responses"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: UUID
     job_id: UUID
     restore_id: Optional[UUID] = None
@@ -76,6 +84,7 @@ class AnimationAttemptResponse(BaseModel):
 # Job with Relations
 class JobWithRelations(JobResponse):
     """Schema for job with all related data"""
+
     restore_attempts: List[RestoreAttemptResponse] = []
     animation_attempts: List[AnimationAttemptResponse] = []
 
@@ -83,6 +92,7 @@ class JobWithRelations(JobResponse):
 # Upload Response
 class UploadResponse(BaseModel):
     """Response after uploading and processing an image"""
+
     job_id: UUID
     message: str
     processed_url: Optional[str] = None

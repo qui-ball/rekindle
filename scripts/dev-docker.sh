@@ -91,6 +91,38 @@ else
     MODE_DESC="HTTP (Standard Development)"
 fi
 
+# Load Google OAuth credentials from supabase/.env if it exists
+OAUTH_ENV_FILE="$PROJECT_ROOT/supabase/.env"
+if [ -f "$OAUTH_ENV_FILE" ]; then
+    echo "🔐 Loading OAuth credentials from supabase/.env..."
+    
+    # Read credentials from file (POSIX-compliant, works with all shells)
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        case "$key" in
+            \#*|'') continue ;;
+        esac
+        
+        # Trim whitespace and quotes
+        key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//')
+        
+        case "$key" in
+            SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)
+                export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="$value"
+                ;;
+            SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)
+                export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="$value"
+                ;;
+        esac
+    done < "$OAUTH_ENV_FILE"
+    
+    if [ -n "$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID" ] && [ -n "$SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET" ]; then
+        CLIENT_ID_PREVIEW=$(echo "$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID" | cut -c1-30)
+        echo "✅ OAuth credentials loaded (Client ID: ${CLIENT_ID_PREVIEW}...)"
+    fi
+fi
+
 # Start Supabase if not already running
 echo "🔐 Starting Supabase..."
 if supabase status >/dev/null 2>&1; then
@@ -165,6 +197,15 @@ else
     SUPABASE_JWT_SECRET=""
 fi
 
+# Detect sed in-place syntax (macOS vs Linux)
+if sed --version >/dev/null 2>&1; then
+    # GNU sed (Linux)
+    SED_INPLACE="sed -i"
+else
+    # BSD sed (macOS)
+    SED_INPLACE="sed -i ''"
+fi
+
 # Update backend/.env file with Supabase credentials (source of truth)
 # This ensures the .env file always has the correct values, even if docker-compose is run directly
 # Only update if we successfully extracted non-empty, non-null values
@@ -173,19 +214,19 @@ if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ] && [ "$SUPABASE
     if [ -f "backend/.env" ]; then
         # Use sed to update or add SUPABASE_URL
         if grep -q "^SUPABASE_URL=" backend/.env; then
-            sed -i "s|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|" backend/.env
+            eval "$SED_INPLACE 's|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|' backend/.env"
         else
             echo "SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS" >> backend/.env
         fi
         # Update or add SUPABASE_ANON_KEY
         if grep -q "^SUPABASE_ANON_KEY=" backend/.env; then
-            sed -i "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|" backend/.env
+            eval "$SED_INPLACE 's|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|' backend/.env"
         else
             echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> backend/.env
         fi
         # Update or add SUPABASE_SERVICE_KEY
         if grep -q "^SUPABASE_SERVICE_KEY=" backend/.env; then
-            sed -i "s|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY|" backend/.env
+            eval "$SED_INPLACE 's|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY|' backend/.env"
         else
             echo "SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY" >> backend/.env
         fi
@@ -197,13 +238,13 @@ if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ] && [ "$SUPABASE
     fi
     # Update or add NEXT_PUBLIC_SUPABASE_URL
     if grep -q "^NEXT_PUBLIC_SUPABASE_URL=" frontend/.env.local; then
-        sed -i "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|" frontend/.env.local
+        eval "$SED_INPLACE 's|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|' frontend/.env.local"
     else
         echo "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS" >> frontend/.env.local
     fi
     # Update or add NEXT_PUBLIC_SUPABASE_ANON_KEY
     if grep -q "^NEXT_PUBLIC_SUPABASE_ANON_KEY=" frontend/.env.local; then
-        sed -i "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|" frontend/.env.local
+        eval "$SED_INPLACE 's|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|' frontend/.env.local"
     else
         echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> frontend/.env.local
     fi
