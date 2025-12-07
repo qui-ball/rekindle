@@ -130,6 +130,23 @@ class Settings(BaseSettings):
         description="ComfyUI execution mode: 'serverless' or 'pod'",
     )
 
+    # SiliconFlow
+    SILICONFLOW_API_KEY: str = Field(
+        default="", description="SiliconFlow API key for Qwen-Image-Edit"
+    )
+    SILICONFLOW_API_URL: str = Field(
+        default="https://api.siliconflow.com/v1/images/generations",
+        description="SiliconFlow API endpoint URL",
+    )
+    SILICONFLOW_MODEL: str = Field(
+        default="Qwen/Qwen-Image-Edit",
+        description="SiliconFlow model identifier",
+    )
+    SILICONFLOW_TIMEOUT: int = Field(
+        default=120,
+        description="SiliconFlow API request timeout in seconds",
+    )
+
     # File upload
     MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024)  # 50MB
     ALLOWED_FILE_TYPES: List[str] = Field(

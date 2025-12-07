@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: Rekindle Internal Service Contracts
+  description: |
+    Internal service contracts for SiliconFlow restoration feature.
+    Defines interfaces between components within the Rekindle backend.
+  version: 1.0.0
+
+paths: {}
+
+components:
+  schemas:
+    # SiliconFlowService interface
+    SiliconFlowRestoreRequest:
+      type: object
+      description: Input to SiliconFlowService.restore_image()
+      required:
+        - image_url
+      properties:
+        image_url:
+          type: string
+          format: uri
+          description: Presigned S3 URL for source image
+        prompt:
+          type: string
+          maxLength: 800
+          default: "Restore this old damaged photo. Enhance clarity, remove scratches and damage, improve colors while preserving original details."
+          description: Restoration prompt
+        num_inference_steps:
+          type: integer
+          default: 20
+        guidance_scale:
+          type: number
+          format: float
+          default: 7.5
+
+    SiliconFlowRestoreResult:
+      type: object
+      description: Output from SiliconFlowService.restore_image()
+      required:
+        - image_bytes
+        - inference_time
+        - seed
+      properties:
+        image_bytes:
+          type: string
+          format: binary
+          description: Restored image as bytes
+        inference_time:
+          type: number
+          format: float
+          description: API inference time in seconds
+        seed:
+          type: integer
+          description: Seed used for generation
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional metadata from API response
+
+    # ImageProcessor interface
+    ImagePreprocessRequest:
+      type: object
+      description: Input to ImageProcessor.preprocess()
+      required:
+        - image_bytes
+      properties:
+        image_bytes:
+          type: string
+          format: binary
+          description: Raw image bytes (any format)
+        max_dimension:
+          type: integer
+          default: 3584
+          description: Maximum width or height in pixels
+        output_format:
+          type: string
+          enum: [JPEG, PNG]
+          default: JPEG
+        quality:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 95
+
+    ImagePreprocessResult:
+      type: object
+      description: Output from ImageProcessor.preprocess()
+      required:
+        - image_bytes
+        - resized
+        - format_converted
+      properties:
+        image_bytes:
+          type: string
+          format: binary
+          description: Preprocessed image bytes
+        resized:
+          type: boolean
+          description: Whether image was resized
+        original_dimensions:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+          description: "[width, height] before resize"
+        new_dimensions:
+          type: array
+          items:
+            type: integer
+          minItems: 2
+          maxItems: 2
+          description: "[width, height] after resize"
+        format_converted:
+          type: boolean
+          description: Whether format was converted
+        original_format:
+          type: string
+          description: Original image format (e.g., 'HEIC', 'PNG')
+
+    # Celery task interface
+    ProcessRestorationTaskInput:
+      type: object
+      description: Input to process_restoration Celery task
+      required:
+        - job_id
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Job/Photo ID
+        model:
+          type: string
+          default: "Qwen/Qwen-Image-Edit"
+        params:
+          type: object
+          properties:
+            prompt:
+              type: string
+            denoise:
+              type: number
+              deprecated: true
+              description: "Deprecated: not used by SiliconFlow"
+            megapixels:
+              type: number
+              deprecated: true
+              description: "Deprecated: not used by SiliconFlow"
+
+    # Error types
+    SiliconFlowError:
+      type: object
+      description: Error from SiliconFlow service
+      required:
+        - error_type
+        - message
+      properties:
+        error_type:
+          type: string
+          enum:
+            - authentication_error
+            - rate_limit_error
+            - invalid_image_error
+            - timeout_error
+            - network_error
+            - api_error
+        message:
+          type: string
+          description: Human-readable error message
+        status_code:
+          type: integer
+          description: HTTP status code from API
+        retry_after:
+          type: integer
+          description: Seconds to wait before retry (for rate limits)

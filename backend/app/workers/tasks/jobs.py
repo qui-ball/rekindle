@@ -2,6 +2,7 @@
 Celery tasks for job processing - new architecture
 """
 
+import asyncio
 from celery import current_task
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -18,6 +19,11 @@ from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.models.photo import Photo
 from app.services.s3 import s3_service
 from app.services.comfyui import comfyui_service
+from app.services.siliconflow import (
+    get_siliconflow_service,
+    SiliconFlowError,
+)
+from app.services.image_processor import preprocess_image
 
 
 @celery_app.task(bind=True)
@@ -59,6 +65,18 @@ def process_restoration(
             logger.info(
                 f"Photo-based restoration detected, using original_key: {photo.original_key}"
             )
+
+            # Check for concurrent restoration (reject if already processing)
+            if photo.status == "processing":
+                raise ValueError(
+                    f"Photo {photo.id} is already being processed. "
+                    "Please wait for the current restoration to complete."
+                )
+
+            # Mark photo as processing
+            photo.status = "processing"
+            db.commit()
+
             try:
                 # Use storage_service to download from user-scoped storage
                 from app.services.storage_service import storage_service
@@ -71,7 +89,172 @@ def process_restoration(
                 logger.error(
                     f"Failed to download photo original_key {photo.original_key}: {e}"
                 )
+                # Revert photo status on failure
+                photo.status = "uploaded"
+                db.commit()
                 raise ValueError(f"Failed to download photo image: {e}")
+
+            # ===== SILICONFLOW RESTORATION FOR PHOTO-BASED RESTORATIONS =====
+            try:
+                logger.info(f"Using SiliconFlow API for photo {photo.id} restoration")
+
+                # Preprocess image (resize if needed, convert format)
+                preprocess_result = preprocess_image(image_data)
+                logger.info(
+                    f"Image preprocessed: resized={preprocess_result.resized}, "
+                    f"format_converted={preprocess_result.format_converted}, "
+                    f"original={preprocess_result.original_dimensions}, "
+                    f"new={preprocess_result.new_dimensions}"
+                )
+
+                # Upload preprocessed image to S3 and get presigned URL
+                preprocessed_key = storage_service.generate_user_scoped_key(
+                    user_id=photo.owner_id,
+                    photo_id=photo.id,
+                    category="temp",
+                    filename="preprocessed.jpg",
+                )
+                storage_service.upload_file(
+                    file_content=preprocess_result.image_bytes,
+                    user_id=photo.owner_id,
+                    photo_id=photo.id,
+                    category="temp",
+                    filename="preprocessed.jpg",
+                    content_type="image/jpeg",
+                )
+
+                # Generate presigned URL for SiliconFlow API
+                presigned_url = s3_service.generate_presigned_url(preprocessed_key)
+                logger.debug(f"Generated presigned URL for SiliconFlow: {presigned_url[:100]}...")
+
+                # Get custom prompt from params or use default
+                custom_prompt = params.get("prompt")
+                num_inference_steps = params.get("num_inference_steps", 20)
+                guidance_scale = params.get("guidance_scale", 7.5)
+
+                # Call SiliconFlow API
+                siliconflow_service = get_siliconflow_service()
+                restored_image_data, siliconflow_metadata = asyncio.get_event_loop().run_until_complete(
+                    siliconflow_service.restore_image(
+                        image_url=presigned_url,
+                        prompt=custom_prompt,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                    )
+                )
+
+                logger.info(
+                    f"SiliconFlow restoration completed: "
+                    f"inference_time={siliconflow_metadata.get('inference_time_seconds', 0)}s"
+                )
+
+                # Generate timestamp ID for this restore attempt
+                restore_timestamp_id = s3_service.generate_timestamp_id()
+
+                # Upload restored image to user-scoped processed storage
+                restored_url = storage_service.upload_file(
+                    file_content=restored_image_data,
+                    user_id=photo.owner_id,
+                    photo_id=photo.id,
+                    category="processed",
+                    filename=f"restored_{restore_timestamp_id}.jpg",
+                    content_type="image/jpeg",
+                )
+                processed_key = storage_service.generate_user_scoped_key(
+                    user_id=photo.owner_id,
+                    photo_id=photo.id,
+                    category="processed",
+                    filename=f"restored_{restore_timestamp_id}.jpg",
+                )
+
+                logger.info(f"Uploaded restored image to: {processed_key}")
+
+                # Create restore attempt record with SiliconFlow metadata
+                restore = RestoreAttempt(
+                    job_id=job_uuid,
+                    s3_key=processed_key,
+                    model=model or "siliconflow_qwen",
+                    params={
+                        **params,
+                        "provider": "siliconflow",
+                        "siliconflow_model": siliconflow_metadata.get("model"),
+                        "inference_time_seconds": siliconflow_metadata.get("inference_time_seconds"),
+                        "seed": siliconflow_metadata.get("seed"),
+                        "num_inference_steps": num_inference_steps,
+                        "guidance_scale": guidance_scale,
+                        "preprocessing": {
+                            "resized": preprocess_result.resized,
+                            "original_dimensions": list(preprocess_result.original_dimensions),
+                            "new_dimensions": list(preprocess_result.new_dimensions),
+                            "format_converted": preprocess_result.format_converted,
+                            "original_format": preprocess_result.original_format,
+                        },
+                    },
+                )
+                db.add(restore)
+                db.flush()
+
+                # Update job's selected restore
+                job.selected_restore_id = restore.id
+
+                # Update photo with processed key and status
+                photo.processed_key = processed_key
+                photo.status = "ready"
+
+                # Generate and upload thumbnail for restored image
+                try:
+                    s3_service.upload_job_thumbnail(
+                        image_content=restored_image_data, job_id=job_id, extension="jpg"
+                    )
+                    job.thumbnail_s3_key = f"thumbnails/{job_id}.jpg"
+                    logger.info(f"Generated thumbnail for restored image {job_id}")
+                except Exception as thumb_error:
+                    logger.error(f"Failed to generate thumbnail: {thumb_error}")
+
+                db.commit()
+
+                logger.success(f"Completed SiliconFlow restoration {restore.id} for photo {photo.id}")
+
+                return {
+                    "status": "success",
+                    "job_id": job_id,
+                    "restore_id": str(restore.id),
+                    "restored_url": restored_url,
+                    "provider": "siliconflow",
+                    "inference_time_seconds": siliconflow_metadata.get("inference_time_seconds"),
+                }
+
+            except SiliconFlowError as e:
+                logger.error(f"SiliconFlow API error for photo {photo.id}: {e}")
+
+                # Revert photo status to uploaded
+                photo.status = "uploaded"
+
+                # Create failed restore attempt with error details
+                restore = RestoreAttempt(
+                    job_id=job_uuid,
+                    s3_key="failed",
+                    model=model or "siliconflow_qwen",
+                    params={
+                        **params,
+                        "provider": "siliconflow",
+                        "error": e.to_dict(),
+                    },
+                )
+                db.add(restore)
+                db.commit()
+
+                raise ValueError(f"SiliconFlow restoration failed: {e.message}")
+
+            except Exception as e:
+                logger.error(f"Unexpected error during SiliconFlow restoration: {e}")
+
+                # Revert photo status to uploaded
+                photo.status = "uploaded"
+                db.commit()
+
+                raise
+            # ===== END SILICONFLOW RESTORATION =====
         else:
             # Legacy job-based restoration - try job-based paths
             uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
