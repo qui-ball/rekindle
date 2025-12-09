@@ -83,6 +83,12 @@ secrets/
 # Local development certificates
 certs/
 
+# mkcert binary (should be installed system-wide, not committed)
+mkcert-v*-linux-amd64
+mkcert-v*-darwin-amd64
+mkcert-v*-windows-amd64.exe
+mkcert
+
 # AI/ML
 *.pkl
 *.joblib
