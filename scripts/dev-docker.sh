@@ -414,9 +414,11 @@ echo ""
 # Capture output to a temp file for error reporting
 TEMP_LOG=$(mktemp)
 set +e  # Don't exit on error, we'll check the exit code manually
-# Show minimal output - only errors and final status
-docker compose up --build -d 2>&1 | tee "$TEMP_LOG" | grep -E "(ERROR|error|failed|Failed|Building|Creating|Starting|Pulling|Step|#)" | head -20 || true
-BUILD_EXIT_CODE=${PIPESTATUS[0]}
+# Run docker compose and capture exit code separately to avoid SIGPIPE issues
+docker compose up --build -d > "$TEMP_LOG" 2>&1
+BUILD_EXIT_CODE=$?
+# Show filtered output (errors and key status messages)
+grep -E "(ERROR|error|failed|Failed|Building|Creating|Starting|Pulling|Step|#)" "$TEMP_LOG" | head -20 || true
 set -e  # Re-enable exit on error
 
 if [ $BUILD_EXIT_CODE -eq 0 ]; then
@@ -440,8 +442,11 @@ else
         
         RETRY_LOG=$(mktemp)
         set +e
-        docker compose up --build -d 2>&1 | tee "$RETRY_LOG" | grep -E "(ERROR|error|failed|Failed|Building|Creating|Starting|Pulling|Step|#)" | head -20 || true
-        RETRY_EXIT_CODE=${PIPESTATUS[0]}
+        # Run docker compose and capture exit code separately to avoid SIGPIPE issues
+        docker compose up --build -d > "$RETRY_LOG" 2>&1
+        RETRY_EXIT_CODE=$?
+        # Show filtered output (errors and key status messages)
+        grep -E "(ERROR|error|failed|Failed|Building|Creating|Starting|Pulling|Step|#)" "$RETRY_LOG" | head -20 || true
         set -e
         if [ $RETRY_EXIT_CODE -eq 0 ]; then
             echo ""

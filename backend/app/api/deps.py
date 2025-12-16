@@ -11,6 +11,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from jose.constants import ALGORITHMS
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 import httpx
 from loguru import logger
 
@@ -893,6 +894,11 @@ def get_current_user(
                 user_email = payload.get("email")
                 email_verified = bool(payload.get("email_verified") or payload.get("email_confirmed_at"))
                 
+                logger.info(
+                    f"Token payload email extraction: email={user_email}, email_verified={email_verified}, "
+                    f"payload_keys={list(payload.keys())[:10]}"
+                )
+                
                 # Extract metadata from token for richer user creation
                 user_metadata = payload.get("user_metadata") or {}
                 raw_meta = payload.get("raw_user_meta_data") or {}
@@ -919,37 +925,66 @@ def get_current_user(
                             "apikey": settings.SUPABASE_SERVICE_KEY,
                             "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
                         }
+                        logger.info(
+                            f"Fetching user email from Supabase Admin API: {admin_url}",
+                            extra={
+                                "event_type": "email_fetch_attempt",
+                                "supabase_user_id": supabase_user_id,
+                                "supabase_url": settings.SUPABASE_URL,
+                            }
+                        )
                         with httpx.Client(timeout=5.0) as client:
                             response = client.get(admin_url, headers=headers)
+                            logger.info(
+                                f"Supabase Admin API response: status={response.status_code}",
+                                extra={
+                                    "event_type": "email_fetch_response",
+                                    "status_code": response.status_code,
+                                    "supabase_user_id": supabase_user_id,
+                                }
+                            )
                             if response.status_code == 200:
                                 user_data = response.json()
                                 user_email = user_data.get("email")
                                 email_verified = bool(user_data.get("email_confirmed_at"))
                                 logger.info(
-                                    "Fetched email from Supabase Admin API",
+                                    f"Fetched email from Supabase Admin API: {user_email}",
                                     extra={
                                         "event_type": "email_fetched_from_api",
                                         "supabase_user_id": supabase_user_id,
                                         "email": user_email,
                                     }
                                 )
+                            else:
+                                logger.warning(
+                                    f"Supabase Admin API returned non-200 status: {response.status_code}, body: {response.text[:200]}",
+                                    extra={
+                                        "event_type": "email_fetch_failed",
+                                        "status_code": response.status_code,
+                                        "supabase_user_id": supabase_user_id,
+                                    }
+                                )
                     except Exception as e:
                         logger.warning(
-                            "Failed to fetch email from Supabase API",
+                            f"Failed to fetch email from Supabase API: {type(e).__name__}: {str(e)}",
                             extra={
                                 "event_type": "email_fetch_failed",
                                 "error": str(e),
+                                "error_type": type(e).__name__,
                                 "supabase_user_id": supabase_user_id,
-                            }
+                                "supabase_url": settings.SUPABASE_URL,
+                            },
+                            exc_info=True
                         )
                 
                 if user_email:
                     logger.info(
-                        "Auto-creating user on first authentication",
+                        f"Auto-creating user on first authentication: email={user_email}, supabase_user_id={supabase_user_id}",
                         extra={
                             "event_type": "user_auto_create",
                             "supabase_user_id": supabase_user_id,
                             "email": user_email,
+                            "email_verified": email_verified,
                             "ip_address": ip_address,
                         }
                     )
@@ -975,27 +1010,76 @@ def get_current_user(
                         db.add(new_user)
                         db.commit()
                         db.refresh(new_user)
+                        user_id_str = str(new_user.id)
                         
                         logger.info(
                             "User auto-created successfully",
                             extra={
                                 "event_type": "user_created",
-                                "user_id": str(new_user.id),
+                                "user_id": user_id_str,
                                 "supabase_user_id": supabase_user_id,
                                 "email": user_email,
                                 "source": "auto_create_on_auth",
                             }
                         )
-                        
                         user = new_user
+                    except IntegrityError as e:
+                        db.rollback()
+                        # Handle race condition: user might have been created between check and insert
+                        # Extract just the error detail without SQL parameters to avoid loguru formatting issues with braces
+                        # The full error is still available in the extra dict
+                        error_detail = str(e).split('\n')[0] if '\n' in str(e) else str(e)
+                        # Escape curly braces to prevent loguru from interpreting them as format placeholders
+                        error_detail_safe = error_detail.replace("{", "{{").replace("}", "}}")
+                        logger.warning(
+                            f"Integrity error during auto-creation (possible race condition). Attempting to fetch existing user. Error: {error_detail_safe}",
+                            extra={
+                                "event_type": "user_auto_create_integrity_error",
+                                "error": str(e),  # Full error in extra dict
+                                "supabase_user_id": supabase_user_id,
+                                "email": user_email,
+                            }
+                        )
+                        
+                        # Try to fetch the user that was created concurrently
+                        existing_user = db.query(User).filter(
+                            (User.supabase_user_id == supabase_user_id) | (User.email == user_email)
+                        ).first()
+                        
+                        if existing_user:
+                            logger.info(
+                                f"Found existing user after integrity error: id={existing_user.id}",
+                                extra={
+                                    "event_type": "user_found_after_integrity_error",
+                                    "user_id": str(existing_user.id),
+                                    "supabase_user_id": supabase_user_id,
+                                }
+                            )
+                            user = existing_user
+                        else:
+                            # If we still can't find the user, log and fall through to raise error
+                            logger.error(
+                                f"Failed to auto-create user and could not find existing user after integrity error",
+                                extra={
+                                    "event_type": "user_auto_create_error",
+                                    "error": str(e),
+                                    "error_type": "IntegrityError",
+                                    "supabase_user_id": supabase_user_id,
+                                    "email": user_email,
+                                    "ip_address": ip_address,
+                                },
+                                exc_info=True
+                            )
                     except Exception as e:
                         db.rollback()
                         logger.error(
-                            "Failed to auto-create user",
+                            f"Failed to auto-create user: {type(e).__name__}: {str(e)}",
                             extra={
                                 "event_type": "user_auto_create_error",
                                 "error": str(e),
+                                "error_type": type(e).__name__,
                                 "supabase_user_id": supabase_user_id,
+                                "email": user_email,
                                 "ip_address": ip_address,
                             },
                             exc_info=True
@@ -1116,11 +1200,13 @@ def get_current_user(
         ip_address = request.client.host if request and request.client else None
         import traceback
         error_traceback = traceback.format_exc()
+        # Sanitize error message to prevent loguru formatting issues with braces
+        error_msg = str(e).replace("{", "{{").replace("}", "}}")
         logger.error(
-            f"Unexpected error during authentication: {str(e)}",
+            f"Unexpected error during authentication: {error_msg}",
             extra={
                 "event_type": "auth_unexpected_error",
-                "error": str(e),
+                "error": str(e),  # Full error in extra dict
                 "error_type": type(e).__name__,
                 "ip_address": ip_address,
                 "traceback": error_traceback,
