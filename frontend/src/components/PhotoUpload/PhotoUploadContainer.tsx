@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { PhotoUploadContainerProps, UploadError, ErrorType } from '../../types/upload';
 import { CameraCaptureFlow } from './CameraCaptureFlow';
+import { FileUploadModal } from './FileUploadModal';
 import { usePhotoUpload } from '../../hooks/usePhotoUpload';
 import { base64ToFile, getImageDimensionsFromBase64, validateFile } from '../../utils/fileUtils';
 
@@ -19,8 +20,9 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
   // Initialize upload hook
   const { uploadPhoto, uploadState, resetUpload } = usePhotoUpload();
 
-  // Camera state
+  // Modal states
   const [showCamera, setShowCamera] = useState(false);
+  const [showFileUpload, setShowFileUpload] = useState(false);
 
   // Handle camera capture - convert base64 to file and upload to S3
   const handleCameraCapture = useCallback(async (imageData: string) => {
@@ -94,13 +96,56 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
     onError(uploadError);
   }, [onError]);
 
+  // Handle file upload from FileUploadModal
+  const handleFileUpload = useCallback(async (file: File) => {
+    console.log('File selected:', file.name, file.size, file.type);
+    
+    try {
+      // Upload to S3 using the upload hook
+      const result = await uploadPhoto(file, {
+        onProgress: (progress) => {
+          console.log(`Upload progress: ${progress}%`);
+        },
+        onError: (error) => {
+          console.error('Upload error:', error);
+          onError(error);
+        }
+      });
+
+      if (result.success) {
+        console.log('✅ Upload successful:', result.data);
+        setShowFileUpload(false);
+        onUploadComplete(result.data);
+      } else {
+        console.error('❌ Upload failed:', result.error);
+        onError(result.error);
+      }
+    } catch (error) {
+      console.error('❌ File upload processing failed:', error);
+      const uploadError: UploadError = {
+        name: 'ProcessingError',
+        message: error instanceof Error ? error.message : 'Failed to process file',
+        code: 'PROCESSING_FAILED',
+        type: ErrorType.PROCESSING_ERROR,
+        retryable: true
+      };
+      onError(uploadError);
+    }
+  }, [uploadPhoto, onUploadComplete, onError]);
+
+  // Handle file upload errors
+  const handleFileUploadError = useCallback((error: UploadError) => {
+    console.error('File upload error:', error);
+    onError(error);
+  }, [onError]);
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-8 text-center">
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">
         Upload Your Photo
       </h2>
       
-      {uploadState.status === 'idle' && !showCamera && (
+      {uploadState.status === 'idle' && !showCamera && !showFileUpload && (
         <div>
           <p className="text-gray-600 mb-6">
             Choose how you&apos;d like to upload your photo for restoration
@@ -114,11 +159,11 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
             >
               📷 Take Photo
             </button>
-            <button className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
-              📁 Choose from Gallery (Coming Soon)
-            </button>
-            <button className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors">
-              💻 Upload from Computer (Coming Soon)
+            <button 
+              onClick={() => setShowFileUpload(true)}
+              className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              📁 Upload File
             </button>
           </div>
         </div>
@@ -134,6 +179,16 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         onError={handleCameraError}
         facingMode="environment"
         closeOnEscape={true}
+      />
+
+      {/* File Upload Modal */}
+      <FileUploadModal
+        isOpen={showFileUpload}
+        onClose={() => setShowFileUpload(false)}
+        onFileSelect={handleFileUpload}
+        onError={handleFileUploadError}
+        accept={allowedFormats.join(',')}
+        maxSize={maxFileSize}
       />
 
       {uploadState.status === 'uploading' && (

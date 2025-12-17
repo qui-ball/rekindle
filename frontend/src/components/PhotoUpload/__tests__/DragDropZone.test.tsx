@@ -8,15 +8,24 @@
  * - Visual feedback for drag-over states
  * - File browser fallback functionality
  * - File validation and error handling
+ * - HEIC file handling (extension fallback)
  * - Disabled state handling
  * - Keyboard accessibility
+ * - Processing/loading state
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DragDropZone } from '../DragDropZone';
 import { ErrorType } from '../../../types/upload';
+
+// Test file size constants
+const FILE_SIZES = {
+  SMALL: 1024,
+  VALID: 5 * 1024 * 1024,
+  TOO_LARGE: 100 * 1024 * 1024
+} as const;
 
 // Mock file utilities
 const mockValidateFile = jest.fn();
@@ -70,56 +79,68 @@ describe('DragDropZone', () => {
       expect(dropZone).toHaveClass('cursor-not-allowed', 'opacity-50');
       expect(screen.getByText(/upload disabled/i)).toBeInTheDocument();
     });
+
+    it('has correct data-testid attribute', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      expect(screen.getByTestId('drag-drop-zone')).toBeInTheDocument();
+    });
+
+    it('has idle drag state by default', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      expect(dropZone).toHaveAttribute('data-drag-state', 'idle');
+    });
   });
 
   describe('Drag and Drop Events', () => {
-    it('handles drag enter event', () => {
+    it('handles drag enter event and updates state', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       const dragEvent = createDragEvent('dragenter', { types: ['Files'] });
       
       fireEvent(dropZone, dragEvent);
       
-      expect(dropZone).toHaveClass('border-blue-400', 'bg-blue-50');
+      expect(dropZone).toHaveAttribute('data-drag-state', 'dragging');
     });
 
-    it('handles drag over event', () => {
+    it('handles drag over event and shows active state', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       const dragEvent = createDragEvent('dragover', { types: ['Files'] });
       
       fireEvent(dropZone, dragEvent);
       
-      expect(dropZone).toHaveClass('border-blue-500', 'bg-blue-50');
+      expect(dropZone).toHaveAttribute('data-drag-state', 'dragover');
+      expect(dropZone).toHaveClass('border-blue-500', 'bg-blue-50', 'scale-105', 'shadow-lg');
     });
 
-    it('handles drag leave event', () => {
+    it('handles drag leave event with counter-based tracking', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       
-      // First enter drag
+      // Enter twice (simulating entering parent, then child)
       fireEvent(dropZone, createDragEvent('dragenter', { types: ['Files'] }));
-      expect(dropZone).toHaveClass('border-blue-400');
+      fireEvent(dropZone, createDragEvent('dragenter', { types: ['Files'] }));
       
-      // Then leave drag
-      const leaveEvent = createDragEvent('dragleave', { types: ['Files'] });
-      Object.defineProperty(leaveEvent, 'clientX', { value: -1 });
-      Object.defineProperty(leaveEvent, 'clientY', { value: -1 });
+      // Leave once - should still be dragging
+      fireEvent(dropZone, createDragEvent('dragleave', { types: ['Files'] }));
+      expect(dropZone).toHaveAttribute('data-drag-state', 'dragging');
       
-      fireEvent(dropZone, leaveEvent);
-      
-      // Should reset to default state
-      expect(dropZone).not.toHaveClass('border-blue-400', 'bg-blue-50');
+      // Leave again - should reset to idle
+      fireEvent(dropZone, createDragEvent('dragleave', { types: ['Files'] }));
+      expect(dropZone).toHaveAttribute('data-drag-state', 'idle');
     });
 
     it('handles drop event with valid file', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
-      const file = createMockFile('test.jpg', 'image/jpeg', 1024);
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('test.jpg', 'image/jpeg', FILE_SIZES.VALID);
       
       const dropEvent = createDragEvent('drop', {
         types: ['Files'],
@@ -130,6 +151,7 @@ describe('DragDropZone', () => {
       
       expect(mockOnFileSelect).toHaveBeenCalledWith(file);
       expect(mockOnError).not.toHaveBeenCalled();
+      expect(dropZone).toHaveAttribute('data-drag-state', 'idle');
     });
 
     it('handles drop event with invalid file type', () => {
@@ -140,8 +162,8 @@ describe('DragDropZone', () => {
       
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
-      const file = createMockFile('test.txt', 'text/plain', 1024);
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('test.txt', 'text/plain', FILE_SIZES.SMALL);
       
       const dropEvent = createDragEvent('drop', {
         types: ['Files'],
@@ -167,8 +189,8 @@ describe('DragDropZone', () => {
       
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
-      const file = createMockFile('large.jpg', 'image/jpeg', 100 * 1024 * 1024); // 100MB
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('large.jpg', 'image/jpeg', FILE_SIZES.TOO_LARGE);
       
       const dropEvent = createDragEvent('drop', {
         types: ['Files'],
@@ -188,9 +210,9 @@ describe('DragDropZone', () => {
     it('only processes first file when multiple files are dropped', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
-      const file1 = createMockFile('test1.jpg', 'image/jpeg', 1024);
-      const file2 = createMockFile('test2.jpg', 'image/jpeg', 2048);
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file1 = createMockFile('test1.jpg', 'image/jpeg', FILE_SIZES.SMALL);
+      const file2 = createMockFile('test2.jpg', 'image/jpeg', FILE_SIZES.VALID);
       
       const dropEvent = createDragEvent('drop', {
         types: ['Files'],
@@ -203,16 +225,33 @@ describe('DragDropZone', () => {
       expect(mockOnFileSelect).toHaveBeenCalledWith(file1);
     });
 
+    it('resets drag counter on drop', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('test.jpg', 'image/jpeg', FILE_SIZES.SMALL);
+      
+      // Enter drag multiple times
+      fireEvent(dropZone, createDragEvent('dragenter', { types: ['Files'] }));
+      fireEvent(dropZone, createDragEvent('dragenter', { types: ['Files'] }));
+      
+      // Drop should reset counter
+      fireEvent(dropZone, createDragEvent('drop', { types: ['Files'], files: [file] }));
+      
+      // State should be idle
+      expect(dropZone).toHaveAttribute('data-drag-state', 'idle');
+    });
+
     it('ignores drag events when disabled', () => {
       render(<DragDropZone {...defaultProps} disabled={true} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       const dragEvent = createDragEvent('dragenter', { types: ['Files'] });
       
       fireEvent(dropZone, dragEvent);
       
-      // Should not have drag-over styling
-      expect(dropZone).not.toHaveClass('border-blue-400', 'bg-blue-50');
+      // Should remain idle
+      expect(dropZone).toHaveAttribute('data-drag-state', 'idle');
     });
   });
 
@@ -233,7 +272,7 @@ describe('DragDropZone', () => {
       render(<DragDropZone {...defaultProps} />);
       
       const fileInput = screen.getByLabelText('File input') as HTMLInputElement;
-      const file = createMockFile('test.jpg', 'image/jpeg', 1024);
+      const file = createMockFile('test.jpg', 'image/jpeg', FILE_SIZES.SMALL);
       
       fireEvent.change(fileInput, {
         target: { files: [file] }
@@ -246,7 +285,7 @@ describe('DragDropZone', () => {
       render(<DragDropZone {...defaultProps} />);
       
       const fileInput = screen.getByLabelText('File input') as HTMLInputElement;
-      const file = createMockFile('test.jpg', 'image/jpeg', 1024);
+      const file = createMockFile('test.jpg', 'image/jpeg', FILE_SIZES.SMALL);
       
       fireEvent.change(fileInput, {
         target: { files: [file] }
@@ -270,10 +309,10 @@ describe('DragDropZone', () => {
   });
 
   describe('Visual Feedback', () => {
-    it('shows drag-over state with correct styling', () => {
+    it('shows drag-over state with correct styling and text', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       
       fireEvent(dropZone, createDragEvent('dragover', { types: ['Files'] }));
       
@@ -281,16 +320,18 @@ describe('DragDropZone', () => {
       expect(screen.getByText(/drop your photo here/i)).toBeInTheDocument();
     });
 
-    it('shows correct icon for drag-over state', () => {
+    it('shows upload icon when dragging over', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      
+      // Default icon is folder
+      expect(screen.getByText('📁')).toBeInTheDocument();
       
       fireEvent(dropZone, createDragEvent('dragover', { types: ['Files'] }));
       
-      // Should show upload icon (📤) when dragging over
-      const icons = screen.getAllByText(/📤|📁/);
-      expect(icons.length).toBeGreaterThan(0);
+      // Should change to upload icon
+      expect(screen.getByText('📤')).toBeInTheDocument();
     });
   });
 
@@ -346,11 +387,68 @@ describe('DragDropZone', () => {
     });
   });
 
+  describe('HEIC File Handling', () => {
+    it('accepts HEIC file with correct MIME type', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('photo.heic', 'image/heic', FILE_SIZES.VALID);
+      
+      const dropEvent = createDragEvent('drop', {
+        types: ['Files'],
+        files: [file]
+      });
+      
+      fireEvent(dropZone, dropEvent);
+      
+      expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+    });
+
+    it('accepts HEIC file with empty MIME type (iOS Safari fallback)', () => {
+      // This tests the extension fallback in fileUtils
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      // Create file with empty MIME type (simulates iOS Safari behavior)
+      const file = createMockFile('photo.heic', '', FILE_SIZES.VALID);
+      
+      const dropEvent = createDragEvent('drop', {
+        types: ['Files'],
+        files: [file]
+      });
+      
+      fireEvent(dropZone, dropEvent);
+      
+      // Should call validateFile which will use extension fallback
+      expect(mockValidateFile).toHaveBeenCalledWith(
+        file,
+        defaultProps.maxSize,
+        expect.any(Array)
+      );
+    });
+
+    it('accepts HEIF file extension', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('photo.heif', 'image/heic', FILE_SIZES.VALID);
+      
+      const dropEvent = createDragEvent('drop', {
+        types: ['Files'],
+        files: [file]
+      });
+      
+      fireEvent(dropZone, dropEvent);
+      
+      expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+    });
+  });
+
   describe('Edge Cases', () => {
     it('handles empty drop gracefully', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       const dropEvent = createDragEvent('drop', {
         types: ['Files'],
         files: []
@@ -365,13 +463,13 @@ describe('DragDropZone', () => {
     it('handles drag without files', () => {
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
+      const dropZone = screen.getByTestId('drag-drop-zone');
       const dragEvent = createDragEvent('dragenter', { types: [] });
       
       fireEvent(dropZone, dragEvent);
       
-      // Should not show drag-over state
-      expect(dropZone).not.toHaveClass('border-blue-400');
+      // Should remain idle
+      expect(dropZone).toHaveAttribute('data-drag-state', 'idle');
     });
 
     it('handles validation error gracefully', () => {
@@ -382,8 +480,8 @@ describe('DragDropZone', () => {
       
       render(<DragDropZone {...defaultProps} />);
       
-      const dropZone = screen.getByRole('button');
-      const file = createMockFile('test.jpg', 'image/jpeg', 1024);
+      const dropZone = screen.getByTestId('drag-drop-zone');
+      const file = createMockFile('test.jpg', 'image/jpeg', FILE_SIZES.SMALL);
       
       const dropEvent = createDragEvent('drop', {
         types: ['Files'],
@@ -398,6 +496,42 @@ describe('DragDropZone', () => {
         })
       );
     });
+
+    it('handles null files gracefully', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const fileInput = screen.getByLabelText('File input') as HTMLInputElement;
+      
+      fireEvent.change(fileInput, {
+        target: { files: null }
+      });
+      
+      expect(mockOnFileSelect).not.toHaveBeenCalled();
+      expect(mockOnError).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Aria Attributes', () => {
+    it('has correct aria-label', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByRole('button');
+      expect(dropZone).toHaveAttribute('aria-label', 'Drag and drop zone for photo upload');
+    });
+
+    it('has aria-disabled when disabled', () => {
+      render(<DragDropZone {...defaultProps} disabled={true} />);
+      
+      const dropZone = screen.getByRole('button');
+      expect(dropZone).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('has aria-disabled false when enabled', () => {
+      render(<DragDropZone {...defaultProps} />);
+      
+      const dropZone = screen.getByRole('button');
+      expect(dropZone).toHaveAttribute('aria-disabled', 'false');
+    });
   });
 });
 
@@ -410,10 +544,16 @@ function createDragEvent(
     types?: string[];
     files?: File[];
   } = {}
-): DragEvent<HTMLDivElement> {
-  const event = new Event(type, { bubbles: true, cancelable: true }) as any;
+): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+    dataTransfer: {
+      types: string[];
+      files: FileList;
+      items: Array<{ kind: string; type: string; getAsFile: () => File }>;
+    };
+  };
   
-  event.dataTransfer = {
+  (event as any).dataTransfer = {
     types: options.types || [],
     files: options.files ? createFileList(options.files) : createFileList([]),
     items: options.files
@@ -425,7 +565,7 @@ function createDragEvent(
       : []
   };
   
-  return event as DragEvent<HTMLDivElement>;
+  return event;
 }
 
 /**
