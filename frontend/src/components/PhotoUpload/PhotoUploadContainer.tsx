@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { PhotoUploadContainerProps, UploadError, ErrorType } from '../../types/upload';
 import { CameraCaptureFlow } from './CameraCaptureFlow';
-import { FileUploadModal } from './FileUploadModal';
+import { FileUploadFlow } from './FileUploadFlow';
 import { usePhotoUpload } from '../../hooks/usePhotoUpload';
 import { base64ToFile, getImageDimensionsFromBase64, validateFile } from '../../utils/fileUtils';
 
@@ -96,25 +96,56 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
     onError(uploadError);
   }, [onError]);
 
-  // Handle file upload from FileUploadModal
-  const handleFileUpload = useCallback(async (file: File) => {
-    console.log('File selected:', file.name, file.size, file.type);
+  // Handle file upload from FileUploadFlow - receives base64 image data (after cropping/correction)
+  const handleFileUpload = useCallback(async (imageData: string) => {
+    console.log('File upload starting - processing image for S3...');
+    console.log('Image data length:', imageData?.length, 'starts with:', imageData?.substring(0, 50));
+    
+    // Close the flow immediately so progress bar is visible
+    setShowFileUpload(false);
     
     try {
+      console.log('Step 1: Converting base64 to File...');
+      // Convert base64 to File object
+      const file = base64ToFile(imageData, `file-upload-${Date.now()}.jpg`, 'image/jpeg');
+      console.log('Step 1 complete: File created:', file.name, file.size, file.type);
+      
+      console.log('Step 2: Validating file...');
+      // Validate file
+      const validation = validateFile(file, maxFileSize, allowedFormats);
+      console.log('Step 2 complete: Validation result:', validation);
+      if (!validation.valid) {
+        const error: UploadError = {
+          name: 'ValidationError',
+          message: validation.error || 'File validation failed',
+          code: 'VALIDATION_FAILED',
+          type: ErrorType.VALIDATION_ERROR,
+          retryable: false
+        };
+        onError(error);
+        return;
+      }
+
+      console.log('Step 3: Getting image dimensions...');
+      // Get image dimensions (for future use in metadata)
+      const dimensions = await getImageDimensionsFromBase64(imageData);
+      console.log('Step 3 complete: Dimensions:', dimensions);
+      
+      console.log('Step 4: Starting upload to S3...');
       // Upload to S3 using the upload hook
       const result = await uploadPhoto(file, {
         onProgress: (progress) => {
           console.log(`Upload progress: ${progress}%`);
         },
         onError: (error) => {
-          console.error('Upload error:', error);
+          console.error('Upload error callback:', error);
           onError(error);
         }
       });
+      console.log('Step 4 complete: Upload result:', result);
 
       if (result.success) {
         console.log('✅ Upload successful:', result.data);
-        setShowFileUpload(false);
         onUploadComplete(result.data);
       } else {
         console.error('❌ Upload failed:', result.error);
@@ -131,7 +162,7 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
       };
       onError(uploadError);
     }
-  }, [uploadPhoto, onUploadComplete, onError]);
+  }, [uploadPhoto, onUploadComplete, onError, maxFileSize, allowedFormats]);
 
   // Handle file upload errors
   const handleFileUploadError = useCallback((error: UploadError) => {
@@ -181,11 +212,11 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
         closeOnEscape={true}
       />
 
-      {/* File Upload Modal */}
-      <FileUploadModal
+      {/* File Upload Flow - with smart cropping and preview */}
+      <FileUploadFlow
         isOpen={showFileUpload}
         onClose={() => setShowFileUpload(false)}
-        onFileSelect={handleFileUpload}
+        onUpload={handleFileUpload}
         onError={handleFileUploadError}
         accept={allowedFormats.join(',')}
         maxSize={maxFileSize}

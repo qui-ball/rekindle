@@ -108,6 +108,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
 
   /**
    * Handle file selection from native picker (mobile)
+   * Note: Does NOT auto-close - parent controls flow after file selection
    */
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -146,23 +147,24 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       return;
     }
 
-    // File is valid
+    // File is valid - notify parent (parent controls what happens next)
     onFileSelect(file);
-    onClose();
+    // NOTE: Removed onClose() - parent (FileUploadFlow) controls the flow
     
     // Reset input for next selection
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, [accept, maxSize, onFileSelect, onError, onClose, isMobile]);
+  }, [accept, maxSize, onFileSelect, onError, isMobile]);
 
   /**
    * Handle file selection from DragDropZone (desktop)
+   * Note: Does NOT auto-close - parent controls flow after file selection
    */
   const handleDragDropFileSelect = useCallback((file: File) => {
     onFileSelect(file);
-    onClose();
-  }, [onFileSelect, onClose]);
+    // NOTE: Removed onClose() - parent (FileUploadFlow) controls the flow
+  }, [onFileSelect]);
 
   /**
    * Handle click on mobile upload button

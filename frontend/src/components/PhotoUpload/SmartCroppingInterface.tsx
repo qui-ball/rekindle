@@ -57,9 +57,11 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [displayDimensions, setDisplayDimensions] = useState({ width: 0, height: 0 });
+  const [actualRenderedSize, setActualRenderedSize] = useState({ width: 0, height: 0 });
   const [cropArea, setCropArea] = useState<CornerPoints | null>(null);
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -173,6 +175,7 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     if (!containerRef.current) return;
 
     const img = e.currentTarget;
+    imageElementRef.current = img;
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
     
@@ -205,10 +208,37 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     }
 
     setDisplayDimensions({ width: displayWidth, height: displayHeight });
+    
     // Calculate origin to center the image inside container
     const left = Math.max(0, Math.floor((containerWidth - displayWidth) / 2));
     const top = Math.max(0, Math.floor((containerHeight - displayHeight) / 2));
     setImageOrigin({ left, top });
+    
+    // Get actual rendered image size after a brief delay to ensure rendering is complete
+    // This accounts for object-contain behavior where image might not fill container
+    const updateRenderedSize = () => {
+      if (img && imageContainerRef.current) {
+        const renderedRect = img.getBoundingClientRect();
+        const actualWidth = renderedRect.width;
+        const actualHeight = renderedRect.height;
+        
+        setActualRenderedSize({ width: actualWidth, height: actualHeight });
+        
+        console.log('🖼️ Actual rendered image size:', {
+          renderedSize: { width: actualWidth, height: actualHeight },
+          displayDimensions: { width: displayWidth, height: displayHeight },
+          naturalDimensions: { width: naturalWidth, height: naturalHeight },
+          imageAspectRatio: imageAspectRatio.toFixed(3),
+          targetAspectRatio: aspectRatio.toFixed(3)
+        });
+      }
+    };
+    
+    // Try immediately and also after a short delay
+    updateRenderedSize();
+    setTimeout(updateRenderedSize, 50);
+    setTimeout(updateRenderedSize, 200);
+    
     setImageLoaded(true);
 
     console.log('🖼️ Image loaded for cropping - maintaining camera view aspect ratio:', {
@@ -362,49 +392,106 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
       return;
     }
 
+    // Get the actual rendered image size and position within the container
+    // This is critical for accurate coordinate conversion, especially when object-contain
+    // causes the image to not fill the entire container
+    let effectiveDisplayWidth = displayDimensions.width;
+    let effectiveDisplayHeight = displayDimensions.height;
+    let imageOffsetX = 0;
+    let imageOffsetY = 0;
+    
+    if (imageElementRef.current && imageContainerRef.current) {
+      const imgRect = imageElementRef.current.getBoundingClientRect();
+      const containerRect = imageContainerRef.current.getBoundingClientRect();
+      
+      // Get actual rendered size
+      effectiveDisplayWidth = imgRect.width;
+      effectiveDisplayHeight = imgRect.height;
+      
+      // Calculate offset of actual image within the container
+      imageOffsetX = imgRect.left - containerRect.left;
+      imageOffsetY = imgRect.top - containerRect.top;
+      
+      console.log('📐 Image positioning within container:', {
+        imageRect: { width: imgRect.width, height: imgRect.height, left: imgRect.left, top: imgRect.top },
+        containerRect: { width: containerRect.width, height: containerRect.height, left: containerRect.left, top: containerRect.top },
+        offset: { x: imageOffsetX, y: imageOffsetY },
+        effectiveSize: { width: effectiveDisplayWidth, height: effectiveDisplayHeight }
+      });
+    }
+    
     // Convert display coordinates back to image coordinates
-    const scaleX = imageDimensions.width / displayDimensions.width;
-    const scaleY = imageDimensions.height / displayDimensions.height;
+    // The cropArea coordinates are relative to the imageContainerRef
+    // We need to subtract the image offset and then scale to image dimensions
+    const scaleX = imageDimensions.width / effectiveDisplayWidth;
+    const scaleY = imageDimensions.height / effectiveDisplayHeight;
     
     console.log('Applying crop with dimensions:', {
       imageDimensions,
       displayDimensions,
+      actualRenderedSize,
+      effectiveDisplaySize: { width: effectiveDisplayWidth, height: effectiveDisplayHeight },
+      imageOffset: { x: imageOffsetX, y: imageOffsetY },
       cropArea,
       scaleX,
       scaleY
     });
 
+    // Convert crop area coordinates (relative to container) to image coordinates
+    // First subtract the image offset within the container, then scale to image dimensions
     const imageCornerPoints: CornerPoints = {
       topLeft: {
-        x: cropArea.topLeft.x * scaleX,
-        y: cropArea.topLeft.y * scaleY
+        x: (cropArea.topLeft.x - imageOffsetX) * scaleX,
+        y: (cropArea.topLeft.y - imageOffsetY) * scaleY
       },
       topRight: {
-        x: cropArea.topRight.x * scaleX,
-        y: cropArea.topRight.y * scaleY
+        x: (cropArea.topRight.x - imageOffsetX) * scaleX,
+        y: (cropArea.topRight.y - imageOffsetY) * scaleY
       },
       bottomLeft: {
-        x: cropArea.bottomLeft.x * scaleX,
-        y: cropArea.bottomLeft.y * scaleY
+        x: (cropArea.bottomLeft.x - imageOffsetX) * scaleX,
+        y: (cropArea.bottomLeft.y - imageOffsetY) * scaleY
       },
       bottomRight: {
-        x: cropArea.bottomRight.x * scaleX,
-        y: cropArea.bottomRight.y * scaleY
+        x: (cropArea.bottomRight.x - imageOffsetX) * scaleX,
+        y: (cropArea.bottomRight.y - imageOffsetY) * scaleY
       }
     };
 
+    // Clamp coordinates to image bounds
+    const clampedPoints: CornerPoints = {
+      topLeft: {
+        x: Math.max(0, Math.min(imageCornerPoints.topLeft.x, imageDimensions.width)),
+        y: Math.max(0, Math.min(imageCornerPoints.topLeft.y, imageDimensions.height))
+      },
+      topRight: {
+        x: Math.max(0, Math.min(imageCornerPoints.topRight.x, imageDimensions.width)),
+        y: Math.max(0, Math.min(imageCornerPoints.topRight.y, imageDimensions.height))
+      },
+      bottomLeft: {
+        x: Math.max(0, Math.min(imageCornerPoints.bottomLeft.x, imageDimensions.width)),
+        y: Math.max(0, Math.min(imageCornerPoints.bottomLeft.y, imageDimensions.height))
+      },
+      bottomRight: {
+        x: Math.max(0, Math.min(imageCornerPoints.bottomRight.x, imageDimensions.width)),
+        y: Math.max(0, Math.min(imageCornerPoints.bottomRight.y, imageDimensions.height))
+      }
+    };
+
+    console.log('Final image corner points:', clampedPoints);
+
     // Convert corner points to JScanify format for perspective correction
     const jscanifyCornerPoints: JScanifyCornerPoints = {
-      topLeftCorner: imageCornerPoints.topLeft,
-      topRightCorner: imageCornerPoints.topRight,
-      bottomLeftCorner: imageCornerPoints.bottomLeft,
-      bottomRightCorner: imageCornerPoints.bottomRight
+      topLeftCorner: clampedPoints.topLeft,
+      topRightCorner: clampedPoints.topRight,
+      bottomLeftCorner: clampedPoints.bottomLeft,
+      bottomRightCorner: clampedPoints.bottomRight
     };
 
     // For now, just pass the original image and corner points
     // The perspective correction will be handled in the upload preview step
     onCropComplete(image, jscanifyCornerPoints);
-  }, [cropArea, imageDimensions, displayDimensions, image, onCropComplete, imageLoaded]);
+  }, [cropArea, imageDimensions, displayDimensions, actualRenderedSize, image, onCropComplete, imageLoaded]);
 
   // Expose applyCrop function to parent via ref
   useEffect(() => {
@@ -470,6 +557,7 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
         }}
       >
         <img
+          ref={imageElementRef}
           src={image}
           alt="Crop preview"
           className="w-full h-full object-contain"

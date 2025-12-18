@@ -34,6 +34,20 @@ export const base64ToFile = (
 };
 
 /**
+ * Convert File to base64 data URL
+ * @param file - File object to convert
+ * @returns Promise with base64 data URL string
+ */
+export const fileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+};
+
+/**
  * Get image dimensions from base64 string
  * @param base64String - Base64 encoded image data
  * @returns Promise with width and height

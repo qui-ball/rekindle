@@ -10,7 +10,7 @@
  * - Edge cases
  */
 
-import { validateFile, base64ToFile, getImageDimensionsFromBase64 } from '../fileUtils';
+import { validateFile, base64ToFile, fileToDataUrl, getImageDimensionsFromBase64 } from '../fileUtils';
 
 describe('validateFile', () => {
   const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB
@@ -236,6 +236,41 @@ describe('validateFile', () => {
       
       expect(result.valid).toBe(false);
     });
+  });
+});
+
+describe('fileToDataUrl', () => {
+  it('converts File to base64 data URL', async () => {
+    const file = createMockFile('test.jpg', 'image/jpeg', 1024);
+    
+    const dataUrl = await fileToDataUrl(file);
+    
+    expect(dataUrl).toContain('data:image/jpeg;base64,');
+    expect(typeof dataUrl).toBe('string');
+  });
+
+  it('rejects on file read error', async () => {
+    // Create a file that will fail to read
+    const file = createMockFile('test.jpg', 'image/jpeg', 1024);
+    
+    // Mock FileReader to fail
+    const originalFileReader = global.FileReader;
+    global.FileReader = jest.fn().mockImplementation(() => ({
+      readAsDataURL: jest.fn(function(this: any) {
+        setTimeout(() => {
+          if (this.onerror) {
+            this.onerror(new Error('Read failed'));
+          }
+        }, 0);
+      }),
+      result: null,
+      onload: null,
+      onerror: null
+    })) as any;
+    
+    await expect(fileToDataUrl(file)).rejects.toThrow('Failed to read file');
+    
+    global.FileReader = originalFileReader;
   });
 });
 
