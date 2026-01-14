@@ -27,6 +27,7 @@ interface BackendJob {
   thumbnail_s3_key?: string;
   thumbnail_url?: string;
   restore_attempts?: BackendRestoreAttempt[];
+  animation_attempts?: BackendAnimationAttempt[];
 }
 
 interface BackendRestoreAttempt {
@@ -39,6 +40,21 @@ interface BackendRestoreAttempt {
   url?: string;
   result_s3_key?: string;
   thumb_s3_key?: string;
+}
+
+interface BackendAnimationAttempt {
+  id: string;
+  job_id: string;
+  restore_id?: string;
+  preview_s3_key?: string;
+  result_s3_key?: string;
+  thumb_s3_key?: string;
+  model?: string;
+  params?: Record<string, unknown>;
+  created_at: string;
+  preview_url?: string;
+  result_url?: string;
+  thumb_url?: string;
 }
 
 /**
@@ -281,10 +297,10 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         processingJobs: any[];
         relatedPhotos: any[];
       }>(`/v1/photos/${photoId}`);
-      
+
       // Transform the response to PhotoDetails format
       const photo = this.transformPhotoResponseToPhoto(response.photo);
-      
+
       // Transform results from restore attempts
       const results: PhotoResult[] = response.results.map(result => {
         let status: 'processing' | 'completed' | 'failed' = 'processing';
@@ -293,7 +309,7 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
         } else if (result.s3_key && result.s3_key !== 'pending' && result.s3_key !== '') {
           status = 'completed';
         }
-        
+
         return {
           id: result.id,
           photoId: result.job_id,
@@ -315,13 +331,30 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
           }
         };
       });
-      
+
+      // Also fetch animation attempts from the Jobs API
+      let animationResults: PhotoResult[] = [];
+      try {
+        const jobResponse = await apiClient.get<BackendJob>(`/v1/jobs/${photoId}`);
+        if (jobResponse.animation_attempts && jobResponse.animation_attempts.length > 0) {
+          animationResults = this.transformAnimationAttempts(jobResponse.animation_attempts);
+        }
+      } catch (jobError) {
+        // Job might not exist or might be a different ID - that's OK, just skip animations
+        console.log('No job found for photo, skipping animation fetch:', jobError);
+      }
+
+      // Combine restore and animation results, sorted by most recent first
+      const allResults = [...results, ...animationResults].sort((a, b) =>
+        b.createdAt.getTime() - a.createdAt.getTime()
+      );
+
       return {
         photo: {
           ...photo,
-          results: results // Also include results in photo object for convenience
+          results: allResults // Also include results in photo object for convenience
         },
-        results: results,
+        results: allResults,
         processingJobs: response.processingJobs || [],
         relatedPhotos: (response.relatedPhotos || []).map(p => this.transformPhotoResponseToPhoto(p))
       };
@@ -329,6 +362,43 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
       console.error('Error fetching photo details:', error);
       throw error;
     }
+  }
+
+  private transformAnimationAttempts(attempts: BackendAnimationAttempt[]): PhotoResult[] {
+    return attempts.map(attempt => {
+      // Determine status based on result_s3_key or preview_s3_key
+      let status: 'processing' | 'completed' | 'failed' = 'processing';
+      const videoKey = attempt.result_s3_key || attempt.preview_s3_key || '';
+      if (videoKey === 'failed') {
+        status = 'failed';
+      } else if (videoKey && videoKey !== 'pending' && videoKey !== '') {
+        status = 'completed';
+      }
+
+      return {
+        id: attempt.id,
+        photoId: attempt.job_id,
+        resultType: 'animated' as const,
+        fileKey: videoKey,
+        thumbnailKey: attempt.thumb_s3_key || '',
+        status: status,
+        createdAt: new Date(attempt.created_at),
+        completedAt: status === 'completed' ? new Date(attempt.created_at) : undefined,
+        processingJobId: attempt.id,
+        metadata: {
+          dimensions: { width: 1920, height: 1080 },
+          fileSize: 5000000,
+          format: 'mp4',
+          quality: 'hd',
+          processingTime: 120,
+          model: attempt.model || 'replicate_wan',
+          parameters: attempt.params || {},
+          // Include the presigned URLs directly in metadata for easy access
+          videoUrl: attempt.result_url || attempt.preview_url || '',
+          thumbnailUrl: attempt.thumb_url || ''
+        }
+      };
+    });
   }
 
   async deletePhoto(photoId: string): Promise<void> {
@@ -468,19 +538,19 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
       
       // Handle animate option
       if (options.animate) {
+        // Map quality to resolution: 'standard' -> '480p', 'hd' -> '720p'
+        const resolution = options.quality === 'hd' ? '720p' : '480p';
+
         // Use restoreId if available (from restore in same request), otherwise animate original photo
         const animationAttempt = await apiClient.post(`/v1/jobs/${photoId}/animate`, {
-          restore_id: restoreId || undefined, // Use restore if available, otherwise undefined (will use original)
-          model: 'wan_default',
+          restore_id: restoreId || undefined,
+          model: 'replicate_wan',
           params: {
-            prompt: options.parameters?.animate?.userPrompt,
-            width: 480,
-            height: 832,
-            length: Math.floor((options.parameters?.animate?.videoDuration || 5) * 30 / 0.033), // Convert seconds to frames
-            fps: 30
+            prompt: options.parameters?.animate?.userPrompt || '',
+            resolution: resolution
           }
         });
-        resultIds.push(animationAttempt.id);
+        resultIds.push((animationAttempt as { id: string }).id);
         costCredits += 8;
       }
       

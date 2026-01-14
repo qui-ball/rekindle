@@ -59,12 +59,12 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
   useJobEvents(activeJobId, {
     onCompleted: async (data) => {
       // Update photo status
-      setPhotos(prev => prev.map(p => 
-        p.id === data.job_id 
+      setPhotos(prev => prev.map(p =>
+        p.id === data.job_id
           ? { ...p, status: 'completed' as const }
           : p
       ));
-      
+
       // Refresh the specific photo to get updated restore attempts
       try {
         // Update the selected photo in the drawer to show the new restoration
@@ -78,7 +78,7 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
             processingJobs: photoDetails.processingJobs,
           });
         }
-        
+
         // Also refresh the photos list
         const updatedPhotos = await photoManagementService.getPhotos(userId, {
           page: 1,
@@ -90,9 +90,42 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       } catch (err) {
         console.error('Error refreshing photos after job completion:', err);
       }
-      
+
       // Clear active job
       setActiveJobId(null);
+    },
+    onAnimationCompleted: async (data) => {
+      console.log('Animation completed:', data);
+
+      // Refresh the selected photo to show the new animation
+      try {
+        if (selectedPhoto && selectedPhoto.id === data.job_id) {
+          const photoDetails = await photoManagementService.getPhotoDetails(data.job_id);
+          setSelectedPhoto({
+            ...selectedPhoto,
+            ...photoDetails.photo,
+            results: photoDetails.results,
+            processingJobs: photoDetails.processingJobs,
+          });
+        }
+      } catch (err) {
+        console.error('Error refreshing photos after animation completion:', err);
+      }
+
+      // Clear active job
+      setActiveJobId(null);
+
+      // Show success message
+      alert('Animation completed successfully!');
+    },
+    onAnimationFailed: async (data) => {
+      console.error('Animation failed:', data);
+
+      // Clear active job
+      setActiveJobId(null);
+
+      // Show error message
+      alert(`Animation failed: ${data.error || 'Unknown error'}. Please try again.`);
     }
   });
 

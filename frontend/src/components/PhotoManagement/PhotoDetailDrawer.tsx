@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { PhotoDetailDrawerProps, PhotoAction, ProcessingOptions, Photo, PhotoResult } from '../../types/photo-management';
+import { PhotoDetailDrawerProps, ProcessingOptions, PhotoResult } from '../../types/photo-management';
 import { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
 import { PhotoResultCard } from './PhotoResultCard';
 import { apiClient } from '../../services/apiClient';
@@ -187,21 +187,39 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
           id: string;
           url?: string;
         }>;
+        animation_attempts?: Array<{
+          id: string;
+          preview_url?: string;
+          result_url?: string;
+        }>;
       }>(`/v1/jobs/${result.photoId}`);
-      
-      // Find the matching restore attempt
-      const restoreAttempt = jobData.restore_attempts?.find(
-        (attempt: { id: string }) => attempt.id === result.id
-      );
 
-      if (!restoreAttempt?.url) {
+      let downloadUrl: string | undefined;
+      let fileExtension = 'jpg';
+
+      // Check for animated results first
+      if (result.resultType === 'animated' && jobData.animation_attempts) {
+        const animationAttempt = jobData.animation_attempts.find(
+          (attempt: { id: string }) => attempt.id === result.id
+        );
+        downloadUrl = animationAttempt?.result_url || animationAttempt?.preview_url;
+        fileExtension = 'mp4';
+      } else {
+        // Find the matching restore attempt
+        const restoreAttempt = jobData.restore_attempts?.find(
+          (attempt: { id: string }) => attempt.id === result.id
+        );
+        downloadUrl = restoreAttempt?.url;
+      }
+
+      if (!downloadUrl) {
         throw new Error('Result URL not found');
       }
 
       // Create a temporary link and trigger download
       const link = document.createElement('a');
-      link.href = restoreAttempt.url;
-      link.download = `${result.resultType}-${result.id}.jpg`;
+      link.href = downloadUrl;
+      link.download = `${result.resultType}-${result.id}.${fileExtension}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -214,14 +232,19 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
   // Handle delete for result
   const handleDeleteResult = async (result: PhotoResult) => {
     try {
-      // Delete the restore attempt using authenticated API client
-      await apiClient.delete(`/v1/jobs/${result.photoId}/restore/${result.id}`);
+      // Delete the result using authenticated API client
+      // Use different endpoints for animated vs restored results
+      if (result.resultType === 'animated') {
+        await apiClient.delete(`/v1/jobs/${result.photoId}/animate/${result.id}`);
+      } else {
+        await apiClient.delete(`/v1/jobs/${result.photoId}/restore/${result.id}`);
+      }
 
       // Refresh photo details from server to get updated results
       if (photo) {
         const { photoManagementService } = await import('../../services/photoManagementService');
         const photoDetails = await photoManagementService.getPhotoDetails(photo.id);
-        
+
         // Adjust current result index if needed
         const updatedResults = photoDetails.results;
         if (currentResultIndex >= updatedResults.length && updatedResults.length > 0) {
@@ -229,7 +252,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
         } else if (updatedResults.length === 0) {
           setCurrentResultIndex(0);
         }
-        
+
         // Notify parent to update the photo with fresh data
         if (onPhotoUpdate) {
           onPhotoUpdate({

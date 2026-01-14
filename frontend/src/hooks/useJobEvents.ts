@@ -11,18 +11,32 @@ interface JobCompletedEvent {
   status: string;
 }
 
+interface AnimationEvent {
+  job_id: string;
+  animation_id: string;
+  status: string;
+  video_url?: string;
+  error?: string;
+}
+
 interface UseJobEventsOptions {
   onCompleted?: (data: JobCompletedEvent) => void;
+  onAnimationCompleted?: (data: AnimationEvent) => void;
+  onAnimationFailed?: (data: AnimationEvent) => void;
 }
 
 export function useJobEvents(jobId: string | null, options: UseJobEventsOptions = {}) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const callbackRef = useRef(options.onCompleted);
+  const animationCompletedRef = useRef(options.onAnimationCompleted);
+  const animationFailedRef = useRef(options.onAnimationFailed);
 
-  // Keep callback ref up to date
+  // Keep callback refs up to date
   useEffect(() => {
     callbackRef.current = options.onCompleted;
-  }, [options.onCompleted]);
+    animationCompletedRef.current = options.onAnimationCompleted;
+    animationFailedRef.current = options.onAnimationFailed;
+  }, [options.onCompleted, options.onAnimationCompleted, options.onAnimationFailed]);
 
   useEffect(() => {
     if (!jobId) {
@@ -36,7 +50,7 @@ export function useJobEvents(jobId: string | null, options: UseJobEventsOptions 
     const eventSource = new EventSource(sseUrl);
     eventSourceRef.current = eventSource;
 
-    // Listen for 'completed' events
+    // Listen for 'completed' events (restore jobs)
     eventSource.addEventListener('completed', (event) => {
       const data: JobCompletedEvent = JSON.parse(event.data);
       console.log('Job completed via SSE:', data);
@@ -44,6 +58,26 @@ export function useJobEvents(jobId: string | null, options: UseJobEventsOptions 
       // Trigger callback if provided
       if (callbackRef.current) {
         callbackRef.current(data);
+      }
+    });
+
+    // Listen for 'animation_completed' events
+    eventSource.addEventListener('animation_completed', (event) => {
+      const data: AnimationEvent = JSON.parse(event.data);
+      console.log('Animation completed via SSE:', data);
+
+      if (animationCompletedRef.current) {
+        animationCompletedRef.current(data);
+      }
+    });
+
+    // Listen for 'animation_failed' events
+    eventSource.addEventListener('animation_failed', (event) => {
+      const data: AnimationEvent = JSON.parse(event.data);
+      console.log('Animation failed via SSE:', data);
+
+      if (animationFailedRef.current) {
+        animationFailedRef.current(data);
       }
     });
 

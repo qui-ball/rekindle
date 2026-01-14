@@ -48,6 +48,9 @@ export interface ResultMetadata {
   processingTime: number;
   model: string;
   parameters: Record<string, unknown>;
+  // Optional fields for animated results
+  videoUrl?: string;
+  thumbnailUrl?: string;
 }
 
 // Credit Management Types

@@ -405,6 +405,97 @@ class ReplicateService:
             )
 
 
+    def create_animation_prediction_with_webhook(
+        self,
+        image_url: str,
+        webhook_url: str,
+        animation_id: str,
+        prompt: str,
+        resolution: str = "720p",
+        duration: int = 5,
+    ) -> str:
+        """
+        Create an async animation prediction with webhook notification.
+
+        Uses the wan-video/wan-2.5-i2v model for image-to-video generation.
+        Returns immediately after creating the prediction.
+        When complete, Replicate will POST to the webhook URL.
+
+        Args:
+            image_url: Presigned S3 URL for the source image
+            webhook_url: URL to receive completion notification
+            animation_id: Animation attempt ID for tracking
+            prompt: Text description for video generation
+            resolution: Output resolution (480p, 720p, 1080p)
+            duration: Video duration in seconds (default: 5)
+
+        Returns:
+            Replicate prediction ID
+
+        Raises:
+            ReplicateError: If prediction creation fails
+        """
+        logger.info(f"Creating animation prediction for {animation_id}")
+        logger.debug(f"Image URL: {image_url[:100]}...")
+        logger.debug(f"Webhook URL: {webhook_url}")
+        logger.info(f"Animation params: prompt={prompt[:50]}..., resolution={resolution}, duration={duration}")
+
+        # Build input payload for wan-video/wan-2.5-i2v
+        input_params = {
+            "image": image_url,
+            "prompt": prompt,
+            "duration": duration,
+            "resolution": resolution,
+            "negative_prompt": "",  # Empty per spec
+            "enable_prompt_expansion": False,  # Disabled per spec
+        }
+
+        try:
+            # Create prediction with webhook (non-blocking)
+            prediction = self._client.predictions.create(
+                model=settings.REPLICATE_ANIMATION_MODEL,
+                input=input_params,
+                webhook=webhook_url,
+                webhook_events_filter=["completed"],
+            )
+
+            prediction_id = prediction.id
+            logger.info(
+                f"Created Replicate animation prediction {prediction_id} for animation {animation_id}, "
+                f"status: {prediction.status}"
+            )
+
+            return prediction_id
+
+        except replicate.exceptions.ReplicateError as e:
+            error_msg = str(e)
+            logger.error(f"Replicate API error creating animation prediction: {error_msg}")
+
+            if "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                raise ReplicateError(
+                    error_type=ReplicateErrorType.AUTHENTICATION_ERROR,
+                    message="Invalid Replicate API token",
+                    status_code=401,
+                )
+            elif "rate limit" in error_msg.lower():
+                raise ReplicateError(
+                    error_type=ReplicateErrorType.RATE_LIMIT_ERROR,
+                    message="Replicate rate limit exceeded",
+                    status_code=429,
+                )
+            else:
+                raise ReplicateError(
+                    error_type=ReplicateErrorType.API_ERROR,
+                    message=f"Replicate API error: {error_msg}",
+                )
+        except Exception as e:
+            logger.error(f"Unexpected error creating animation prediction: {e}")
+            raise ReplicateError(
+                error_type=ReplicateErrorType.API_ERROR,
+                message=f"Unexpected error: {e}",
+            )
+
+
 # Global service instance (lazy initialization)
 _replicate_service: Optional[ReplicateService] = None
 
@@ -434,3 +525,55 @@ async def download_replicate_result(url: str) -> bytes:
             error_type=ReplicateErrorType.NETWORK_ERROR,
             message=f"Failed to download result: {e}",
         )
+
+
+async def download_replicate_video(url: str) -> bytes:
+    """
+    Download video from Replicate CDN URL.
+
+    Standalone function for use by animation webhook handler.
+    Uses longer timeout since videos are larger than images.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return response.content
+    except httpx.TimeoutException as e:
+        logger.error(f"Timeout downloading video from {url}: {e}")
+        raise ReplicateError(
+            error_type=ReplicateErrorType.TIMEOUT_ERROR,
+            message="Timeout downloading animation video",
+        )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error downloading video: {e}")
+        raise ReplicateError(
+            error_type=ReplicateErrorType.API_ERROR,
+            message=f"Failed to download animation video: {e.response.status_code}",
+            status_code=e.response.status_code,
+        )
+    except Exception as e:
+        logger.error(f"Error downloading video from {url}: {e}")
+        raise ReplicateError(
+            error_type=ReplicateErrorType.NETWORK_ERROR,
+            message=f"Failed to download animation video: {e}",
+        )
+
+
+# User-friendly error messages for animation failures
+ANIMATION_ERROR_MESSAGES = {
+    ReplicateErrorType.AUTHENTICATION_ERROR: "Animation service configuration error. Please contact support.",
+    ReplicateErrorType.RATE_LIMIT_ERROR: "Too many animation requests. Please wait a moment and try again.",
+    ReplicateErrorType.INVALID_IMAGE_ERROR: "Source image could not be processed. Please try a different photo.",
+    ReplicateErrorType.TIMEOUT_ERROR: "Animation took too long. Please try again with a simpler prompt.",
+    ReplicateErrorType.NETWORK_ERROR: "Network error connecting to animation service. Please try again.",
+    ReplicateErrorType.API_ERROR: "Animation service temporarily unavailable. Please try again.",
+}
+
+
+def get_user_friendly_error_message(error_type: ReplicateErrorType) -> str:
+    """Get user-friendly error message for animation failures."""
+    return ANIMATION_ERROR_MESSAGES.get(
+        error_type,
+        "Animation generation failed. Please try again."
+    )

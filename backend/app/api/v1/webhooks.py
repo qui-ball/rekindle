@@ -15,7 +15,7 @@ from app.models.photo import Photo
 from app.services.s3 import s3_service
 from app.services.runpod_serverless import runpod_serverless_service
 from app.services.storage_service import storage_service
-from app.services.replicate_service import download_replicate_result
+from app.services.replicate_service import download_replicate_result, download_replicate_video, get_user_friendly_error_message
 from app.api.v1.events import job_events
 
 router = APIRouter()
@@ -733,6 +733,206 @@ async def handle_runpod_animation_completion(request: Request):
 
     except Exception as e:
         logger.error(f"Error processing RunPod animation webhook: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing animation webhook: {str(e)}",
+        )
+
+    finally:
+        db.close()
+
+
+@router.post("/replicate/animation/{animation_id}", status_code=200)
+async def handle_replicate_animation_completion(
+    request: Request,
+    animation_id: str = Path(..., description="Animation attempt ID"),
+):
+    """
+    Handle Replicate animation prediction completion webhook.
+
+    When an animation prediction completes, Replicate POSTs the full prediction object.
+    The animation_id is passed in the URL path so we know which animation to update.
+    """
+    # Parse JSON payload
+    try:
+        payload_dict = await request.json()
+        logger.info(f"📥 Replicate animation webhook for {animation_id}: status={payload_dict.get('status')}")
+        logger.debug(f"Full payload: {payload_dict}")
+    except Exception as e:
+        logger.error(f"❌ Failed to parse Replicate animation webhook JSON: {e}")
+        return {"status": "error", "message": "Invalid JSON"}
+
+    # Validate with Pydantic
+    try:
+        payload = ReplicateWebhookPayload.model_validate(payload_dict)
+    except Exception as e:
+        logger.error(f"❌ Pydantic validation failed for animation webhook: {e}")
+        return {"status": "error", "message": f"Validation failed: {str(e)}"}
+
+    db = SessionLocal()
+    try:
+        # Get the animation attempt
+        animation_uuid = UUID(animation_id)
+        animation = db.query(AnimationAttempt).filter(AnimationAttempt.id == animation_uuid).first()
+
+        if not animation:
+            logger.warning(f"AnimationAttempt {animation_id} not found for Replicate webhook")
+            return {"status": "not_found", "message": "Animation attempt not found"}
+
+        # Get associated job
+        job = db.query(Job).filter(Job.id == animation.job_id).first()
+        if not job:
+            logger.error(f"Job not found for animation {animation_id}")
+            return {"status": "error", "message": "Job not found"}
+
+        job_id = str(job.id)
+
+        if payload.status == "succeeded":
+            # Extract output URL
+            output = payload.output
+            if output is None:
+                logger.error(f"No output in successful animation prediction for {animation_id}")
+                animation.preview_s3_key = "failed"
+                animation.params = {
+                    **(animation.params or {}),
+                    "error": "No output in response",
+                    "error_type": "no_output",
+                }
+                db.commit()
+                return {"status": "error", "message": "No output in response"}
+
+            # Handle output format (should be a URL string for video models)
+            if isinstance(output, str):
+                result_url = output
+            elif hasattr(output, "url"):
+                result_url = output.url
+            else:
+                result_url = str(output)
+
+            logger.info(f"Downloading animation video from: {result_url[:100]}...")
+
+            # Download the video
+            try:
+                video_data = await download_replicate_video(result_url)
+            except Exception as download_error:
+                logger.error(f"Failed to download Replicate animation video: {download_error}")
+                animation.preview_s3_key = "failed"
+                animation.params = {
+                    **(animation.params or {}),
+                    "error": str(download_error),
+                    "error_type": "download_failed",
+                }
+                db.commit()
+                return {"status": "error", "message": "Failed to download video"}
+
+            # Generate timestamp ID for this animation
+            animation_timestamp_id = s3_service.generate_timestamp_id()
+
+            # Upload to S3
+            try:
+                video_url = s3_service.upload_animation(
+                    video_content=video_data,
+                    job_id=job_id,
+                    animation_id=animation_timestamp_id,
+                    is_preview=True,
+                )
+
+                # Update animation attempt (must match the key used by upload_animation)
+                animation.preview_s3_key = f"animated/{job_id}/{animation_timestamp_id}_preview.mp4"
+                animation.params = {
+                    **(animation.params or {}),
+                    "prediction_id": payload.id,
+                    "metrics": payload.metrics,
+                    "status": "completed",
+                }
+
+                # Update job's latest animation
+                job.latest_animation_id = animation.id
+
+                db.commit()
+
+                logger.success(f"✅ Replicate animation completed for {animation_id}")
+
+                # Send SSE notification
+                await job_events.notify(
+                    job_id=job_id,
+                    event_type="animation_completed",
+                    data={
+                        "job_id": job_id,
+                        "animation_id": str(animation.id),
+                        "status": "completed",
+                        "video_url": video_url,
+                    },
+                )
+
+                return {
+                    "status": "success",
+                    "animation_id": animation_id,
+                    "job_id": job_id,
+                    "video_url": video_url,
+                }
+
+            except Exception as upload_error:
+                logger.error(f"Failed to upload animation video to S3: {upload_error}")
+                animation.preview_s3_key = "failed"
+                animation.params = {
+                    **(animation.params or {}),
+                    "error": str(upload_error),
+                    "error_type": "upload_failed",
+                }
+                db.commit()
+                return {"status": "error", "message": "Failed to upload to S3"}
+
+        elif payload.status == "failed":
+            logger.error(f"Replicate animation prediction failed for {animation_id}: {payload.error}")
+            animation.preview_s3_key = "failed"
+            animation.params = {
+                **(animation.params or {}),
+                "prediction_id": payload.id,
+                "error": payload.error,
+                "error_type": "prediction_failed",
+                "status": "failed",
+            }
+            db.commit()
+
+            # Send SSE notification for failure
+            await job_events.notify(
+                job_id=job_id,
+                event_type="animation_failed",
+                data={
+                    "job_id": job_id,
+                    "animation_id": str(animation.id),
+                    "status": "failed",
+                    "error": payload.error,
+                },
+            )
+
+            return {
+                "status": "failed",
+                "animation_id": animation_id,
+                "error": payload.error,
+            }
+
+        elif payload.status == "canceled":
+            logger.warning(f"Replicate animation prediction canceled for {animation_id}")
+            animation.preview_s3_key = "failed"
+            animation.params = {
+                **(animation.params or {}),
+                "prediction_id": payload.id,
+                "status": "canceled",
+            }
+            db.commit()
+
+            return {"status": "canceled", "animation_id": animation_id}
+
+        else:
+            # In-progress status (starting, processing) - just acknowledge
+            logger.info(f"Replicate animation prediction {payload.status} for {animation_id}")
+            return {"status": "acknowledged", "prediction_status": payload.status}
+
+    except Exception as e:
+        logger.error(f"Error processing Replicate animation webhook: {e}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

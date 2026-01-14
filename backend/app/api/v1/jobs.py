@@ -208,6 +208,13 @@ async def create_animation_attempt(
     **Requires:**
     - Remember tier or higher
     - 8 credits
+
+    **Request body:**
+    - `restore_id` (optional): UUID of restore attempt to animate. If not provided, uses original photo.
+    - `model` (optional): Animation model to use. Defaults to "replicate_wan".
+    - `params` (required): Animation parameters object containing:
+      - `prompt` (required): Text description for video generation (1-500 characters)
+      - `resolution` (optional): Video resolution - "480p", "720p", or "1080p". Defaults to "720p".
     """
     # Check credits after tier check (can't combine dependencies easily, so check manually)
     # TODO: Re-enable credit check in production
@@ -227,6 +234,29 @@ async def create_animation_attempt(
     #         detail=f"Insufficient credits. Required: 8, Available: {current_user.total_credits}. "
     #         f"Please purchase more credits to continue.",
     #     )
+
+    # Validate prompt length (1-500 characters)
+    prompt = animation_data.params.prompt
+    if not prompt or len(prompt.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt is required and cannot be empty",
+        )
+    if len(prompt) > 500:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Prompt exceeds maximum length of 500 characters (current: {len(prompt)})",
+        )
+
+    # Validate resolution
+    valid_resolutions = ["480p", "720p", "1080p"]
+    resolution = animation_data.params.resolution
+    if resolution not in valid_resolutions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid resolution '{resolution}'. Choose from: {', '.join(valid_resolutions)}",
+        )
+
     # Verify job exists
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
@@ -257,12 +287,19 @@ async def create_animation_attempt(
             )
 
     try:
+        # Convert params to dict for Celery task
+        params_dict = {
+            "prompt": animation_data.params.prompt,
+            "resolution": animation_data.params.resolution,
+            "duration": 5,  # Fixed 5-second duration per spec
+        }
+
         # Queue the animation task
         job_tasks.process_animation.delay(
             str(job_id),
             str(animation_data.restore_id) if animation_data.restore_id else None,
             animation_data.model,
-            animation_data.params or {},
+            params_dict,
         )
 
         # Create animation attempt record (will be updated by worker)
@@ -271,7 +308,7 @@ async def create_animation_attempt(
             restore_id=animation_data.restore_id,  # Can be None
             preview_s3_key="",  # Will be updated by worker
             model=animation_data.model,
-            params=animation_data.params,
+            params=params_dict,
         )
         db.add(animation)
         db.flush()
@@ -386,15 +423,16 @@ async def get_job(
             "params": animation.params,
             "created_at": animation.created_at,
         }
-        if animation.preview_s3_key and animation.preview_s3_key != "pending":
+        # Generate presigned URL for preview video (skip pending/failed states)
+        if animation.preview_s3_key and animation.preview_s3_key not in ("", "pending", "failed"):
             animation_dict["preview_url"] = s3_service.get_s3_url(
                 animation.preview_s3_key
             )
-        if animation.result_s3_key:
+        if animation.result_s3_key and animation.result_s3_key not in ("", "pending", "failed"):
             animation_dict["result_url"] = s3_service.get_s3_url(
                 animation.result_s3_key
             )
-        if animation.thumb_s3_key:
+        if animation.thumb_s3_key and animation.thumb_s3_key not in ("", "pending", "failed"):
             animation_dict["thumb_url"] = s3_service.get_s3_url(animation.thumb_s3_key)
         job_dict["animation_attempts"].append(animation_dict)
 
@@ -558,18 +596,16 @@ async def list_jobs(
                         "params": animation.params,
                         "created_at": animation.created_at,
                     }
-                    if (
-                        animation.preview_s3_key
-                        and animation.preview_s3_key != "pending"
-                    ):
+                    # Generate presigned URL for preview video (skip pending/failed states)
+                    if animation.preview_s3_key and animation.preview_s3_key not in ("", "pending", "failed"):
                         animation_dict["preview_url"] = s3_service.get_s3_url(
                             animation.preview_s3_key
                         )
-                    if animation.result_s3_key:
+                    if animation.result_s3_key and animation.result_s3_key not in ("", "pending", "failed"):
                         animation_dict["result_url"] = s3_service.get_s3_url(
                             animation.result_s3_key
                         )
-                    if animation.thumb_s3_key:
+                    if animation.thumb_s3_key and animation.thumb_s3_key not in ("", "pending", "failed"):
                         animation_dict["thumb_url"] = s3_service.get_s3_url(
                             animation.thumb_s3_key
                         )
