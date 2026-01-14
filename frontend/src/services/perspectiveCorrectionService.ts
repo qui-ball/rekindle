@@ -165,12 +165,31 @@ export class PerspectiveCorrectionService {
     srcPoints.data32F[6] = cornerPoints.bottomLeftCorner.x;
     srcPoints.data32F[7] = cornerPoints.bottomLeftCorner.y;
 
+    // Log corner points for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Perspective correction input corner points:', {
+        topLeft: cornerPoints.topLeftCorner,
+        topRight: cornerPoints.topRightCorner,
+        bottomLeft: cornerPoints.bottomLeftCorner,
+        bottomRight: cornerPoints.bottomRightCorner,
+        imageSize: { width: img.width, height: img.height }
+      });
+    }
+
     // Calculate optimal output dimensions if not provided
     const { width: dstWidth, height: dstHeight } = this.calculateOptimalDimensions(
       cornerPoints,
       outputWidth,
       outputHeight
     );
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📐 Perspective correction output size:', {
+        width: dstWidth,
+        height: dstHeight,
+        aspectRatio: (dstWidth / dstHeight).toFixed(3)
+      });
+    }
 
     // Define destination points (rectangle)
     const dstPoints = new cv.Mat(4, 1, cv.CV_32FC2);
@@ -223,7 +242,8 @@ export class PerspectiveCorrectionService {
 
   /**
    * Calculate optimal output dimensions from corner points
-   * Uses the maximum width and height from the quadrilateral
+   * Uses average width and height to better match the selected area
+   * This prevents the output from being larger than the selected quadrilateral
    */
   private calculateOptimalDimensions(
     cornerPoints: CornerPoints,
@@ -243,8 +263,7 @@ export class PerspectiveCorrectionService {
       cornerPoints.bottomLeftCorner,
       cornerPoints.bottomRightCorner
     );
-    const maxWidth = Math.max(topWidth, bottomWidth);
-
+    
     // Calculate height from left and right edges
     const leftHeight = this.distance(
       cornerPoints.topLeftCorner,
@@ -254,12 +273,72 @@ export class PerspectiveCorrectionService {
       cornerPoints.topRightCorner,
       cornerPoints.bottomRightCorner
     );
-    const maxHeight = Math.max(leftHeight, rightHeight);
 
-    return {
-      width: Math.round(maxWidth),
-      height: Math.round(maxHeight)
+    // Use average dimensions instead of maximum to better match the selected area
+    // This prevents the output from being larger than what the user selected
+    // Alternative: Use minimum to ensure we don't exceed the selected area
+    const avgWidth = (topWidth + bottomWidth) / 2;
+    const avgHeight = (leftHeight + rightHeight) / 2;
+    
+    // Also calculate bounding box to compare
+    const minX = Math.min(
+      cornerPoints.topLeftCorner.x,
+      cornerPoints.topRightCorner.x,
+      cornerPoints.bottomLeftCorner.x,
+      cornerPoints.bottomRightCorner.x
+    );
+    const maxX = Math.max(
+      cornerPoints.topLeftCorner.x,
+      cornerPoints.topRightCorner.x,
+      cornerPoints.bottomLeftCorner.x,
+      cornerPoints.bottomRightCorner.x
+    );
+    const minY = Math.min(
+      cornerPoints.topLeftCorner.y,
+      cornerPoints.topRightCorner.y,
+      cornerPoints.bottomLeftCorner.y,
+      cornerPoints.bottomRightCorner.y
+    );
+    const maxY = Math.max(
+      cornerPoints.topLeftCorner.y,
+      cornerPoints.topRightCorner.y,
+      cornerPoints.bottomLeftCorner.y,
+      cornerPoints.bottomRightCorner.y
+    );
+    const boundingBoxWidth = maxX - minX;
+    const boundingBoxHeight = maxY - minY;
+
+    // Use average dimensions (more accurate for perspective-corrected quadrilaterals)
+    // This ensures the output matches the actual selected area better
+    const result = {
+      width: Math.round(avgWidth),
+      height: Math.round(avgHeight)
     };
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📐 Perspective correction output dimensions:', {
+        edgeLengths: {
+          topWidth: topWidth.toFixed(1),
+          bottomWidth: bottomWidth.toFixed(1),
+          leftHeight: leftHeight.toFixed(1),
+          rightHeight: rightHeight.toFixed(1)
+        },
+        calculated: {
+          avgWidth: avgWidth.toFixed(1),
+          avgHeight: avgHeight.toFixed(1),
+          boundingBox: { width: boundingBoxWidth.toFixed(1), height: boundingBoxHeight.toFixed(1) }
+        },
+        output: result,
+        cornerPoints: {
+          topLeft: cornerPoints.topLeftCorner,
+          topRight: cornerPoints.topRightCorner,
+          bottomLeft: cornerPoints.bottomLeftCorner,
+          bottomRight: cornerPoints.bottomRightCorner
+        }
+      });
+    }
+
+    return result;
   }
 
   /**

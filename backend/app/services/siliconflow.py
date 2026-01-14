@@ -17,8 +17,7 @@ from app.core.config import settings
 
 # Default restoration prompt
 DEFAULT_RESTORATION_PROMPT = (
-    "Restore this old damaged photo. Enhance clarity, remove scratches and damage, "
-    "improve colors while preserving original details and authenticity."
+    "restore this photo, remove the stains, dust spots, noise, scratches and stripes from the image, fill in any gaps, ripped or torn sections, turning it into a high quality photograph, reversal film photography, remove stains and crease marks, repair gaps and fold or bends"
 )
 
 

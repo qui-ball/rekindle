@@ -16,11 +16,24 @@ from loguru import logger
 from app.core.config import settings
 
 
-# Default restoration prompt
-DEFAULT_RESTORATION_PROMPT = (
-    "Restore this old damaged photo. Enhance clarity, remove scratches and damage, "
-    "improve colors while preserving original details and authenticity."
+# # Base restoration prompt (without color instruction - added dynamically based on colourize param)
+# BASE_RESTORATION_PROMPT = (
+#     "Preserve the input photo's existing color palette exactly (whether black-and-white, sepia, monochrome, or faded color). Match the original hue, saturation, white balance, and overall color cast. Only remove physical defects; do not apply any new grading or stylistic changes. "
+#     "DO NOT COLORIZE; remove the stains, dust spots, noise, scratches and stripes from the image, "
+#     "fill in any gaps, ripped or torn sections, turning it into a high quality photograph, "
+#     "remove stains and crease marks, repair gaps and fold or bends."
+# )
+
+BASE_RESTORATION_PROMPT = (
+    "Remove stains, dust spots, noise, scratches, stripes, crease marks. Repair torn/folded areas and fill missing gaps. Produce a high-quality scan-like result. "
 )
+
+# Color instruction suffixes
+PRESERVE_COLORS_SUFFIX = " Preserve the input photo's existing palette EXACTLY. Match the original hue, saturation, white balance. Only remove physical defects; everything else MUST remain unchanged."
+COLORIZE_PROMPT_SUFFIX = " Please colorize this photo with natural, realistic colors."
+
+# Default restoration prompt (preserves original colors) - used as fallback
+DEFAULT_RESTORATION_PROMPT = BASE_RESTORATION_PROMPT + PRESERVE_COLORS_SUFFIX
 
 
 class ReplicateErrorType(str, Enum):
@@ -185,7 +198,6 @@ class ReplicateService:
 
         logger.info(f"Submitting restoration request to Replicate: model={self.model}")
         logger.debug(f"Image URL: {image_url[:100]}...")
-        logger.debug(f"Prompt: {prompt[:100]}...")
 
         # Build input payload
         input_params = {
@@ -199,6 +211,9 @@ class ReplicateService:
 
         if seed is not None:
             input_params["seed"] = seed
+
+        # Log the full prompt and input parameters
+        logger.info(f"Replicate input params: {input_params}")
 
         try:
             # Run the model synchronously (replicate.run blocks until complete)
@@ -340,6 +355,9 @@ class ReplicateService:
 
         if seed is not None:
             input_params["seed"] = seed
+
+        # Log the full prompt and input parameters
+        logger.info(f"Replicate input params for photo {photo_id}: {input_params}")
 
         try:
             # Create prediction with webhook (non-blocking)

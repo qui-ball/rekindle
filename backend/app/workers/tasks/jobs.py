@@ -22,6 +22,9 @@ from app.services.comfyui import comfyui_service
 from app.services.replicate_service import (
     get_replicate_service,
     ReplicateError,
+    BASE_RESTORATION_PROMPT,
+    PRESERVE_COLORS_SUFFIX,
+    COLORIZE_PROMPT_SUFFIX,
 )
 from app.services.image_processor import preprocess_image
 
@@ -129,30 +132,68 @@ def process_restoration(
 
                 # Get custom prompt from params or use default
                 custom_prompt = params.get("prompt")
+                colourize = params.get("colourize", False)
                 seed = params.get("seed")
                 output_format = params.get("output_format", "jpg")
                 output_quality = params.get("output_quality", 95)
 
-                # Create pending restore attempt BEFORE calling Replicate
-                restore = RestoreAttempt(
-                    job_id=job_uuid,
-                    s3_key="pending",  # Will be updated by webhook
-                    model=model or "replicate_qwen",
-                    params={
-                        **params,
-                        "provider": "replicate",
-                        "output_format": output_format,
-                        "output_quality": output_quality,
-                        "preprocessing": {
-                            "resized": preprocess_result.resized,
-                            "original_dimensions": list(preprocess_result.original_dimensions),
-                            "new_dimensions": list(preprocess_result.new_dimensions),
-                            "format_converted": preprocess_result.format_converted,
-                            "original_format": preprocess_result.original_format,
-                        },
-                    },
+                # Build the final prompt based on colourize parameter
+                # Start with base prompt
+                final_prompt = BASE_RESTORATION_PROMPT
+
+                # Append user's custom prompt if provided
+                if custom_prompt:
+                    final_prompt = final_prompt + " " + custom_prompt
+
+                # Add color instruction based on colourize parameter
+                if colourize:
+                    final_prompt = final_prompt + COLORIZE_PROMPT_SUFFIX
+                else:
+                    final_prompt = final_prompt + PRESERVE_COLORS_SUFFIX
+
+                custom_prompt = final_prompt
+
+                # Check if a restore attempt already exists (created by endpoint)
+                # If so, use it; otherwise create a new one
+                restore = (
+                    db.query(RestoreAttempt)
+                    .filter(
+                        RestoreAttempt.job_id == job_uuid,
+                        RestoreAttempt.s3_key == "",  # Not yet processed
+                    )
+                    .order_by(RestoreAttempt.created_at.desc())
+                    .first()
                 )
-                db.add(restore)
+
+                restore_params = {
+                    **params,
+                    "provider": "replicate",
+                    "output_format": output_format,
+                    "output_quality": output_quality,
+                    "preprocessing": {
+                        "resized": preprocess_result.resized,
+                        "original_dimensions": list(preprocess_result.original_dimensions),
+                        "new_dimensions": list(preprocess_result.new_dimensions),
+                        "format_converted": preprocess_result.format_converted,
+                        "original_format": preprocess_result.original_format,
+                    },
+                }
+
+                if not restore:
+                    # Create pending restore attempt BEFORE calling Replicate
+                    restore = RestoreAttempt(
+                        job_id=job_uuid,
+                        s3_key="pending",  # Will be updated by webhook
+                        model=model or "replicate_qwen",
+                        params=restore_params,
+                    )
+                    db.add(restore)
+                else:
+                    # Update existing restore attempt
+                    restore.s3_key = "pending"
+                    restore.model = model or "replicate_qwen"
+                    restore.params = restore_params
+
                 db.commit()
 
                 # Build webhook URL with photo_id
@@ -193,12 +234,24 @@ def process_restoration(
                 # Revert photo status to uploaded
                 photo.status = "uploaded"
 
-                # Update restore attempt to failed (if it was created)
-                if 'restore' in locals():
+                # Update restore attempt to failed (if it was created, or find existing one)
+                if 'restore' not in locals() or restore is None:
+                    # Check for existing restore attempt created by API endpoint
+                    restore = (
+                        db.query(RestoreAttempt)
+                        .filter(
+                            RestoreAttempt.job_id == job_uuid,
+                            RestoreAttempt.s3_key == "",
+                        )
+                        .order_by(RestoreAttempt.created_at.desc())
+                        .first()
+                    )
+
+                if restore:
                     restore.s3_key = "failed"
-                    restore.params = {**restore.params, "error": e.to_dict()}
+                    restore.params = {**(restore.params or {}), "error": e.to_dict()}
                 else:
-                    # Create failed restore attempt if we didn't get that far
+                    # No existing restore attempt - create a failed one
                     restore = RestoreAttempt(
                         job_id=job_uuid,
                         s3_key="failed",
@@ -220,10 +273,22 @@ def process_restoration(
                 # Revert photo status to uploaded
                 photo.status = "uploaded"
 
-                # Update restore attempt to failed (if it was created)
-                if 'restore' in locals():
+                # Update restore attempt to failed (if it was created, or find existing one)
+                if 'restore' not in locals() or restore is None:
+                    # Check for existing restore attempt created by API endpoint
+                    restore = (
+                        db.query(RestoreAttempt)
+                        .filter(
+                            RestoreAttempt.job_id == job_uuid,
+                            RestoreAttempt.s3_key == "",
+                        )
+                        .order_by(RestoreAttempt.created_at.desc())
+                        .first()
+                    )
+
+                if restore:
                     restore.s3_key = "failed"
-                    restore.params = {**restore.params, "error": str(e)}
+                    restore.params = {**(restore.params or {}), "error": str(e)}
 
                 db.commit()
 
@@ -248,10 +313,31 @@ def process_restoration(
         # Extract restoration parameters
         denoise = params.get("denoise", 0.7)
         megapixels = params.get("megapixels", 1.0)
-        prompt = params.get(
-            "prompt",
-            "Restore this old photo: remove scratches, dust spots, reflections, and noise; repair tears, folds, and damaged areas; correct fading and color drift; sharpen faces and fabric texture. Fill in any missing or cropped parts of the photo realistically, matching the original style, texture, and lighting. Preserve original faces, pose, clothing, and background without changing composition. Do not add new objects or distortions. Please also colourize the photo.",
+        colourize_legacy = params.get("colourize", False)
+        custom_prompt_legacy = params.get("prompt")
+
+        # Build prompt based on colourize parameter
+        # Base restoration prompt (without color instruction - we'll add it based on colourize)
+        base_prompt_legacy = (
+            "Restore this old photo: remove scratches, dust spots, reflections, and noise; "
+            "repair tears, folds, and damaged areas; correct fading and color drift; "
+            "sharpen faces and fabric texture. Fill in any missing or cropped parts of the photo realistically, "
+            "matching the original style, texture, and lighting. Preserve original faces, pose, clothing, "
+            "and background without changing composition. Do not add new objects or distortions."
         )
+
+        # Start with base prompt
+        prompt = base_prompt_legacy
+
+        # Append user's custom prompt if provided
+        if custom_prompt_legacy:
+            prompt = prompt + " " + custom_prompt_legacy
+
+        # Add color instruction based on colourize parameter
+        if colourize_legacy:
+            prompt = prompt + COLORIZE_PROMPT_SUFFIX
+        else:
+            prompt = prompt + PRESERVE_COLORS_SUFFIX
 
         # Route based on mode
         # Note: In serverless mode, we always submit to RunPod regardless of ENVIRONMENT
@@ -473,16 +559,36 @@ def process_restoration(
         logger.error(f"Error processing restoration for job {job_id}: {e}")
         db.rollback()
 
-        # Create failed restore attempt record
+        # Check if restore attempt already exists and was marked failed by inner handlers
+        # Avoid creating duplicates
         try:
-            restore = RestoreAttempt(
-                job_id=job_uuid,
-                s3_key="failed",
-                model=model or f"comfyui_{settings.COMFYUI_MODE}",
-                params={**params, "error": str(e)},
+            existing_restore = (
+                db.query(RestoreAttempt)
+                .filter(
+                    RestoreAttempt.job_id == job_uuid,
+                    RestoreAttempt.s3_key.in_(["", "pending", "failed"]),
+                )
+                .order_by(RestoreAttempt.created_at.desc())
+                .first()
             )
-            db.add(restore)
-            db.commit()
+
+            if existing_restore:
+                # Update existing restore attempt if not already failed
+                if existing_restore.s3_key != "failed":
+                    existing_restore.s3_key = "failed"
+                    existing_restore.params = {**(existing_restore.params or {}), "error": str(e)}
+                    db.commit()
+                # If already failed, inner handler already handled it - do nothing
+            else:
+                # No existing restore attempt - create a failed one
+                restore = RestoreAttempt(
+                    job_id=job_uuid,
+                    s3_key="failed",
+                    model=model or f"comfyui_{settings.COMFYUI_MODE}",
+                    params={**params, "error": str(e)},
+                )
+                db.add(restore)
+                db.commit()
         except Exception as db_error:
             logger.error(f"Error saving failure state: {db_error}")
 

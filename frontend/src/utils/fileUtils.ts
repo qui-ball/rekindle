@@ -34,6 +34,20 @@ export const base64ToFile = (
 };
 
 /**
+ * Convert File to base64 data URL
+ * @param file - File object to convert
+ * @returns Promise with base64 data URL string
+ */
+export const fileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+};
+
+/**
  * Get image dimensions from base64 string
  * @param base64String - Base64 encoded image data
  * @returns Promise with width and height
@@ -52,6 +66,53 @@ export const getImageDimensionsFromBase64 = (base64String: string): Promise<{ wi
 };
 
 /**
+ * Map of file extensions to MIME types for fallback validation
+ * Some browsers (especially Safari) may not report correct MIME types for HEIC files
+ */
+const EXTENSION_TO_MIME: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.heic': 'image/heic',
+  '.heif': 'image/heic',
+  '.webp': 'image/webp'
+};
+
+/**
+ * Get file extension from filename
+ * @param filename - The filename to extract extension from
+ * @returns Lowercase extension with dot (e.g., '.jpg') or empty string
+ */
+const getFileExtension = (filename: string): string => {
+  const lastDot = filename.lastIndexOf('.');
+  if (lastDot === -1) return '';
+  return filename.slice(lastDot).toLowerCase();
+};
+
+/**
+ * Check if file type is valid by MIME type or extension fallback
+ * @param file - File to check
+ * @param allowedTypes - Array of allowed MIME types
+ * @returns Whether the file type is valid
+ */
+const isValidFileType = (file: File, allowedTypes: string[]): boolean => {
+  // First check by MIME type
+  if (file.type && allowedTypes.includes(file.type)) {
+    return true;
+  }
+  
+  // Fallback to extension check (important for HEIC files on some browsers)
+  const extension = getFileExtension(file.name);
+  const mimeFromExtension = EXTENSION_TO_MIME[extension];
+  
+  if (mimeFromExtension && allowedTypes.includes(mimeFromExtension)) {
+    return true;
+  }
+  
+  return false;
+};
+
+/**
  * Validate file size and type
  * @param file - File object to validate
  * @param maxSize - Maximum file size in bytes
@@ -67,7 +128,7 @@ export const validateFile = (
     return { valid: false, error: `File too large. Maximum size: ${Math.round(maxSize / 1024 / 1024)}MB` };
   }
   
-  if (!allowedTypes.includes(file.type)) {
+  if (!isValidFileType(file, allowedTypes)) {
     return { valid: false, error: `Unsupported file type. Allowed: ${allowedTypes.join(', ')}` };
   }
   

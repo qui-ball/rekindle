@@ -1,6 +1,7 @@
 FROM node:20-slim
 
 # Install build dependencies for native modules (jscanify/canvas)
+# See: https://github.com/Automattic/node-canvas#compiling
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -21,7 +22,11 @@ WORKDIR /app
 
 # Install dependencies first (for better caching)
 COPY package*.json ./
-RUN npm ci
+# Canvas package has a bug (missing cstdint include) but is externalized on server-side anyway
+# Try normal install, fallback to --ignore-scripts if canvas build fails
+RUN npm ci || \
+    (echo "⚠️  npm ci failed (likely canvas build issue). Installing with --ignore-scripts..." && \
+     npm install --ignore-scripts)
 
 # Copy source code
 COPY . .

@@ -21,7 +21,7 @@ import type { CornerPoints } from '../../types/jscanify';
 
 interface UploadPreviewProps {
   originalImage: string; // Base64 image data
-  cornerPoints: CornerPoints; // JScanify corner points from cropping
+  cornerPoints?: CornerPoints; // Optional JScanify corner points for perspective correction
   onConfirm: (correctedImage: string) => void; // Callback with corrected (or original) image
   onCancel: () => void; // Retake photo
   closeOnEscape?: boolean;
@@ -40,9 +40,17 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({
   const [correctedImage, setCorrectedImage] = useState<string | null>(null);
   const [processingTime, setProcessingTime] = useState<number>(0);
 
-  // Apply perspective correction when component mounts
+  // Apply perspective correction when component mounts (if corner points provided)
   useEffect(() => {
     const applyCorrection = async () => {
+      // If no corner points, skip perspective correction and use original image
+      if (!cornerPoints) {
+        console.log('📷 No corner points provided - showing original image without perspective correction');
+        setCorrectedImage(originalImage);
+        setPreviewState('ready');
+        return;
+      }
+
       setPreviewState('processing');
       
       try {
@@ -149,7 +157,7 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({
           onClick={onCancel}
           className="flex-1 px-6 py-4 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
         >
-          Retake
+          {cornerPoints ? 'Retake' : 'Cancel'}
         </button>
         <button
           onClick={handleConfirm}
@@ -167,7 +175,9 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
       <div className="bg-black/90 px-4 py-3 flex items-center justify-between border-b border-white/10">
-        <h2 className="text-white text-lg font-semibold">Preview</h2>
+        <h2 className="text-white text-lg font-semibold">
+          {cornerPoints ? 'Preview' : 'Review File'}
+        </h2>
         <button
           onClick={onCancel}
           className="text-white/70 hover:text-white transition-colors p-2"

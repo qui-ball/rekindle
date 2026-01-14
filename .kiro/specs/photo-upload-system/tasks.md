@@ -1032,15 +1032,15 @@ export class CornerGuideDetector {
 }
 ```
 
-- [ ] 3. Create drag-and-drop upload interface for desktop
-  - [ ] 3.1 Build DragDropZone component with visual feedback
+- [x] 3. Create drag-and-drop upload interface for desktop
+  - [x] 3.1 Build DragDropZone component with visual feedback
     - Create React component with drag-and-drop event handlers
     - Implement visual feedback for drag-over states
     - Add file browser fallback functionality
     - Write unit tests for drag-and-drop interactions
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ] 3.2 Integrate drag-and-drop with smart cropping interface
+  - [x] 3.2 Integrate drag-and-drop with smart cropping interface
     - Connect DragDropZone with JScanify-powered smart cropping
     - Apply smart photo detection to drag-and-dropped images
     - Display validation errors and warnings in the UI

@@ -95,7 +95,7 @@
   },
   "76": {
     "inputs": {
-      "prompt": "Restore this old photo: remove scratches, dust spots, reflections, and noise; repair tears, folds, and damaged areas; correct fading and color drift; sharpen faces and fabric texture. Fill in any missing or cropped parts of the photo realistically, matching the original style, texture, and lighting. Preserve original faces, pose, clothing, and background without changing composition. Do not add new objects or distortions. Please also colourize the photo.",
+      "prompt": "Restore this old photo: remove scratches, dust spots, reflections, and noise; repair tears, folds, and damaged areas; correct fading and color drift; sharpen faces and fabric texture. Fill in any missing or cropped parts of the photo realistically, matching the original style, texture, and lighting. Preserve original faces, pose, clothing, and background without changing composition. Do not add new objects or distortions. Preserve the original colors of the photo, do not colorize or change the color palette.",
       "clip": [
         "102",
         0

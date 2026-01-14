@@ -457,7 +457,8 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
           params: {
             denoise: options.parameters?.restore?.denoiseLevel || 0.7,
             megapixels: options.quality === 'hd' ? 2.0 : 1.0,
-            prompt: options.parameters?.restore?.userPrompt
+            prompt: options.parameters?.restore?.userPrompt,
+            colourize: options.parameters?.restore?.colourize || false
           }
         });
         restoreId = restoreAttempt.id;

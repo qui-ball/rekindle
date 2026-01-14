@@ -15,7 +15,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🗄️  Applying database migrations...${NC}"
+echo -e "${GREEN}🗄️  Setting up database schema...${NC}"
 
 TARGET=""
 DB_HOST=""
@@ -68,6 +68,92 @@ if [ ${#MIGRATIONS[@]} -eq 0 ]; then
     echo -e "${YELLOW}⚠️  No migration files found in $MIGRATIONS_DIR${NC}"
     exit 0
 fi
+
+# Create base tables first (if they don't exist)
+# These tables are required before migrations 001 and 002 can run
+echo "📋 Creating base tables (jobs, restore_attempts, animation_attempts)..."
+echo ""
+
+if [ "$TARGET" = "remote" ]; then
+    BASE_TABLES_OUTPUT=$(psql "$DATABASE_URL" <<'EOFBASE'
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    selected_restore_id UUID,
+    latest_animation_id UUID
+);
+
+CREATE TABLE IF NOT EXISTS restore_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID REFERENCES jobs(id),
+    s3_key VARCHAR(500),
+    model VARCHAR(100),
+    params JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS animation_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID REFERENCES jobs(id),
+    restore_id UUID REFERENCES restore_attempts(id),
+    preview_s3_key VARCHAR(500),
+    result_s3_key VARCHAR(500),
+    thumb_s3_key VARCHAR(500),
+    model VARCHAR(100),
+    params JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+EOFBASE
+    2>&1) && BASE_STATUS=$? || BASE_STATUS=$?
+else
+    BASE_TABLES_OUTPUT=$(docker compose exec -T postgres psql -U rekindle -d rekindle <<'EOFBASE'
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    selected_restore_id UUID,
+    latest_animation_id UUID
+);
+
+CREATE TABLE IF NOT EXISTS restore_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID REFERENCES jobs(id),
+    s3_key VARCHAR(500),
+    model VARCHAR(100),
+    params JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS animation_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id UUID REFERENCES jobs(id),
+    restore_id UUID REFERENCES restore_attempts(id),
+    preview_s3_key VARCHAR(500),
+    result_s3_key VARCHAR(500),
+    thumb_s3_key VARCHAR(500),
+    model VARCHAR(100),
+    params JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+EOFBASE
+    2>&1) && BASE_STATUS=$? || BASE_STATUS=$?
+fi
+
+if [ $BASE_STATUS -eq 0 ]; then
+    echo -e "   ${GREEN}✅ Base tables created/verified${NC}"
+else
+    if echo "$BASE_TABLES_OUTPUT" | grep -qi "already exists"; then
+        echo -e "   ${YELLOW}⏭️  Base tables already exist${NC}"
+    else
+        echo -e "   ${YELLOW}⚠️  Note: Some tables may already exist (this is okay)${NC}"
+    fi
+fi
+echo ""
 
 echo "   Found ${#MIGRATIONS[@]} migration file(s)"
 echo ""
