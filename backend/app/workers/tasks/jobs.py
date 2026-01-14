@@ -598,7 +598,14 @@ def process_restoration(
         db.close()
 
 
-@celery_app.task(bind=True)
+@celery_app.task(
+    bind=True,
+    autoretry_for=(ReplicateError,),
+    retry_kwargs={'max_retries': 1},
+    default_retry_delay=5,
+    time_limit=600,  # 10 minute hard limit
+    soft_time_limit=540,  # 9 minute soft limit for graceful handling
+)
 def process_animation(
     self,
     job_id: str,
@@ -612,8 +619,11 @@ def process_animation(
     Args:
         job_id: UUID string of the job
         restore_id: Optional UUID string of the restore attempt. If None, uses original photo
-        model: Optional model name to use
-        params: Optional parameters for the animation
+        model: Optional model name to use (replicate_wan or runpod_serverless_wan)
+        params: Optional parameters for the animation including:
+            - prompt: Text description for video generation (required)
+            - resolution: "480p", "720p", or "1080p" (default: "720p")
+            - duration: Video duration in seconds (default: 5)
     """
     db = SessionLocal()
     job_uuid = UUID(job_id)
@@ -621,6 +631,9 @@ def process_animation(
 
     if params is None:
         params = {}
+
+    # Default model to replicate_wan
+    model = model or "replicate_wan"
 
     try:
         # Get the job from database
@@ -640,48 +653,132 @@ def process_animation(
                 raise ValueError(f"Restore attempt {restore_id} not found")
 
         logger.info(
-            f"Starting animation for job {job_id}, restore {restore_id or 'original'}, mode: {settings.COMFYUI_MODE}"
+            f"Starting animation for job {job_id}, restore {restore_id or 'original'}, model: {model}"
         )
 
-        # Download image from S3
-        if restore:
+        # Get the photo for user-scoped storage access
+        photo = db.query(Photo).filter(Photo.id == job_uuid).first()
+        if not photo:
+            raise ValueError(f"Photo {job_id} not found")
+
+        from app.services.storage_service import storage_service
+
+        # Download source image from S3
+        if restore and restore.s3_key and restore.s3_key not in ("", "pending", "failed"):
             # Use restored image
-            image_data = s3_service.download_file(restore.s3_key)
+            logger.info(f"Using restored image from {restore.s3_key}")
+            image_data = storage_service.download_file(restore.s3_key, photo.owner_id)
+            source_s3_key = restore.s3_key
         else:
             # Use original photo
-            photo = db.query(Photo).filter(Photo.id == job_uuid).first()
-            if not photo:
-                raise ValueError(f"Photo {job_id} not found")
-
-            from app.services.storage_service import storage_service
-
-            image_data = storage_service.download_file(
-                photo.original_key, photo.owner_id
-            )
+            logger.info(f"Using original photo from {photo.original_key}")
+            image_data = storage_service.download_file(photo.original_key, photo.owner_id)
+            source_s3_key = photo.original_key
 
         # Extract animation parameters
-        prompt = params.get(
-            "prompt",
-            "Make this photo come to life with subtle, natural movement. The person should blink, smile slightly, and move their head gently. Keep the background stable with minimal motion.",
-        )
-        width = params.get("width", 480)
-        height = params.get("height", 832)
-        length = params.get("length", 81)  # Number of frames
-        fps = params.get("fps", 30)
+        prompt = params.get("prompt")
+        if not prompt:
+            raise ValueError("Animation prompt is required")
 
-        # Route based on mode
-        if settings.COMFYUI_MODE == "serverless":
+        resolution = params.get("resolution", "720p")
+        duration = params.get("duration", 5)
+
+        # Route based on model
+        if model == "replicate_wan":
+            # ===== REPLICATE ANIMATION (WEBHOOK MODE) =====
+            logger.info(f"Using Replicate API for animation, model: {settings.REPLICATE_ANIMATION_MODEL}")
+
+            # Upload source image to S3 and get presigned URL for Replicate
+            animation_input_key = storage_service.generate_user_scoped_key(
+                user_id=photo.owner_id,
+                photo_id=photo.id,
+                category="animated",
+                filename="animation_input.jpg",
+            )
+            storage_service.upload_file(
+                file_content=image_data,
+                user_id=photo.owner_id,
+                photo_id=photo.id,
+                category="animated",
+                filename="animation_input.jpg",
+                content_type="image/jpeg",
+            )
+
+            # Generate presigned URL for Replicate API
+            presigned_url = s3_service.generate_presigned_download_url(animation_input_key)
+            logger.debug(f"Generated presigned URL for animation: {presigned_url[:100]}...")
+
+            # Create animation attempt record BEFORE calling Replicate
+            animation = AnimationAttempt(
+                job_id=job_uuid,
+                restore_id=restore_uuid,
+                preview_s3_key="pending",  # Will be updated by webhook
+                model="replicate_wan",
+                params={
+                    **params,
+                    "provider": "replicate",
+                    "resolution": resolution,
+                    "duration": duration,
+                    "source_s3_key": source_s3_key,
+                },
+            )
+            db.add(animation)
+            db.flush()  # Get animation ID
+
+            # Build webhook URL with animation_id
+            webhook_url = f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/replicate/animation/{animation.id}"
+            logger.info(f"Animation webhook URL: {webhook_url}")
+
+            # Create async prediction with webhook (non-blocking)
+            replicate_service = get_replicate_service()
+            prediction_id = replicate_service.create_animation_prediction_with_webhook(
+                image_url=presigned_url,
+                webhook_url=webhook_url,
+                animation_id=str(animation.id),
+                prompt=prompt,
+                resolution=resolution,
+                duration=duration,
+            )
+
+            # Update animation attempt with prediction ID
+            animation.params = {**animation.params, "replicate_prediction_id": prediction_id}
+            db.commit()
+
+            logger.info(f"Replicate animation prediction {prediction_id} submitted for job {job_id}")
+
+            # Return immediately - webhook will handle completion
+            return {
+                "status": "submitted",
+                "job_id": job_id,
+                "animation_id": str(animation.id),
+                "prediction_id": prediction_id,
+                "provider": "replicate",
+            }
+            # ===== END REPLICATE ANIMATION =====
+
+        elif model == "runpod_serverless_wan":
+            # ===== RUNPOD SERVERLESS ANIMATION (LEGACY) =====
             # Serverless mode - submit and exit
             from app.services.runpod_serverless import runpod_serverless_service
 
             # Prepare image filename
             image_filename = f"job_{job_id}_restore_{restore_id}.jpg"
 
+            # Map resolution to width/height for ComfyUI workflow
+            resolution_map = {
+                "480p": (480, 832),
+                "720p": (720, 1280),
+                "1080p": (1080, 1920),
+            }
+            width, height = resolution_map.get(resolution, (720, 1280))
+            length = 81  # Number of frames for 5s at ~16fps
+            fps = 30
+
             # Upload image to network volume (only if S3 API is available)
             if runpod_serverless_service.s3_available:
                 logger.info("Using S3 API to upload image to network volume")
                 runpod_serverless_service.upload_image_to_volume(
-                    image_data=restored_image_data, job_id=job_id, extension="jpg"
+                    image_data=image_data, job_id=job_id, extension="jpg"
                 )
             else:
                 logger.info("S3 API not available - will send image in job payload")
@@ -716,7 +813,7 @@ def process_animation(
                 image_data=(
                     None
                     if runpod_serverless_service.s3_available
-                    else restored_image_data
+                    else image_data
                 ),
                 image_filename=(
                     None if runpod_serverless_service.s3_available else image_filename
@@ -728,7 +825,7 @@ def process_animation(
                 job_id=job_uuid,
                 restore_id=restore_uuid,
                 preview_s3_key="pending",  # Will be set by webhook
-                model=model or "runpod_serverless_wan",
+                model="runpod_serverless_wan",
                 params={**params, "runpod_job_id": runpod_job_id},
             )
             db.add(animation)
@@ -744,20 +841,31 @@ def process_animation(
                 "animation_id": str(animation.id),
                 "runpod_job_id": runpod_job_id,
             }
+            # ===== END RUNPOD SERVERLESS ANIMATION =====
 
         else:
-            # Pod mode - not implemented for animation yet
-            raise NotImplementedError(
-                "Animation is only supported in serverless mode (COMFYUI_MODE=serverless)"
-            )
+            raise ValueError(f"Unknown animation model: {model}. Use 'replicate_wan' or 'runpod_serverless_wan'")
 
-        return {
-            "status": "success",
-            "job_id": job_id,
-            "animation_id": str(animation.id),
-            "preview_url": preview_url,
-            "thumb_url": thumb_url,
-        }
+    except ReplicateError as e:
+        logger.error(f"Replicate animation error for job {job_id}: {e}")
+        db.rollback()
+
+        # Create failed animation attempt record
+        try:
+            animation = AnimationAttempt(
+                job_id=job_uuid,
+                restore_id=restore_uuid,
+                preview_s3_key="failed",
+                model=model or "replicate_wan",
+                params={**params, "error": e.to_dict()},
+            )
+            db.add(animation)
+            db.commit()
+        except Exception as db_error:
+            logger.error(f"Error saving animation failure state: {db_error}")
+
+        # Re-raise for Celery retry
+        raise
 
     except Exception as e:
         logger.error(f"Error processing animation for job {job_id}: {e}")
@@ -769,13 +877,13 @@ def process_animation(
                 job_id=job_uuid,
                 restore_id=restore_uuid,
                 preview_s3_key="failed",
-                model=model or "animation_default",
+                model=model or "replicate_wan",
                 params={**params, "error": str(e)},
             )
             db.add(animation)
             db.commit()
         except Exception as db_error:
-            logger.error(f"Error saving failure state: {db_error}")
+            logger.error(f"Error saving animation failure state: {db_error}")
 
         raise e
 
@@ -844,6 +952,86 @@ def generate_hd_result(
 
     except Exception as e:
         logger.error(f"Error generating HD result for animation {animation_id}: {e}")
+        db.rollback()
+        raise e
+
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True)
+def cleanup_expired_animations(self):
+    """
+    Clean up animations older than 30 days.
+
+    This task is scheduled to run daily at 3 AM UTC via Celery Beat.
+    It deletes both the S3 video files and the database records.
+    """
+    from datetime import datetime, timedelta
+
+    db = SessionLocal()
+    try:
+        # Calculate cutoff date (30 days ago)
+        cutoff = datetime.utcnow() - timedelta(days=30)
+
+        # Find expired animations
+        expired_animations = (
+            db.query(AnimationAttempt)
+            .filter(AnimationAttempt.created_at < cutoff)
+            .all()
+        )
+
+        if not expired_animations:
+            logger.info("No expired animations to clean up")
+            return {"status": "success", "deleted_count": 0}
+
+        deleted_count = 0
+        errors = []
+
+        for animation in expired_animations:
+            try:
+                # Delete S3 objects
+                if animation.preview_s3_key and animation.preview_s3_key not in ("", "pending", "failed"):
+                    try:
+                        s3_service.delete_file(animation.preview_s3_key)
+                        logger.debug(f"Deleted S3 object: {animation.preview_s3_key}")
+                    except Exception as s3_error:
+                        logger.warning(f"Failed to delete S3 object {animation.preview_s3_key}: {s3_error}")
+
+                if animation.result_s3_key and animation.result_s3_key not in ("", "pending", "failed"):
+                    try:
+                        s3_service.delete_file(animation.result_s3_key)
+                        logger.debug(f"Deleted S3 object: {animation.result_s3_key}")
+                    except Exception as s3_error:
+                        logger.warning(f"Failed to delete S3 object {animation.result_s3_key}: {s3_error}")
+
+                if animation.thumb_s3_key and animation.thumb_s3_key not in ("", "pending", "failed"):
+                    try:
+                        s3_service.delete_file(animation.thumb_s3_key)
+                        logger.debug(f"Deleted S3 object: {animation.thumb_s3_key}")
+                    except Exception as s3_error:
+                        logger.warning(f"Failed to delete S3 object {animation.thumb_s3_key}: {s3_error}")
+
+                # Delete database record
+                db.delete(animation)
+                deleted_count += 1
+
+            except Exception as e:
+                logger.error(f"Error cleaning up animation {animation.id}: {e}")
+                errors.append({"animation_id": str(animation.id), "error": str(e)})
+
+        db.commit()
+
+        logger.success(f"Cleaned up {deleted_count} expired animations")
+
+        return {
+            "status": "success",
+            "deleted_count": deleted_count,
+            "errors": errors if errors else None,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in cleanup_expired_animations task: {e}")
         db.rollback()
         raise e
 

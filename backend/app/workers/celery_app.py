@@ -3,6 +3,7 @@ Celery application configuration
 """
 
 from celery import Celery
+from celery.schedules import crontab
 from app.core.config import settings
 
 # Create Celery instance
@@ -26,3 +27,12 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     worker_max_tasks_per_child=1000,
 )
+
+# Celery Beat schedule for periodic tasks
+celery_app.conf.beat_schedule = {
+    # Clean up expired animations (older than 30 days) daily at 3 AM UTC
+    'cleanup-expired-animations': {
+        'task': 'app.workers.tasks.jobs.cleanup_expired_animations',
+        'schedule': crontab(hour=3, minute=0),
+    },
+}

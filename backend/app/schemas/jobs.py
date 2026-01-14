@@ -52,14 +52,21 @@ class RestoreAttemptResponse(BaseModel):
 
 
 # Animation Attempt Schemas
+class AnimationParams(BaseModel):
+    """Parameters for animation generation"""
+
+    prompt: str  # Required: text description for video generation
+    resolution: str = "720p"  # Optional: 480p, 720p, or 1080p
+
+
 class AnimationAttemptCreate(BaseModel):
     """Schema for creating an animation attempt"""
 
     restore_id: Optional[UUID] = (
         None  # Optional: if not provided, will use original photo
     )
-    model: Optional[str] = None
-    params: Optional[Dict[str, Any]] = None
+    model: Optional[str] = "replicate_wan"  # Default to Replicate
+    params: AnimationParams  # Required: must include prompt
 
 
 class AnimationAttemptResponse(BaseModel):

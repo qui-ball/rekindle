@@ -38,6 +38,13 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
       setHasError(false);
 
       try {
+        // Check if video URL is already in metadata (for animated results)
+        if (result.resultType === 'animated' && result.metadata?.videoUrl) {
+          setImageUrl(result.metadata.videoUrl as string);
+          setIsLoading(false);
+          return;
+        }
+
         // If we have a fileKey, fetch the presigned URL from the backend
         if (result.fileKey && result.fileKey !== 'pending' && result.fileKey !== 'failed') {
           // Use authenticated API client
@@ -46,9 +53,26 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
               id: string;
               url?: string;
             }>;
+            animation_attempts?: Array<{
+              id: string;
+              preview_url?: string;
+              result_url?: string;
+            }>;
           }>(`/v1/jobs/${result.photoId}`);
-          
-          // Find the matching restore attempt
+
+          // Check animated results first if this is an animated result type
+          if (result.resultType === 'animated' && jobData.animation_attempts) {
+            const animationAttempt = jobData.animation_attempts.find(
+              (attempt: { id: string }) => attempt.id === result.id
+            );
+
+            if (animationAttempt?.result_url || animationAttempt?.preview_url) {
+              setImageUrl(animationAttempt.result_url || animationAttempt.preview_url || null);
+              return;
+            }
+          }
+
+          // Find the matching restore attempt for image results
           const restoreAttempt = jobData.restore_attempts?.find(
             (attempt: { id: string }) => attempt.id === result.id
           );
@@ -71,7 +95,7 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
     };
 
     fetchResultUrl();
-  }, [result.id, result.photoId, result.fileKey]);
+  }, [result.id, result.photoId, result.fileKey, result.resultType, result.metadata?.videoUrl]);
 
   // Handle delete action
   const handleDelete = async () => {

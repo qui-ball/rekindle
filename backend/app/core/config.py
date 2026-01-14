@@ -164,6 +164,14 @@ class Settings(BaseSettings):
         default=300,
         description="Replicate API request timeout in seconds",
     )
+    REPLICATE_ANIMATION_MODEL: str = Field(
+        default="wan-video/wan-2.5-i2v",
+        description="Replicate model identifier for image-to-video animation",
+    )
+    REPLICATE_ANIMATION_TIMEOUT: int = Field(
+        default=600,
+        description="Replicate animation API timeout in seconds (10 minutes)",
+    )
 
     # File upload
     MAX_FILE_SIZE: int = Field(default=50 * 1024 * 1024)  # 50MB

@@ -155,12 +155,39 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
   const renderAnimateParameters = () => {
     if (!isAnimateParameters(parameters)) return null;
 
+    const promptLength = (parameters.userPrompt || '').length;
+    const isPromptEmpty = !parameters.userPrompt?.trim();
+
     return (
       <>
         {/* Common Parameters */}
-        <div className="space-y-3">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Common Parameters</p>
-          
+        <div className="space-y-4">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Required Parameters</p>
+
+          {/* Animation Prompt - REQUIRED */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Animation Prompt <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={parameters.userPrompt || ''}
+              onChange={(e) => handleAnimateParameterChange('userPrompt', e.target.value)}
+              placeholder="e.g., The person smiles gently and turns their head slightly to the left"
+              rows={3}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                isPromptEmpty ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
+            />
+            <div className="flex justify-between mt-1">
+              <p className={`text-xs ${isPromptEmpty ? 'text-red-500' : 'text-gray-500'}`}>
+                {isPromptEmpty ? 'Required: Describe how you want the photo to move' : 'Describe the animation effects you want'}
+              </p>
+              <span className={`text-xs ${promptLength > 500 ? 'text-red-500' : 'text-gray-400'}`}>
+                {promptLength}/500
+              </span>
+            </div>
+          </div>
+
           {/* Video Duration Slider */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -169,63 +196,18 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
             <input
               type="range"
               min="5"
-              max="30"
+              max="10"
               value={parameters.videoDuration}
               onChange={(e) => handleAnimateParameterChange('videoDuration', parseInt(e.target.value))}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>5s</span>
-              <span>15s</span>
-              <span>30s</span>
+              <span>10s</span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Longer videos cost more to process (10-50 credits)
+              Video duration (5-10 seconds)
             </p>
-          </div>
-        </div>
-
-        {/* Advanced Options */}
-        <div className="mt-4 border-t border-gray-200 pt-4">
-          <button
-            onClick={onToggleAdvancedOptions}
-            className="flex items-center justify-between w-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-          >
-            <span>Advanced Options</span>
-            <svg 
-              className={`w-4 h-4 transition-transform duration-200 ${advancedOptionsOpen ? 'rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {/* Advanced Options Content */}
-          <div 
-            className={`overflow-hidden transition-all duration-250 ease-in-out ${
-              advancedOptionsOpen ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'
-            }`}
-          >
-            <div className="space-y-4">
-              {/* User Prompt Text Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  User Prompt (Optional)
-                </label>
-                <textarea
-                  value={parameters.userPrompt || ''}
-                  onChange={(e) => handleAnimateParameterChange('userPrompt', e.target.value)}
-                  placeholder="e.g., Make eyes blink and subtle smile..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Describe the animation effects you want
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </>

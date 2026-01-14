@@ -37,7 +37,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
     quality: 'standard',
     parameters: {
       restore: { colourize: false, denoiseLevel: 0.7, userPrompt: '' },
-      animate: { videoDuration: 15, userPrompt: '' }, // Default to middle value
+      animate: { videoDuration: 5, userPrompt: '' }, // Default to 5 seconds
       bringTogether: {}
     }
   });
@@ -87,7 +87,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
 
     // Animate cost (dynamic based on video duration)
     if (opts.animate) {
-      const videoDuration = opts.parameters?.animate?.videoDuration || 15;
+      const videoDuration = opts.parameters?.animate?.videoDuration || 5;
       individualCosts.animate = calculateAnimateCost(videoDuration);
     }
 
@@ -185,6 +185,11 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
   const canAfford = costBreakdown ? costBreakdown.totalCost <= availableCredits.totalCredits : false;
   const hasSelectedOptions = options.restore || options.animate || options.bringTogether;
 
+  // Check if animate prompt is valid (required when animate is selected)
+  const animatePrompt = options.parameters?.animate?.userPrompt?.trim() || '';
+  const isAnimatePromptValid = !options.animate || (animatePrompt.length >= 1 && animatePrompt.length <= 500);
+  const needsAnimatePrompt = options.animate && animatePrompt.length === 0;
+
   return (
     <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
       <h3 className="text-md font-medium text-gray-900 mb-4">Processing Options</h3>
@@ -238,9 +243,9 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
               </div>
             </div>
             <span className="text-sm font-medium text-gray-600">
-              {options.animate 
-                ? `${calculateAnimateCost(options.parameters?.animate?.videoDuration || 15)} credits`
-                : '10-50 credits'
+              {options.animate
+                ? `${calculateAnimateCost(options.parameters?.animate?.videoDuration || 5)} credits`
+                : '10-18 credits'
               }
             </span>
           </label>
@@ -249,7 +254,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
           <ProcessingParameterDrawer
             processingType="animate"
             isOpen={options.animate}
-            parameters={options.parameters?.animate || { videoDuration: 5 }}
+            parameters={options.parameters?.animate || { videoDuration: 5, userPrompt: '' }}
             onParametersChange={handleAnimateParametersChange}
             advancedOptionsOpen={advancedOptionsOpen.animate}
             onToggleAdvancedOptions={() => handleToggleAdvancedOptions('animate')}
@@ -336,7 +341,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
             {costBreakdown.individualCosts.animate > 0 && (
               <div className="flex justify-between">
                 <span className="text-gray-600">
-                  Animate ({options.parameters?.animate?.videoDuration || 15}s)
+                  Animate ({options.parameters?.animate?.videoDuration || 5}s)
                 </span>
                 <span className="text-gray-900">{costBreakdown.individualCosts.animate} credits</span>
               </div>
@@ -367,13 +372,13 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
       {/* Process Button */}
       <button
         onClick={handleProcess}
-        disabled={!hasSelectedOptions || !canAfford || isProcessing}
+        disabled={!hasSelectedOptions || !canAfford || isProcessing || !isAnimatePromptValid}
         className={`w-full py-4 px-4 rounded-lg font-medium transition-colors touch-manipulation min-h-[48px] ${
-          hasSelectedOptions && canAfford && !isProcessing
+          hasSelectedOptions && canAfford && !isProcessing && isAnimatePromptValid
             ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
         }`}
-        aria-label={hasSelectedOptions && canAfford ? 'Start processing photo' : 'Select processing options to continue'}
+        aria-label={hasSelectedOptions && canAfford && isAnimatePromptValid ? 'Start processing photo' : 'Complete all required fields to continue'}
       >
         {isProcessing ? (
           <div className="flex items-center justify-center space-x-2">
@@ -394,6 +399,20 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
             </svg>
             <span className="text-sm text-red-700">
               Insufficient credits. You need {costBreakdown?.totalCost || 0} credits but only have {availableCredits.totalCredits}.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Animation Prompt Required Warning */}
+      {needsAnimatePrompt && (
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span className="text-sm text-amber-700">
+              Please enter an animation prompt describing how you want the photo to move.
             </span>
           </div>
         </div>
