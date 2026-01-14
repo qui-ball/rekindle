@@ -4,9 +4,14 @@ Application configuration settings
 
 from typing import List
 from pathlib import Path
+
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from pydantic import Field, ConfigDict
 import pydantic
+
+# Load .env into os.environ for libraries that read env vars directly (e.g., replicate)
+load_dotenv()
 
 # Base directory for the app
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -130,21 +135,34 @@ class Settings(BaseSettings):
         description="ComfyUI execution mode: 'serverless' or 'pod'",
     )
 
-    # SiliconFlow
+    # SiliconFlow (deprecated - use Replicate instead)
     SILICONFLOW_API_KEY: str = Field(
-        default="", description="SiliconFlow API key for Qwen-Image-Edit"
+        default="", description="SiliconFlow API key for Qwen-Image-Edit (deprecated)"
     )
     SILICONFLOW_API_URL: str = Field(
         default="https://api.siliconflow.com/v1/images/generations",
-        description="SiliconFlow API endpoint URL",
+        description="SiliconFlow API endpoint URL (deprecated)",
     )
     SILICONFLOW_MODEL: str = Field(
         default="Qwen/Qwen-Image-Edit",
-        description="SiliconFlow model identifier",
+        description="SiliconFlow model identifier (deprecated)",
     )
     SILICONFLOW_TIMEOUT: int = Field(
         default=120,
-        description="SiliconFlow API request timeout in seconds",
+        description="SiliconFlow API request timeout in seconds (deprecated)",
+    )
+
+    # Replicate
+    REPLICATE_API_TOKEN: str = Field(
+        default="", description="Replicate API token for Qwen-Image-Edit-2511"
+    )
+    REPLICATE_MODEL: str = Field(
+        default="qwen/qwen-image-edit-2511",
+        description="Replicate model identifier",
+    )
+    REPLICATE_TIMEOUT: int = Field(
+        default=300,
+        description="Replicate API request timeout in seconds",
     )
 
     # File upload

@@ -29,6 +29,9 @@ loguru==0.7.2
 # HTTP client
 httpx==0.25.2
 
+# Replicate API
+replicate>=0.25.0
+
 # Environment variables
 python-dotenv==1.0.0
 

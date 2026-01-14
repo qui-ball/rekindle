@@ -19,9 +19,9 @@ from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.models.photo import Photo
 from app.services.s3 import s3_service
 from app.services.comfyui import comfyui_service
-from app.services.siliconflow import (
-    get_siliconflow_service,
-    SiliconFlowError,
+from app.services.replicate_service import (
+    get_replicate_service,
+    ReplicateError,
 )
 from app.services.image_processor import preprocess_image
 
@@ -94,9 +94,9 @@ def process_restoration(
                 db.commit()
                 raise ValueError(f"Failed to download photo image: {e}")
 
-            # ===== SILICONFLOW RESTORATION FOR PHOTO-BASED RESTORATIONS =====
+            # ===== REPLICATE RESTORATION FOR PHOTO-BASED RESTORATIONS (WEBHOOK MODE) =====
             try:
-                logger.info(f"Using SiliconFlow API for photo {photo.id} restoration")
+                logger.info(f"Using Replicate API (webhook mode) for photo {photo.id} restoration")
 
                 # Preprocess image (resize if needed, convert format)
                 preprocess_result = preprocess_image(image_data)
@@ -111,77 +111,38 @@ def process_restoration(
                 preprocessed_key = storage_service.generate_user_scoped_key(
                     user_id=photo.owner_id,
                     photo_id=photo.id,
-                    category="temp",
+                    category="raw",
                     filename="preprocessed.jpg",
                 )
                 storage_service.upload_file(
                     file_content=preprocess_result.image_bytes,
                     user_id=photo.owner_id,
                     photo_id=photo.id,
-                    category="temp",
+                    category="raw",
                     filename="preprocessed.jpg",
                     content_type="image/jpeg",
                 )
 
-                # Generate presigned URL for SiliconFlow API
-                presigned_url = s3_service.generate_presigned_url(preprocessed_key)
-                logger.debug(f"Generated presigned URL for SiliconFlow: {presigned_url[:100]}...")
+                # Generate presigned URL for Replicate API
+                presigned_url = s3_service.generate_presigned_download_url(preprocessed_key)
+                logger.debug(f"Generated presigned URL for Replicate: {presigned_url[:100]}...")
 
                 # Get custom prompt from params or use default
                 custom_prompt = params.get("prompt")
-                num_inference_steps = params.get("num_inference_steps", 20)
-                guidance_scale = params.get("guidance_scale", 7.5)
+                seed = params.get("seed")
+                output_format = params.get("output_format", "jpg")
+                output_quality = params.get("output_quality", 95)
 
-                # Call SiliconFlow API
-                siliconflow_service = get_siliconflow_service()
-                restored_image_data, siliconflow_metadata = asyncio.get_event_loop().run_until_complete(
-                    siliconflow_service.restore_image(
-                        image_url=presigned_url,
-                        prompt=custom_prompt,
-                        num_inference_steps=num_inference_steps,
-                        guidance_scale=guidance_scale,
-                    )
-                )
-
-                logger.info(
-                    f"SiliconFlow restoration completed: "
-                    f"inference_time={siliconflow_metadata.get('inference_time_seconds', 0)}s"
-                )
-
-                # Generate timestamp ID for this restore attempt
-                restore_timestamp_id = s3_service.generate_timestamp_id()
-
-                # Upload restored image to user-scoped processed storage
-                restored_url = storage_service.upload_file(
-                    file_content=restored_image_data,
-                    user_id=photo.owner_id,
-                    photo_id=photo.id,
-                    category="processed",
-                    filename=f"restored_{restore_timestamp_id}.jpg",
-                    content_type="image/jpeg",
-                )
-                processed_key = storage_service.generate_user_scoped_key(
-                    user_id=photo.owner_id,
-                    photo_id=photo.id,
-                    category="processed",
-                    filename=f"restored_{restore_timestamp_id}.jpg",
-                )
-
-                logger.info(f"Uploaded restored image to: {processed_key}")
-
-                # Create restore attempt record with SiliconFlow metadata
+                # Create pending restore attempt BEFORE calling Replicate
                 restore = RestoreAttempt(
                     job_id=job_uuid,
-                    s3_key=processed_key,
-                    model=model or "siliconflow_qwen",
+                    s3_key="pending",  # Will be updated by webhook
+                    model=model or "replicate_qwen",
                     params={
                         **params,
-                        "provider": "siliconflow",
-                        "siliconflow_model": siliconflow_metadata.get("model"),
-                        "inference_time_seconds": siliconflow_metadata.get("inference_time_seconds"),
-                        "seed": siliconflow_metadata.get("seed"),
-                        "num_inference_steps": num_inference_steps,
-                        "guidance_scale": guidance_scale,
+                        "provider": "replicate",
+                        "output_format": output_format,
+                        "output_quality": output_quality,
                         "preprocessing": {
                             "resized": preprocess_result.resized,
                             "original_dimensions": list(preprocess_result.original_dimensions),
@@ -192,69 +153,82 @@ def process_restoration(
                     },
                 )
                 db.add(restore)
-                db.flush()
-
-                # Update job's selected restore
-                job.selected_restore_id = restore.id
-
-                # Update photo with processed key and status
-                photo.processed_key = processed_key
-                photo.status = "ready"
-
-                # Generate and upload thumbnail for restored image
-                try:
-                    s3_service.upload_job_thumbnail(
-                        image_content=restored_image_data, job_id=job_id, extension="jpg"
-                    )
-                    job.thumbnail_s3_key = f"thumbnails/{job_id}.jpg"
-                    logger.info(f"Generated thumbnail for restored image {job_id}")
-                except Exception as thumb_error:
-                    logger.error(f"Failed to generate thumbnail: {thumb_error}")
-
                 db.commit()
 
-                logger.success(f"Completed SiliconFlow restoration {restore.id} for photo {photo.id}")
+                # Build webhook URL with photo_id
+                webhook_url = f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/replicate/{job_id}"
+                logger.info(f"Webhook URL: {webhook_url}")
 
+                # Create async prediction with webhook (non-blocking)
+                replicate_service = get_replicate_service()
+                prediction_id = replicate_service.create_prediction_with_webhook(
+                    image_url=presigned_url,
+                    webhook_url=webhook_url,
+                    photo_id=job_id,
+                    prompt=custom_prompt,
+                    seed=seed,
+                    output_format=output_format,
+                    output_quality=output_quality,
+                )
+
+                # Update restore attempt with prediction ID
+                restore.params = {**restore.params, "prediction_id": prediction_id}
+                db.commit()
+
+                logger.info(f"Replicate prediction {prediction_id} submitted for photo {photo.id}")
+
+                # Return immediately - webhook will handle completion
+                # Photo stays in "processing" status until webhook updates it
                 return {
-                    "status": "success",
+                    "status": "submitted",
                     "job_id": job_id,
                     "restore_id": str(restore.id),
-                    "restored_url": restored_url,
-                    "provider": "siliconflow",
-                    "inference_time_seconds": siliconflow_metadata.get("inference_time_seconds"),
+                    "prediction_id": prediction_id,
+                    "provider": "replicate",
                 }
 
-            except SiliconFlowError as e:
-                logger.error(f"SiliconFlow API error for photo {photo.id}: {e}")
+            except ReplicateError as e:
+                logger.error(f"Replicate API error for photo {photo.id}: {e}")
 
                 # Revert photo status to uploaded
                 photo.status = "uploaded"
 
-                # Create failed restore attempt with error details
-                restore = RestoreAttempt(
-                    job_id=job_uuid,
-                    s3_key="failed",
-                    model=model or "siliconflow_qwen",
-                    params={
-                        **params,
-                        "provider": "siliconflow",
-                        "error": e.to_dict(),
-                    },
-                )
-                db.add(restore)
+                # Update restore attempt to failed (if it was created)
+                if 'restore' in locals():
+                    restore.s3_key = "failed"
+                    restore.params = {**restore.params, "error": e.to_dict()}
+                else:
+                    # Create failed restore attempt if we didn't get that far
+                    restore = RestoreAttempt(
+                        job_id=job_uuid,
+                        s3_key="failed",
+                        model=model or "replicate_qwen",
+                        params={
+                            **params,
+                            "provider": "replicate",
+                            "error": e.to_dict(),
+                        },
+                    )
+                    db.add(restore)
                 db.commit()
 
-                raise ValueError(f"SiliconFlow restoration failed: {e.message}")
+                raise ValueError(f"Replicate restoration failed: {e.message}")
 
             except Exception as e:
-                logger.error(f"Unexpected error during SiliconFlow restoration: {e}")
+                logger.error(f"Unexpected error during Replicate restoration: {e}")
 
                 # Revert photo status to uploaded
                 photo.status = "uploaded"
+
+                # Update restore attempt to failed (if it was created)
+                if 'restore' in locals():
+                    restore.s3_key = "failed"
+                    restore.params = {**restore.params, "error": str(e)}
+
                 db.commit()
 
                 raise
-            # ===== END SILICONFLOW RESTORATION =====
+            # ===== END REPLICATE RESTORATION =====
         else:
             # Legacy job-based restoration - try job-based paths
             uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
@@ -484,6 +458,9 @@ def process_restoration(
             db.commit()
 
             logger.success(f"Completed restoration {restore.id} for job {job_id}")
+
+            # Note: SSE notifications are handled by webhooks for async providers.
+            # For synchronous pod mode, the frontend should poll or refresh.
 
             return {
                 "status": "success",
