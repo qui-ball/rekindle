@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekindle - Design 9: Professional Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Avenir Next', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8f8f8;
+            color: #2c2c2c;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 0;
+            border-bottom: 2px solid #2c2c2c;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #2c2c2c;
+            letter-spacing: 3px;
+        }
+
+        nav {
+            display: flex;
+            gap: 3rem;
+        }
+
+        nav a {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: color 0.3s ease;
+        }
+
+        nav a:hover {
+            color: #2c2c2c;
+        }
+
+        .hero {
+            padding: 6rem 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 4.5rem;
+            font-weight: 700;
+            color: #2c2c2c;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            letter-spacing: -2px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: #666;
+            max-width: 700px;
+            margin: 0 auto;
+            font-weight: 300;
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            margin: 6rem 0;
+            align-items: start;
+        }
+
+        .portfolio-item {
+            position: relative;
+        }
+
+        .portfolio-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #999;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .photo-display {
+            aspect-ratio: 4/5;
+            background: #e5e5e5;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 1rem;
+            font-weight: 300;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .photo-display.after {
+            background: #2c2c2c;
+            color: #fff;
+            border-color: #2c2c2c;
+        }
+
+        .photo-display::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 20px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+
+        .services {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3rem;
+            margin: 6rem 0;
+            padding: 4rem 0;
+            border-top: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .service {
+            text-align: left;
+        }
+
+        .service-number {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #e5e5e5;
+            line-height: 1;
+            margin-bottom: 1rem;
+        }
+
+        .service h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c2c2c;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .service p {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            font-weight: 300;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin: 6rem 0;
+            text-align: center;
+        }
+
+        .stat {
+            padding: 2rem;
+        }
+
+        .stat-number {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #2c2c2c;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+        .cta-section {
+            text-align: center;
+            padding: 6rem 2rem;
+            background: #2c2c2c;
+            color: #fff;
+            margin: 6rem 0;
+        }
+
+        .cta-section h2 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: -2px;
+        }
+
+        .cta-section p {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 2.5rem;
+            font-weight: 300;
+        }
+
+        .btn-primary {
+            background: #fff;
+            color: #2c2c2c;
+            padding: 1.2rem 4rem;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: #f8f8f8;
+            transform: translateY(-2px);
+        }
+
+        /* Responsive - Tablet */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            .portfolio-grid {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+
+            .services {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .hero {
+                padding: 4rem 0;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .stats-bar {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .btn-primary {
+                width: 100%;
+            }
+        }
+
+        /* Responsive - Mobile */
+        @media (max-width: 480px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header {
+                padding: 1.5rem 0;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+                letter-spacing: 2px;
+            }
+
+            nav {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            nav a {
+                font-size: 0.8rem;
+            }
+
+            .hero {
+                padding: 3rem 0;
+            }
+
+            .hero h1 {
+                font-size: 1.75rem;
+                letter-spacing: -1px;
+                line-height: 1.2;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .portfolio-grid {
+                gap: 2rem;
+                margin: 3rem 0;
+            }
+
+            .portfolio-label {
+                font-size: 0.7rem;
+            }
+
+            .photo-display {
+                font-size: 0.9rem;
+            }
+
+            .services {
+                gap: 1.5rem;
+                margin: 3rem 0;
+                padding: 2rem 0;
+            }
+
+            .service {
+                padding: 2rem;
+            }
+
+            .service-number {
+                font-size: 3rem;
+            }
+
+            .service h3 {
+                font-size: 1.3rem;
+            }
+
+            .service p {
+                font-size: 0.9rem;
+            }
+
+            .stats-bar {
+                gap: 1rem;
+                margin: 3rem 0;
+            }
+
+            .stat {
+                padding: 1.5rem;
+            }
+
+            .stat-number {
+                font-size: 3rem;
+            }
+
+            .stat-label {
+                font-size: 0.8rem;
+            }
+
+            .cta-section {
+                padding: 3rem 1rem;
+                margin: 3rem 0;
+            }
+
+            .cta-section h2 {
+                font-size: 2rem;
+            }
+
+            .cta-section p {
+                font-size: 1rem;
+            }
+
+            .btn-primary {
+                padding: 1rem 2rem;
+                font-size: 0.9rem;
+                width: 100%;
+                min-height: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">REKINDLE</div>
+            <nav>
+                <a href="#">Services</a>
+                <a href="#">Portfolio</a>
+                <a href="#">Pricing</a>
+                <a href="#">Contact</a>
+            </nav>
+        </header>
+
+        <section class="hero">
+            <h1>Professional Photo<br>Restoration Services</h1>
+            <p>Expert restoration and colourization for your most valuable photographs. Precision, quality, and attention to detail.</p>
+        </section>
+
+        <section class="portfolio-grid">
+            <div class="portfolio-item">
+                <div class="portfolio-label">Before</div>
+                <div class="photo-display">Original Condition</div>
+            </div>
+            <div class="portfolio-item">
+                <div class="portfolio-label">After</div>
+                <div class="photo-display after">Restored & Enhanced</div>
+            </div>
+        </section>
+
+        <section class="services">
+            <div class="service">
+                <div class="service-number">01</div>
+                <h3>Restoration</h3>
+                <p>Professional-grade damage removal and repair. Every scratch, tear, and imperfection addressed with meticulous care.</p>
+            </div>
+            <div class="service">
+                <div class="service-number">02</div>
+                <h3>Colourization</h3>
+                <p>Authentic color addition using advanced AI technology. Natural, realistic colors that honor the original composition.</p>
+            </div>
+            <div class="service">
+                <div class="service-number">03</div>
+                <h3>Animation</h3>
+                <p>Subtle motion effects that bring photographs to life. Professional animation that enhances without overwhelming.</p>
+            </div>
+        </section>
+
+        <section class="stats-bar">
+            <div class="stat">
+                <div class="stat-number">98%</div>
+                <div class="stat-label">Accuracy</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">50K+</div>
+                <div class="stat-label">Photos Processed</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number">4.9</div>
+                <div class="stat-label">Client Rating</div>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <h2>Start Your Project</h2>
+            <p>Professional restoration services for your valuable memories</p>
+            <button class="btn-primary">Get Started</button>
+        </section>
+    </div>
+</body>
+</html>

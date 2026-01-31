@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekindle - Mobile Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #856404;
+        }
+
+        .designs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .design-preview {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .design-preview h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .design-preview .theme {
+            color: #666;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+
+        .mobile-frame {
+            width: 100%;
+            max-width: 375px;
+            margin: 0 auto;
+            background: #1a1a1a;
+            border-radius: 25px;
+            padding: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .mobile-screen {
+            width: 100%;
+            aspect-ratio: 9/16;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .mobile-screen iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            transform: scale(0.5);
+            transform-origin: top left;
+            width: 200%;
+            height: 200%;
+        }
+
+        .view-full {
+            display: block;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .view-full:hover {
+            background: #555;
+        }
+
+        .mobile-indicator {
+            text-align: center;
+            color: #999;
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .designs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mobile Design Preview</h1>
+        <p class="subtitle">View all designs optimized for mobile devices</p>
+
+        <div class="instructions">
+            <strong>💡 Tip:</strong> Resize your browser window or use your device's developer tools to see how each design adapts to mobile screens. All designs are fully responsive and optimized for touch interactions.
+        </div>
+
+        <div class="designs-grid">
+            <div class="design-preview">
+                <h3>Design 1: Warm Nostalgic</h3>
+                <p class="theme">Vintage Photo Album</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-1-warm-nostalgic.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-1-warm-nostalgic.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 2: Modern Elegant</h3>
+                <p class="theme">Sophisticated Minimalism</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-2-modern-elegant.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-2-modern-elegant.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 3: Vibrant Transformation</h3>
+                <p class="theme">Dynamic & Energetic</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-3-vibrant-transformation.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-3-vibrant-transformation.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 4: Soft Pastel</h3>
+                <p class="theme">Gentle & Dreamy</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-4-soft-pastel.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-4-soft-pastel.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 5: Minimalist Clean</h3>
+                <p class="theme">Ultra Simple</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-5-minimalist-clean.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-5-minimalist-clean.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 6: Retro Modern</h3>
+                <p class="theme">80s Tech Aesthetic</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-6-retro-modern.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-6-retro-modern.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 7: Elegant Dark</h3>
+                <p class="theme">Sophisticated Luxury</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-7-elegant-dark.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-7-elegant-dark.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 8: Playful Friendly</h3>
+                <p class="theme">Fun & Approachable</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-8-playful-friendly.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-8-playful-friendly.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 9: Professional Studio</h3>
+                <p class="theme">Clean & Corporate</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-9-professional-studio.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-9-professional-studio.html" class="view-full">View Full Design</a>
+            </div>
+
+            <div class="design-preview">
+                <h3>Design 10: Cozy Home</h3>
+                <p class="theme">Warm & Family-Friendly</p>
+                <div class="mobile-frame">
+                    <div class="mobile-screen">
+                        <iframe src="design-10-cozy-home.html"></iframe>
+                    </div>
+                </div>
+                <div class="mobile-indicator">📱 Mobile View</div>
+                <a href="design-10-cozy-home.html" class="view-full">View Full Design</a>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem; padding: 2rem;">
+            <a href="index.html" style="color: #666; text-decoration: none; font-size: 0.9rem;">← Back to All Designs</a>
+        </div>
+    </div>
+</body>
+</html>

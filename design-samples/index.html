@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekindle Design Samples</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 3rem 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 3rem;
+            font-size: 1.1rem;
+        }
+
+        .designs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .design-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .design-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .design-card h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+
+        .design-card .theme {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+
+        .design-card .description {
+            color: #555;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .design-card .features {
+            list-style: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .design-card .features li {
+            padding: 0.3rem 0;
+            color: #666;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .design-card .features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: #555;
+        }
+
+        .btn-1 {
+            background: #8b4513;
+        }
+
+        .btn-1:hover {
+            background: #a0522d;
+        }
+
+        .btn-2 {
+            background: #8b6f47;
+        }
+
+        .btn-2:hover {
+            background: #a0825f;
+        }
+
+        .btn-3 {
+            background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+        }
+
+        .btn-3:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #26a69a 100%);
+        }
+
+        .btn-4 {
+            background: linear-gradient(135deg, #d4a5c8 0%, #9b7fb8 100%);
+        }
+
+        .btn-4:hover {
+            background: linear-gradient(135deg, #c895b8 0%, #8b6fa8 100%);
+        }
+
+        .btn-5 {
+            background: #1a1a1a;
+        }
+
+        .btn-5:hover {
+            background: #333;
+        }
+
+        .btn-6 {
+            background: #ffd700;
+            color: #1a1a2e;
+        }
+
+        .btn-6:hover {
+            background: #ffed4e;
+        }
+
+        .btn-7 {
+            background: #d4af37;
+            color: #0f0f0f;
+        }
+
+        .btn-7:hover {
+            background: #e5c047;
+        }
+
+        .btn-8 {
+            background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+        }
+
+        .btn-8:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #26a69a 100%);
+        }
+
+        .btn-9 {
+            background: #2c2c2c;
+        }
+
+        .btn-9:hover {
+            background: #444;
+        }
+
+        .btn-10 {
+            background: linear-gradient(135deg, #c9a882 0%, #8b6f47 100%);
+        }
+
+        .btn-10:hover {
+            background: linear-gradient(135deg, #b99872 0%, #7b5f37 100%);
+        }
+
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin-top: 2rem;
+            border-radius: 4px;
+        }
+
+        .note strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rekindle Design Samples</h1>
+        <p class="subtitle">Ten distinct design approaches for bringing memories to life</p>
+
+        <div class="designs">
+            <div class="design-card">
+                <h2>Design 1: Warm Nostalgic</h2>
+                <p class="theme">Vintage Photo Album Aesthetic</p>
+                <p class="description">
+                    A warm, sepia-toned design that evokes the feeling of old photo albums. Perfect for users who want a traditional, comforting experience that feels like rediscovering family memories.
+                </p>
+                <ul class="features">
+                    <li>Sepia and warm earth tones</li>
+                    <li>Vintage photo frame elements</li>
+                    <li>Serif typography (Georgia)</li>
+                    <li>Soft, organic shapes</li>
+                    <li>Nostalgic decorative elements</li>
+                </ul>
+                <a href="design-1-warm-nostalgic.html" class="btn btn-1">View Design 1</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 2: Modern Elegant</h2>
+                <p class="theme">Sophisticated Minimalism</p>
+                <p class="description">
+                    Clean, elegant design with subtle warmth. Balances modern aesthetics with emotional connection. Ideal for users who appreciate sophistication without sacrificing warmth.
+                </p>
+                <ul class="features">
+                    <li>Clean, minimal layout</li>
+                    <li>Sophisticated color palette</li>
+                    <li>Modern sans-serif typography</li>
+                    <li>Subtle animations</li>
+                    <li>Professional yet approachable</li>
+                </ul>
+                <a href="design-2-modern-elegant.html" class="btn btn-2">View Design 2</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 3: Vibrant Transformation</h2>
+                <p class="theme">Dynamic & Energetic</p>
+                <p class="description">
+                    Bold, vibrant design that emphasizes the transformation aspect. Perfect for showcasing the "before and after" magic of photo restoration with energy and excitement.
+                </p>
+                <ul class="features">
+                    <li>Vibrant gradient colors</li>
+                    <li>Dark background with glowing accents</li>
+                    <li>Bold typography</li>
+                    <li>Animated elements</li>
+                    <li>High contrast transformation focus</li>
+                </ul>
+                <a href="design-3-vibrant-transformation.html" class="btn btn-3">View Design 3</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 4: Soft Pastel</h2>
+                <p class="theme">Gentle & Dreamy</p>
+                <p class="description">
+                    A soft, pastel design with gentle colors and dreamy aesthetics. Perfect for users who want a calming, tender experience that feels like a gentle touch on precious memories.
+                </p>
+                <ul class="features">
+                    <li>Soft pastel color palette</li>
+                    <li>Gentle rounded shapes</li>
+                    <li>Light, airy feel</li>
+                    <li>Feminine and delicate</li>
+                    <li>Soothing visual experience</li>
+                </ul>
+                <a href="design-4-soft-pastel.html" class="btn btn-4">View Design 4</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 5: Minimalist Clean</h2>
+                <p class="theme">Ultra Simple & Pure</p>
+                <p class="description">
+                    The ultimate minimalist approach with maximum white space and minimal elements. Perfect for users who want absolute simplicity and focus on the photos themselves.
+                </p>
+                <ul class="features">
+                    <li>Maximum white space</li>
+                    <li>Ultra-minimal layout</li>
+                    <li>Black and white palette</li>
+                    <li>Clean typography</li>
+                    <li>Photo-focused design</li>
+                </ul>
+                <a href="design-5-minimalist-clean.html" class="btn btn-5">View Design 5</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 6: Retro Modern</h2>
+                <p class="theme">80s Tech Aesthetic</p>
+                <p class="description">
+                    A retro-futuristic design inspired by 1980s computer terminals and tech aesthetics. Perfect for users who appreciate nostalgia with a modern twist and tech-forward feel.
+                </p>
+                <ul class="features">
+                    <li>Terminal/command-line aesthetic</li>
+                    <li>Gold/yellow accents on dark</li>
+                    <li>Monospace typography</li>
+                    <li>Retro tech elements</li>
+                    <li>Nostalgic computing feel</li>
+                </ul>
+                <a href="design-6-retro-modern.html" class="btn btn-6">View Design 6</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 7: Elegant Dark</h2>
+                <p class="theme">Sophisticated Luxury</p>
+                <p class="description">
+                    A luxurious dark theme with gold accents and elegant serif typography. Perfect for users who want a premium, sophisticated experience that feels like a high-end service.
+                </p>
+                <ul class="features">
+                    <li>Dark background with gold accents</li>
+                    <li>Elegant serif typography</li>
+                    <li>Luxury aesthetic</li>
+                    <li>Sophisticated color palette</li>
+                    <li>Premium feel</li>
+                </ul>
+                <a href="design-7-elegant-dark.html" class="btn btn-7">View Design 7</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 8: Playful Friendly</h2>
+                <p class="theme">Fun & Approachable</p>
+                <p class="description">
+                    A playful, fun design with bright colors and friendly elements. Perfect for users who want a lighthearted, approachable experience that doesn't take itself too seriously.
+                </p>
+                <ul class="features">
+                    <li>Bright, cheerful colors</li>
+                    <li>Playful typography</li>
+                    <li>Fun animations</li>
+                    <li>Friendly, casual tone</li>
+                    <li>Approachable and welcoming</li>
+                </ul>
+                <a href="design-8-playful-friendly.html" class="btn btn-8">View Design 8</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 9: Professional Studio</h2>
+                <p class="theme">Clean & Corporate</p>
+                <p class="description">
+                    A professional, studio-quality design with clean lines and corporate aesthetics. Perfect for users who want a business-like, trustworthy experience that emphasizes quality and professionalism.
+                </p>
+                <ul class="features">
+                    <li>Professional layout</li>
+                    <li>Corporate color scheme</li>
+                    <li>Clean typography</li>
+                    <li>Portfolio-style presentation</li>
+                    <li>Trustworthy and reliable</li>
+                </ul>
+                <a href="design-9-professional-studio.html" class="btn btn-9">View Design 9</a>
+            </div>
+
+            <div class="design-card">
+                <h2>Design 10: Cozy Home</h2>
+                <p class="theme">Warm & Family-Friendly</p>
+                <p class="description">
+                    A cozy, homey design that feels like a family photo album. Perfect for users who want a warm, familiar experience that emphasizes family connections and comfort.
+                </p>
+                <ul class="features">
+                    <li>Warm, homey colors</li>
+                    <li>Photo album aesthetic</li>
+                    <li>Comfortable typography</li>
+                    <li>Family-friendly feel</li>
+                    <li>Cozy and inviting</li>
+                </ul>
+                <a href="design-10-cozy-home.html" class="btn btn-10">View Design 10</a>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 2rem 0;">
+            <a href="mobile-preview.html" style="display: inline-block; padding: 1rem 2rem; background: #4CAF50; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin-bottom: 2rem;">
+                📱 View Mobile Previews
+            </a>
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong> These are standalone HTML samples. Open each design in your browser to see the full experience. All 10 designs are fully responsive and optimized for mobile devices with touch-friendly elements. Use the "View Mobile Previews" button above to see all designs in mobile viewport, or resize your browser window to test responsiveness. You can use these as inspiration for your final implementation or mix elements from different designs.
+        </div>
+    </div>
+</body>
+</html>

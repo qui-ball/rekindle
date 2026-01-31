@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rekindle - Design 4: Soft Pastel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #ffeef8 0%, #f0e6ff 50%, #e6f3ff 100%);
+            color: #4a4a4a;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 300;
+            color: #d4a5c8;
+            margin-bottom: 0.5rem;
+            letter-spacing: 3px;
+        }
+
+        .tagline {
+            font-size: 1.1rem;
+            color: #9b7fb8;
+            font-weight: 300;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 4rem 0;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 300;
+            color: #6b5b7d;
+            margin-bottom: 1rem;
+            line-height: 1.3;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: #8b7a9b;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            font-weight: 300;
+        }
+
+        .showcase {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3rem;
+            margin: 4rem 0;
+            flex-wrap: wrap;
+        }
+
+        .photo-box {
+            background: white;
+            border-radius: 25px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            width: 280px;
+            transition: transform 0.3s ease;
+        }
+
+        .photo-box:hover {
+            transform: translateY(-10px);
+        }
+
+        .photo-box.before {
+            border: 3px solid #e8d4e6;
+        }
+
+        .photo-box.after {
+            border: 3px solid #d4e8f5;
+            background: linear-gradient(135deg, #fff5f9 0%, #f0f8ff 100%);
+        }
+
+        .photo-content {
+            aspect-ratio: 3/4;
+            background: linear-gradient(135deg, #f5e6f0 0%, #e8d4e6 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9b7fb8;
+            font-size: 1.1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .photo-box.after .photo-content {
+            background: linear-gradient(135deg, #ffeef8 0%, #e6f3ff 100%);
+            color: #d4a5c8;
+        }
+
+        .photo-label {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #8b7a9b;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .arrow {
+            font-size: 2.5rem;
+            color: #d4a5c8;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin: 4rem 0;
+        }
+
+        .feature {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 2.5rem;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid rgba(212, 165, 200, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .feature:hover {
+            border-color: #d4a5c8;
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature h3 {
+            color: #6b5b7d;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+            font-size: 1.3rem;
+        }
+
+        .feature p {
+            color: #8b7a9b;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .cta-section {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: white;
+            border-radius: 30px;
+            margin: 4rem 0;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        }
+
+        .cta-section h2 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            color: #6b5b7d;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            color: #8b7a9b;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #d4a5c8 0%, #9b7fb8 100%);
+            color: white;
+            padding: 1.2rem 3rem;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 400;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(212, 165, 200, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(212, 165, 200, 0.5);
+        }
+
+        /* Responsive - Tablet */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            .showcase {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .arrow {
+                transform: rotate(90deg);
+                font-size: 2rem;
+            }
+
+            .features {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .hero {
+                padding: 3rem 0;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .btn-primary {
+                width: 100%;
+            }
+        }
+
+        /* Responsive - Mobile */
+        @media (max-width: 480px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header {
+                padding: 2rem 0 1rem;
+            }
+
+            .logo {
+                font-size: 2rem;
+                letter-spacing: 2px;
+            }
+
+            .tagline {
+                font-size: 1rem;
+            }
+
+            .hero {
+                padding: 2rem 0;
+            }
+
+            .hero h1 {
+                font-size: 1.5rem;
+                line-height: 1.3;
+            }
+
+            .hero p {
+                font-size: 0.95rem;
+                padding: 0 1rem;
+            }
+
+            .showcase {
+                gap: 1rem;
+                margin: 2rem 0;
+            }
+
+            .photo-box {
+                width: 100%;
+                padding: 1.5rem;
+            }
+
+            .photo-content {
+                font-size: 1rem;
+            }
+
+            .photo-label {
+                font-size: 0.85rem;
+            }
+
+            .arrow {
+                font-size: 1.5rem;
+                margin: 0.5rem 0;
+            }
+
+            .features {
+                gap: 1rem;
+                margin: 2rem 0;
+            }
+
+            .feature {
+                padding: 2rem;
+            }
+
+            .feature-icon {
+                font-size: 2.5rem;
+            }
+
+            .feature h3 {
+                font-size: 1.2rem;
+            }
+
+            .feature p {
+                font-size: 0.9rem;
+            }
+
+            .cta-section {
+                padding: 2.5rem 1.5rem;
+                margin: 2rem 0;
+            }
+
+            .cta-section h2 {
+                font-size: 2rem;
+            }
+
+            .cta-section p {
+                font-size: 1rem;
+            }
+
+            .btn-primary {
+                padding: 1rem 2rem;
+                font-size: 1rem;
+                width: 100%;
+                min-height: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Rekindle</div>
+            <div class="tagline">Bring your memories to life</div>
+        </header>
+
+        <section class="hero">
+            <h1>Gentle Restoration<br>for Precious Memories</h1>
+            <p>Transform your faded photos with care and tenderness, preserving every precious moment with soft, natural colors.</p>
+        </section>
+
+        <section class="showcase">
+            <div class="photo-box before">
+                <div class="photo-content">Faded Memories</div>
+                <div class="photo-label">Before</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="photo-box after">
+                <div class="photo-content">Restored Beauty</div>
+                <div class="photo-label">After</div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="feature">
+                <div class="feature-icon">🌸</div>
+                <h3>Restore</h3>
+                <p>Gently remove damage while preserving the delicate details of your memories.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💐</div>
+                <h3>Colorize</h3>
+                <p>Add soft, natural colors that bring warmth and life to black and white photos.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">✨</div>
+                <h3>Animate</h3>
+                <p>Create gentle motion that makes your photos feel alive and magical.</p>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <h2>Start Your Journey</h2>
+            <p>Begin restoring your precious memories today</p>
+            <button class="btn-primary">Get Started</button>
+        </section>
+    </div>
+</body>
+</html>
