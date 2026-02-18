@@ -2,6 +2,7 @@
 Celery tasks for job processing - new architecture
 """
 
+import asyncio
 from celery import current_task
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -13,11 +14,19 @@ import random
 
 from app.workers.celery_app import celery_app
 from app.core.database import SessionLocal
-from app.core.config import settings
+from app.core.config import settings, BASE_DIR
 from app.models.jobs import Job, RestoreAttempt, AnimationAttempt
 from app.models.photo import Photo
 from app.services.s3 import s3_service
 from app.services.comfyui import comfyui_service
+from app.services.replicate_service import (
+    get_replicate_service,
+    ReplicateError,
+    BASE_RESTORATION_PROMPT,
+    PRESERVE_COLORS_SUFFIX,
+    COLORIZE_PROMPT_SUFFIX,
+)
+from app.services.image_processor import preprocess_image
 
 
 @celery_app.task(bind=True)
@@ -53,21 +62,238 @@ def process_restoration(
         photo = db.query(Photo).filter(Photo.id == job_uuid).first()
         image_data = None
         uploaded_key = None
-        
+
         if photo:
             # This is a photo-based restoration - use photo's original_key
-            logger.info(f"Photo-based restoration detected, using original_key: {photo.original_key}")
+            logger.info(
+                f"Photo-based restoration detected, using original_key: {photo.original_key}"
+            )
+
+            # Check for concurrent restoration (reject if already processing)
+            if photo.status == "processing":
+                raise ValueError(
+                    f"Photo {photo.id} is already being processed. "
+                    "Please wait for the current restoration to complete."
+                )
+
+            # Mark photo as processing
+            photo.status = "processing"
+            db.commit()
+
             try:
                 # Use storage_service to download from user-scoped storage
                 from app.services.storage_service import storage_service
+
                 image_data = storage_service.download_file(
-                    photo.original_key,
-                    photo.owner_id
+                    photo.original_key, photo.owner_id
                 )
                 uploaded_key = photo.original_key
             except Exception as e:
-                logger.error(f"Failed to download photo original_key {photo.original_key}: {e}")
+                logger.error(
+                    f"Failed to download photo original_key {photo.original_key}: {e}"
+                )
+                # Revert photo status on failure
+                photo.status = "uploaded"
+                db.commit()
                 raise ValueError(f"Failed to download photo image: {e}")
+
+            # ===== REPLICATE RESTORATION FOR PHOTO-BASED RESTORATIONS (WEBHOOK MODE) =====
+            try:
+                logger.info(f"Using Replicate API (webhook mode) for photo {photo.id} restoration")
+
+                # Preprocess image (resize if needed, convert format)
+                preprocess_result = preprocess_image(image_data)
+                logger.info(
+                    f"Image preprocessed: resized={preprocess_result.resized}, "
+                    f"format_converted={preprocess_result.format_converted}, "
+                    f"original={preprocess_result.original_dimensions}, "
+                    f"new={preprocess_result.new_dimensions}"
+                )
+
+                # Upload preprocessed image to S3 and get presigned URL
+                preprocessed_key = storage_service.generate_user_scoped_key(
+                    user_id=photo.owner_id,
+                    photo_id=photo.id,
+                    category="raw",
+                    filename="preprocessed.jpg",
+                )
+                storage_service.upload_file(
+                    file_content=preprocess_result.image_bytes,
+                    user_id=photo.owner_id,
+                    photo_id=photo.id,
+                    category="raw",
+                    filename="preprocessed.jpg",
+                    content_type="image/jpeg",
+                )
+
+                # Generate presigned URL for Replicate API
+                presigned_url = s3_service.generate_presigned_download_url(preprocessed_key)
+                logger.debug(f"Generated presigned URL for Replicate: {presigned_url[:100]}...")
+
+                # Get custom prompt from params or use default
+                custom_prompt = params.get("prompt")
+                colourize = params.get("colourize", False)
+                seed = params.get("seed")
+                output_format = params.get("output_format", "jpg")
+                output_quality = params.get("output_quality", 95)
+
+                # Build the final prompt based on colourize parameter
+                # Start with base prompt
+                final_prompt = BASE_RESTORATION_PROMPT
+
+                # Append user's custom prompt if provided
+                if custom_prompt:
+                    final_prompt = final_prompt + " " + custom_prompt
+
+                # Add color instruction based on colourize parameter
+                if colourize:
+                    final_prompt = final_prompt + COLORIZE_PROMPT_SUFFIX
+                else:
+                    final_prompt = final_prompt + PRESERVE_COLORS_SUFFIX
+
+                custom_prompt = final_prompt
+
+                # Check if a restore attempt already exists (created by endpoint)
+                # If so, use it; otherwise create a new one
+                restore = (
+                    db.query(RestoreAttempt)
+                    .filter(
+                        RestoreAttempt.job_id == job_uuid,
+                        RestoreAttempt.s3_key == "",  # Not yet processed
+                    )
+                    .order_by(RestoreAttempt.created_at.desc())
+                    .first()
+                )
+
+                restore_params = {
+                    **params,
+                    "provider": "replicate",
+                    "output_format": output_format,
+                    "output_quality": output_quality,
+                    "preprocessing": {
+                        "resized": preprocess_result.resized,
+                        "original_dimensions": list(preprocess_result.original_dimensions),
+                        "new_dimensions": list(preprocess_result.new_dimensions),
+                        "format_converted": preprocess_result.format_converted,
+                        "original_format": preprocess_result.original_format,
+                    },
+                }
+
+                if not restore:
+                    # Create pending restore attempt BEFORE calling Replicate
+                    restore = RestoreAttempt(
+                        job_id=job_uuid,
+                        s3_key="pending",  # Will be updated by webhook
+                        model=model or "replicate_qwen",
+                        params=restore_params,
+                    )
+                    db.add(restore)
+                else:
+                    # Update existing restore attempt
+                    restore.s3_key = "pending"
+                    restore.model = model or "replicate_qwen"
+                    restore.params = restore_params
+
+                db.commit()
+
+                # Build webhook URL with photo_id
+                webhook_url = f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/replicate/{job_id}"
+                logger.info(f"Webhook URL: {webhook_url}")
+
+                # Create async prediction with webhook (non-blocking)
+                replicate_service = get_replicate_service()
+                prediction_id = replicate_service.create_prediction_with_webhook(
+                    image_url=presigned_url,
+                    webhook_url=webhook_url,
+                    photo_id=job_id,
+                    prompt=custom_prompt,
+                    seed=seed,
+                    output_format=output_format,
+                    output_quality=output_quality,
+                )
+
+                # Update restore attempt with prediction ID
+                restore.params = {**restore.params, "prediction_id": prediction_id}
+                db.commit()
+
+                logger.info(f"Replicate prediction {prediction_id} submitted for photo {photo.id}")
+
+                # Return immediately - webhook will handle completion
+                # Photo stays in "processing" status until webhook updates it
+                return {
+                    "status": "submitted",
+                    "job_id": job_id,
+                    "restore_id": str(restore.id),
+                    "prediction_id": prediction_id,
+                    "provider": "replicate",
+                }
+
+            except ReplicateError as e:
+                logger.error(f"Replicate API error for photo {photo.id}: {e}")
+
+                # Revert photo status to uploaded
+                photo.status = "uploaded"
+
+                # Update restore attempt to failed (if it was created, or find existing one)
+                if 'restore' not in locals() or restore is None:
+                    # Check for existing restore attempt created by API endpoint
+                    restore = (
+                        db.query(RestoreAttempt)
+                        .filter(
+                            RestoreAttempt.job_id == job_uuid,
+                            RestoreAttempt.s3_key == "",
+                        )
+                        .order_by(RestoreAttempt.created_at.desc())
+                        .first()
+                    )
+
+                if restore:
+                    restore.s3_key = "failed"
+                    restore.params = {**(restore.params or {}), "error": e.to_dict()}
+                else:
+                    # No existing restore attempt - create a failed one
+                    restore = RestoreAttempt(
+                        job_id=job_uuid,
+                        s3_key="failed",
+                        model=model or "replicate_qwen",
+                        params={
+                            **params,
+                            "provider": "replicate",
+                            "error": e.to_dict(),
+                        },
+                    )
+                    db.add(restore)
+                db.commit()
+
+                raise ValueError(f"Replicate restoration failed: {e.message}")
+
+            except Exception as e:
+                logger.error(f"Unexpected error during Replicate restoration: {e}")
+
+                # Revert photo status to uploaded
+                photo.status = "uploaded"
+
+                # Update restore attempt to failed (if it was created, or find existing one)
+                if 'restore' not in locals() or restore is None:
+                    # Check for existing restore attempt created by API endpoint
+                    restore = (
+                        db.query(RestoreAttempt)
+                        .filter(
+                            RestoreAttempt.job_id == job_uuid,
+                            RestoreAttempt.s3_key == "",
+                        )
+                        .order_by(RestoreAttempt.created_at.desc())
+                        .first()
+                    )
+
+                if restore:
+                    restore.s3_key = "failed"
+                    restore.params = {**(restore.params or {}), "error": str(e)}
+
+                db.commit()
+
+                raise
+            # ===== END REPLICATE RESTORATION =====
         else:
             # Legacy job-based restoration - try job-based paths
             uploaded_key = f"uploaded/{job_id}.jpg"  # Default extension
@@ -87,52 +313,95 @@ def process_restoration(
         # Extract restoration parameters
         denoise = params.get("denoise", 0.7)
         megapixels = params.get("megapixels", 1.0)
+        colourize_legacy = params.get("colourize", False)
+        custom_prompt_legacy = params.get("prompt")
 
-        # In development, always use pod mode and just copy the image (no ComfyUI needed)
-        # In production, respect COMFYUI_MODE setting
-        use_dev_copy = settings.ENVIRONMENT == "development"
-        
+        # Build prompt based on colourize parameter
+        # Base restoration prompt (without color instruction - we'll add it based on colourize)
+        base_prompt_legacy = (
+            "Restore this old photo: remove scratches, dust spots, reflections, and noise; "
+            "repair tears, folds, and damaged areas; correct fading and color drift; "
+            "sharpen faces and fabric texture. Fill in any missing or cropped parts of the photo realistically, "
+            "matching the original style, texture, and lighting. Preserve original faces, pose, clothing, "
+            "and background without changing composition. Do not add new objects or distortions."
+        )
+
+        # Start with base prompt
+        prompt = base_prompt_legacy
+
+        # Append user's custom prompt if provided
+        if custom_prompt_legacy:
+            prompt = prompt + " " + custom_prompt_legacy
+
+        # Add color instruction based on colourize parameter
+        if colourize_legacy:
+            prompt = prompt + COLORIZE_PROMPT_SUFFIX
+        else:
+            prompt = prompt + PRESERVE_COLORS_SUFFIX
+
         # Route based on mode
-        if settings.COMFYUI_MODE == "serverless" and not use_dev_copy:
+        # Note: In serverless mode, we always submit to RunPod regardless of ENVIRONMENT
+        # In pod mode, development will copy the image for quick testing
+        if settings.COMFYUI_MODE == "serverless":
             # Serverless mode - submit and exit
             from app.services.runpod_serverless import runpod_serverless_service
 
-            # Upload image to network volume
-            volume_path = runpod_serverless_service.upload_image_to_volume(
-                image_data=image_data, job_id=job_id, extension="jpg"
-            )
+            # Prepare image filename
+            image_filename = f"job_{job_id}.jpg"
 
-            # ===== FULL RESTORE WORKFLOW (Uncomment this section when ready) =====
-            # workflow_path = (
-            #     Path(__file__).parent.parent.parent / "workflows" / "restore.json"
-            # )
-            # with open(workflow_path, "r") as f:
-            #     workflow = json.load(f)
-            # # Update workflow parameters
-            # workflow["78"]["inputs"]["image"] = f"job_{job_id}.jpg"  # Filename only
-            # workflow["93"]["inputs"]["megapixels"] = megapixels
-            # workflow["3"]["inputs"]["denoise"] = denoise
-            # workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000)
+            # Upload image to network volume (only if S3 API is available)
+            if runpod_serverless_service.s3_available:
+                logger.info("Using S3 API to upload image to network volume")
+                volume_path = runpod_serverless_service.upload_image_to_volume(
+                    image_data=image_data, job_id=job_id, extension="jpg"
+                )
+            else:
+                logger.info("S3 API not available - will send image in job payload")
+
+            # ===== FULL RESTORE WORKFLOW =====
+            workflow_path = BASE_DIR / "workflows" / "restore.json"
+            with open(workflow_path, "r") as f:
+                workflow = json.load(f)
+            # Update workflow parameters
+            workflow["78"]["inputs"][
+                "image"
+            ] = image_filename  # LoadImage: input filename
+            workflow["93"]["inputs"][
+                "megapixels"
+            ] = megapixels  # ImageScaleToTotalPixels
+            workflow["76"]["inputs"][
+                "prompt"
+            ] = prompt  # TextEncodeQwenImageEdit (positive prompt)
+            workflow["3"]["inputs"]["denoise"] = denoise  # KSampler
+            workflow["3"]["inputs"]["seed"] = random.randint(
+                1, 1000000
+            )  # KSampler: random seed
             # ===== END FULL RESTORE WORKFLOW =====
 
             # ===== DUMMY WORKFLOW FOR TESTING (Comment out when using restore) =====
-            workflow_path = (
-                Path(__file__).parent.parent.parent
-                / "workflows"
-                / "dummy_workflow.json"
-            )
-            with open(workflow_path, "r") as f:
-                workflow = json.load(f)
-            # Update input image path for dummy workflow (node 1 = LoadImage)
-            workflow["1"]["inputs"]["image"] = f"job_{job_id}.jpg"
+            # workflow_path = BASE_DIR / "workflows" / "dummy_workflow.json"
+            # with open(workflow_path, "r") as f:
+            #     workflow = json.load(f)
+            # # Update input image path for dummy workflow (node 1 = LoadImage)
+            # workflow["1"]["inputs"]["image"] = image_filename
             # ===== END DUMMY WORKFLOW =====
 
             # Submit job with webhook
             webhook_url = (
                 f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/runpod-completion"
             )
+
+            # Include image data in payload if S3 upload is disabled
             runpod_job_id = runpod_serverless_service.submit_job(
-                workflow=workflow, webhook_url=webhook_url, job_id=job_id
+                workflow=workflow,
+                webhook_url=webhook_url,
+                job_id=job_id,
+                image_data=(
+                    None if runpod_serverless_service.s3_available else image_data
+                ),
+                image_filename=(
+                    None if runpod_serverless_service.s3_available else image_filename
+                ),
             )
 
             # Create restore attempt record (pending state)
@@ -156,9 +425,11 @@ def process_restoration(
 
         else:
             # Pod mode
-            if use_dev_copy:
+            if settings.ENVIRONMENT == "development":
                 # Development mode: just copy the image (quick, no ComfyUI needed)
-                logger.info(f"Development mode: Copying image as restored version for job {job_id}")
+                logger.info(
+                    f"Development mode: Copying image as restored version for job {job_id}"
+                )
                 restored_image_data = image_data  # Simple copy for development
             else:
                 # Production pod mode: use ComfyUI to actually restore
@@ -171,11 +442,16 @@ def process_restoration(
 
             # Check if a restore attempt already exists (created by endpoint)
             # If so, use it; otherwise create a new one
-            restore = db.query(RestoreAttempt).filter(
-                RestoreAttempt.job_id == job_uuid,
-                RestoreAttempt.s3_key == "",  # Not yet processed
-            ).order_by(RestoreAttempt.created_at.desc()).first()
-            
+            restore = (
+                db.query(RestoreAttempt)
+                .filter(
+                    RestoreAttempt.job_id == job_uuid,
+                    RestoreAttempt.s3_key == "",  # Not yet processed
+                )
+                .order_by(RestoreAttempt.created_at.desc())
+                .first()
+            )
+
             if not restore:
                 # Create new restore attempt record
                 restore = RestoreAttempt(
@@ -191,7 +467,7 @@ def process_restoration(
                     restore.model = model
                 if params:
                     restore.params = params
-            
+
             db.flush()  # Get the restore ID
 
             # Generate timestamp ID for this restore attempt
@@ -203,6 +479,7 @@ def process_restoration(
             if photo:
                 # Photo-based: upload to user-scoped processed storage
                 from app.services.storage_service import storage_service
+
                 # Upload to user-scoped location (generates key internally)
                 restored_url = storage_service.upload_file(
                     file_content=restored_image_data,
@@ -210,17 +487,19 @@ def process_restoration(
                     photo_id=job_uuid,
                     category="processed",
                     filename=f"restored_{restore_timestamp_id}.jpg",
-                    content_type="image/jpeg"
+                    content_type="image/jpeg",
                 )
                 # Get the generated key
                 processed_key = storage_service.generate_user_scoped_key(
                     user_id=photo.owner_id,
                     photo_id=job_uuid,
                     category="processed",
-                    filename=f"restored_{restore_timestamp_id}.jpg"
+                    filename=f"restored_{restore_timestamp_id}.jpg",
                 )
                 restore.s3_key = processed_key
-                logger.info(f"Uploaded restored image to user-scoped storage: {processed_key}")
+                logger.info(
+                    f"Uploaded restored image to user-scoped storage: {processed_key}"
+                )
             else:
                 # Legacy job-based: upload to job-based storage
                 restored_url = s3_service.upload_restored_image(
@@ -258,11 +537,16 @@ def process_restoration(
                 # For photo-based restorations, this is already in user-scoped storage
                 photo.processed_key = restore.s3_key
                 photo.status = "ready"
-                logger.info(f"Updated photo {photo.id} with processed_key: {restore.s3_key}")
+                logger.info(
+                    f"Updated photo {photo.id} with processed_key: {restore.s3_key}"
+                )
 
             db.commit()
 
             logger.success(f"Completed restoration {restore.id} for job {job_id}")
+
+            # Note: SSE notifications are handled by webhooks for async providers.
+            # For synchronous pod mode, the frontend should poll or refresh.
 
             return {
                 "status": "success",
@@ -275,16 +559,36 @@ def process_restoration(
         logger.error(f"Error processing restoration for job {job_id}: {e}")
         db.rollback()
 
-        # Create failed restore attempt record
+        # Check if restore attempt already exists and was marked failed by inner handlers
+        # Avoid creating duplicates
         try:
-            restore = RestoreAttempt(
-                job_id=job_uuid,
-                s3_key="failed",
-                model=model or f"comfyui_{settings.COMFYUI_MODE}",
-                params={**params, "error": str(e)},
+            existing_restore = (
+                db.query(RestoreAttempt)
+                .filter(
+                    RestoreAttempt.job_id == job_uuid,
+                    RestoreAttempt.s3_key.in_(["", "pending", "failed"]),
+                )
+                .order_by(RestoreAttempt.created_at.desc())
+                .first()
             )
-            db.add(restore)
-            db.commit()
+
+            if existing_restore:
+                # Update existing restore attempt if not already failed
+                if existing_restore.s3_key != "failed":
+                    existing_restore.s3_key = "failed"
+                    existing_restore.params = {**(existing_restore.params or {}), "error": str(e)}
+                    db.commit()
+                # If already failed, inner handler already handled it - do nothing
+            else:
+                # No existing restore attempt - create a failed one
+                restore = RestoreAttempt(
+                    job_id=job_uuid,
+                    s3_key="failed",
+                    model=model or f"comfyui_{settings.COMFYUI_MODE}",
+                    params={**params, "error": str(e)},
+                )
+                db.add(restore)
+                db.commit()
         except Exception as db_error:
             logger.error(f"Error saving failure state: {db_error}")
 
@@ -298,89 +602,154 @@ def process_restoration(
 def process_animation(
     self,
     job_id: str,
-    restore_id: str,
+    restore_id: Optional[str] = None,
     model: Optional[str] = None,
     params: Dict[str, Any] = None,
 ):
     """
-    Process animation for a restored image
+    Process animation for an image (restored or original)
 
     Args:
         job_id: UUID string of the job
-        restore_id: UUID string of the restore attempt
+        restore_id: Optional UUID string of the restore attempt. If None, uses original photo
         model: Optional model name to use
         params: Optional parameters for the animation
     """
     db = SessionLocal()
     job_uuid = UUID(job_id)
-    restore_uuid = UUID(restore_id)
+    restore_uuid = UUID(restore_id) if restore_id else None
 
     if params is None:
         params = {}
 
     try:
-        # Get the job and restore attempt from database
+        # Get the job from database
         job = db.query(Job).filter(Job.id == job_uuid).first()
         if not job:
             raise ValueError(f"Job {job_id} not found")
 
-        restore = (
-            db.query(RestoreAttempt).filter(RestoreAttempt.id == restore_uuid).first()
-        )
-        if not restore:
-            raise ValueError(f"Restore attempt {restore_id} not found")
+        # Get restore attempt if restore_id is provided
+        restore = None
+        if restore_uuid:
+            restore = (
+                db.query(RestoreAttempt)
+                .filter(RestoreAttempt.id == restore_uuid)
+                .first()
+            )
+            if not restore:
+                raise ValueError(f"Restore attempt {restore_id} not found")
 
-        logger.info(f"Starting animation for job {job_id}, restore {restore_id}")
-
-        # Download restored image from S3
-        restored_image_data = s3_service.download_file(restore.s3_key)
-
-        # TODO: Implement actual animation processing
-        # For now, we'll create placeholder data
-        # In production, this would call your animation service
-
-        # Create animation attempt record
-        animation = AnimationAttempt(
-            job_id=job_uuid,
-            restore_id=restore_uuid,
-            preview_s3_key="",  # Will be set below
-            model=model or "animation_default",
-            params=params,
-        )
-        db.add(animation)
-        db.flush()  # Get the animation ID
-
-        # Generate timestamp ID for this animation attempt
-        animation_timestamp_id = s3_service.generate_timestamp_id()
-
-        # For now, just copy the restored image as a "preview"
-        # In production, this would be the actual animated video
-        preview_url = s3_service.upload_animation(
-            video_content=restored_image_data,  # Placeholder
-            job_id=job_id,
-            animation_id=animation_timestamp_id,
-            is_preview=True,
+        logger.info(
+            f"Starting animation for job {job_id}, restore {restore_id or 'original'}, mode: {settings.COMFYUI_MODE}"
         )
 
-        # Create thumbnail (for now, same as restored image)
-        thumb_url = s3_service.upload_thumbnail(
-            image_content=restored_image_data,
-            job_id=job_id,
-            animation_id=animation_timestamp_id,
+        # Download image from S3
+        if restore:
+            # Use restored image
+            image_data = s3_service.download_file(restore.s3_key)
+        else:
+            # Use original photo
+            photo = db.query(Photo).filter(Photo.id == job_uuid).first()
+            if not photo:
+                raise ValueError(f"Photo {job_id} not found")
+
+            from app.services.storage_service import storage_service
+
+            image_data = storage_service.download_file(
+                photo.original_key, photo.owner_id
+            )
+
+        # Extract animation parameters
+        prompt = params.get(
+            "prompt",
+            "Make this photo come to life with subtle, natural movement. The person should blink, smile slightly, and move their head gently. Keep the background stable with minimal motion.",
         )
+        width = params.get("width", 480)
+        height = params.get("height", 832)
+        length = params.get("length", 81)  # Number of frames
+        fps = params.get("fps", 30)
 
-        # Update animation attempt with S3 keys using timestamp
-        animation.preview_s3_key = (
-            f"animated/{job_id}/{animation_timestamp_id}_preview.mp4"
-        )
-        animation.thumb_s3_key = f"thumbnails/{job_id}/{animation_timestamp_id}.jpg"
+        # Route based on mode
+        if settings.COMFYUI_MODE == "serverless":
+            # Serverless mode - submit and exit
+            from app.services.runpod_serverless import runpod_serverless_service
 
-        # Update job's latest animation
-        job.latest_animation_id = animation.id
+            # Prepare image filename
+            image_filename = f"job_{job_id}_restore_{restore_id}.jpg"
 
-        db.commit()
+            # Upload image to network volume (only if S3 API is available)
+            if runpod_serverless_service.s3_available:
+                logger.info("Using S3 API to upload image to network volume")
+                runpod_serverless_service.upload_image_to_volume(
+                    image_data=restored_image_data, job_id=job_id, extension="jpg"
+                )
+            else:
+                logger.info("S3 API not available - will send image in job payload")
 
-        logger.success(f"Completed animation {animation.id} for job {job_id}")
+            # ===== ANIMATION WORKFLOW =====
+            workflow_path = BASE_DIR / "workflows" / "animate.json"
+            with open(workflow_path, "r") as f:
+                workflow = json.load(f)
+            # Update workflow parameters
+            workflow["97"]["inputs"]["image"] = image_filename  # LoadImage
+            workflow["93"]["inputs"]["prompt"] = prompt  # Positive prompt
+            workflow["98"]["inputs"]["width"] = width  # WanImageToVideo
+            workflow["98"]["inputs"]["height"] = height  # WanImageToVideo
+            workflow["98"]["inputs"]["length"] = length  # WanImageToVideo (frames)
+            workflow["94"]["inputs"]["fps"] = fps  # CreateVideo
+            workflow["85"]["inputs"]["noise_seed"] = random.randint(
+                1, 1000000
+            )  # KSamplerAdvanced HIGH
+            workflow["86"]["inputs"]["noise_seed"] = random.randint(
+                1, 1000000
+            )  # KSamplerAdvanced LOW
+            # ===== END ANIMATION WORKFLOW =====
+
+            # Submit job with webhook
+            webhook_url = f"{settings.BACKEND_BASE_URL}/api/v1/webhooks/runpod-animation-completion"
+
+            # Include image data in payload if S3 upload is disabled
+            runpod_job_id = runpod_serverless_service.submit_job(
+                workflow=workflow,
+                webhook_url=webhook_url,
+                job_id=job_id,
+                image_data=(
+                    None
+                    if runpod_serverless_service.s3_available
+                    else restored_image_data
+                ),
+                image_filename=(
+                    None if runpod_serverless_service.s3_available else image_filename
+                ),
+            )
+
+            # Create animation attempt record (pending state)
+            animation = AnimationAttempt(
+                job_id=job_uuid,
+                restore_id=restore_uuid,
+                preview_s3_key="pending",  # Will be set by webhook
+                model=model or "runpod_serverless_wan",
+                params={**params, "runpod_job_id": runpod_job_id},
+            )
+            db.add(animation)
+            db.commit()
+
+            logger.info(
+                f"Submitted serverless animation job {runpod_job_id} for {job_id}"
+            )
+
+            return {
+                "status": "submitted",
+                "job_id": job_id,
+                "animation_id": str(animation.id),
+                "runpod_job_id": runpod_job_id,
+            }
+
+        else:
+            # Pod mode - not implemented for animation yet
+            raise NotImplementedError(
+                "Animation is only supported in serverless mode (COMFYUI_MODE=serverless)"
+            )
 
         return {
             "status": "success",

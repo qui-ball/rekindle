@@ -28,6 +28,7 @@ dependencies = [
     "click>=8.3.0",
     "sse-starlette>=3.0.3",
     "slowapi>=0.1.9",
+    "replicate>=1.0.7",
 ]
 
 [dependency-groups]

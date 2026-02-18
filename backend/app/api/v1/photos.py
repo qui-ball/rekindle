@@ -907,9 +907,6 @@ async def restore_photo(
         # Update job's selected restore
         job.selected_restore_id = restore.id
         
-        # Update photo status to processing
-        photo.status = "processing"
-        
         db.commit()
         
         # Queue the restoration task

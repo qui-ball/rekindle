@@ -79,9 +79,45 @@ class RunPodServerlessService:
             config=s3_config,
         )
 
+        # Auto-detect S3 API availability
+        self.s3_available = self._check_s3_availability()
+
         logger.info(
-            f"RunPod serverless service initialized: endpoint={self.endpoint_id}, volume={self.network_volume_id}"
+            f"RunPod serverless service initialized: endpoint={self.endpoint_id}, "
+            f"volume={self.network_volume_id}, S3 API={'available' if self.s3_available else 'NOT available (will use payload method)'}"
         )
+
+    def _check_s3_availability(self) -> bool:
+        """
+        Check if S3 API is available for this network volume
+
+        Returns:
+            True if S3 API is accessible, False otherwise (will use payload method)
+        """
+        try:
+            # Try a simple head_bucket operation with short timeout
+            self.s3_client.head_bucket(Bucket=self.network_volume_id)
+            logger.info(f"S3 API is available for volume {self.network_volume_id}")
+            return True
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            # 404 or 403 means endpoint is reachable but bucket doesn't exist or no access
+            # This is still "available" - credentials might be wrong but endpoint works
+            if error_code in ["404", "403", "NoSuchBucket", "AccessDenied"]:
+                logger.warning(
+                    f"S3 endpoint reachable but got {error_code} - may need to verify credentials"
+                )
+                return True
+            # Other client errors suggest endpoint is not accessible
+            logger.warning(f"S3 API not available: {e}")
+            return False
+        except Exception as e:
+            # DNS resolution errors, connection errors, timeouts, etc.
+            error_type = type(e).__name__
+            logger.warning(
+                f"S3 API not available for volume {self.network_volume_id}: {error_type}: {e}"
+            )
+            return False
 
     def upload_image_to_volume(
         self, image_data: bytes, job_id: str, extension: str = "jpg"
@@ -118,7 +154,12 @@ class RunPodServerlessService:
             raise Exception(f"S3 upload failed: {e}")
 
     def submit_job(
-        self, workflow: Dict[str, Any], webhook_url: str, job_id: str
+        self,
+        workflow: Dict[str, Any],
+        webhook_url: str,
+        job_id: str,
+        image_data: Optional[bytes] = None,
+        image_filename: Optional[str] = None,
     ) -> str:
         """
         Submit job to RunPod serverless endpoint
@@ -127,6 +168,8 @@ class RunPodServerlessService:
             workflow: Complete ComfyUI workflow JSON
             webhook_url: URL for RunPod to call on completion
             job_id: Job UUID string for logging
+            image_data: Optional image bytes to include in payload (for datacenters without S3 API)
+            image_filename: Filename for the image (required if image_data provided)
 
         Returns:
             RunPod job ID
@@ -143,16 +186,46 @@ class RunPodServerlessService:
             # Initialize endpoint
             endpoint = runpod.Endpoint(self.endpoint_id)
 
+            # Check endpoint health/status
+            try:
+                endpoint_health = endpoint.health()
+                logger.info(f"Endpoint health: {endpoint_health}")
+            except Exception as health_err:
+                logger.warning(f"Could not check endpoint health: {health_err}")
+
+            # Build input payload
+            input_payload = {"workflow_api": workflow}
+
+            # Include image data in payload if provided (for datacenters without S3 API)
+            if image_data and image_filename:
+                import base64
+
+                image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+                input_payload["image_data"] = image_data_b64
+                input_payload["image_filename"] = image_filename
+                input_payload["include_output_data"] = (
+                    True  # Request output data in response
+                )
+                logger.info(
+                    f"Including image data in payload ({len(image_data)} bytes, base64: {len(image_data_b64)} chars)"
+                )
+
             # Submit async job with webhook
             run_request = endpoint.run(
                 {
-                    "input": {"workflow_api": workflow},
+                    "input": input_payload,
                     "webhook": webhook_url,
                 }
             )
 
-            # Get job ID
+            # Get job ID and status
             runpod_job_id = run_request.job_id
+
+            # Log detailed response for debugging
+            logger.info(f"RunPod response: {run_request}")
+            logger.info(
+                f"RunPod job status: {getattr(run_request, 'status', 'unknown')}"
+            )
 
             logger.success(
                 f"Successfully submitted job {job_id} to RunPod (job_id: {runpod_job_id})"
@@ -200,6 +273,7 @@ class RunPodServerlessService:
 # Global service instance (lazy initialization)
 _runpod_serverless_service: Optional[RunPodServerlessService] = None
 
+
 def get_runpod_serverless_service() -> RunPodServerlessService:
     """Get or create the RunPod serverless service instance (lazy initialization)"""
     global _runpod_serverless_service
@@ -207,10 +281,13 @@ def get_runpod_serverless_service() -> RunPodServerlessService:
         _runpod_serverless_service = RunPodServerlessService()
     return _runpod_serverless_service
 
+
 # For backward compatibility, create a property-like accessor
 class _RunPodServiceProxy:
     """Proxy class to maintain backward compatibility with direct attribute access"""
+
     def __getattr__(self, name):
         return getattr(get_runpod_serverless_service(), name)
+
 
 runpod_serverless_service = _RunPodServiceProxy()

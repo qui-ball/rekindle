@@ -156,6 +156,38 @@ else
     MODE_DESC="HTTP (Standard Development)"
 fi
 
+# Load Google OAuth credentials from supabase/.env if it exists
+OAUTH_ENV_FILE="$PROJECT_ROOT/supabase/.env"
+if [ -f "$OAUTH_ENV_FILE" ]; then
+    echo "🔐 Loading OAuth credentials from supabase/.env..."
+    
+    # Read credentials from file (POSIX-compliant, works with all shells)
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        case "$key" in
+            \#*|'') continue ;;
+        esac
+        
+        # Trim whitespace and quotes
+        key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//')
+        
+        case "$key" in
+            SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)
+                export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="$value"
+                ;;
+            SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)
+                export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="$value"
+                ;;
+        esac
+    done < "$OAUTH_ENV_FILE"
+    
+    if [ -n "$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID" ] && [ -n "$SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET" ]; then
+        CLIENT_ID_PREVIEW=$(echo "$SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID" | cut -c1-30)
+        echo "✅ OAuth credentials loaded (Client ID: ${CLIENT_ID_PREVIEW}...)"
+    fi
+fi
+
 # Start Supabase if not already running
 echo "🔐 Starting Supabase..."
 if supabase status >/dev/null 2>&1; then
@@ -256,35 +288,44 @@ if [ -z "$SUPABASE_JWT_SECRET" ] && [ -f "backend/.env" ]; then
     SUPABASE_JWT_SECRET=$(grep "^SUPABASE_JWT_SECRET=" backend/.env 2>/dev/null | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
 fi
 
+# Detect sed in-place syntax (macOS vs Linux)
+if sed --version >/dev/null 2>&1; then
+    # GNU sed (Linux)
+    SED_INPLACE="sed -i"
+else
+    # BSD sed (macOS)
+    SED_INPLACE="sed -i ''"
+fi
+
 # Update backend/.env file with Supabase credentials (source of truth)
 # This ensures the .env file always has the correct values, even if docker-compose is run directly
 # Always ensure SUPABASE_URL is set correctly, and update keys if we extracted them
 if [ -f "backend/.env" ]; then
     # Always update SUPABASE_URL to use host.docker.internal for containers
     if grep -q "^SUPABASE_URL=" backend/.env; then
-        sed -i "s|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|" backend/.env
+        eval "$SED_INPLACE 's|^SUPABASE_URL=.*|SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|' backend/.env"
     else
         echo "SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS" >> backend/.env
     fi
-    
+
     # Only update keys if we successfully extracted them
     if [ -n "$SUPABASE_ANON_KEY" ] && [ -n "$SUPABASE_SERVICE_KEY" ] && [ "$SUPABASE_ANON_KEY" != "null" ] && [ "$SUPABASE_SERVICE_KEY" != "null" ]; then
         # Update or add SUPABASE_ANON_KEY
         if grep -q "^SUPABASE_ANON_KEY=" backend/.env; then
-            sed -i "s|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|" backend/.env
+            eval "$SED_INPLACE 's|^SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|' backend/.env"
         else
             echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> backend/.env
         fi
         # Update or add SUPABASE_SERVICE_KEY
         if grep -q "^SUPABASE_SERVICE_KEY=" backend/.env; then
-            sed -i "s|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY|" backend/.env
+            eval "$SED_INPLACE 's|^SUPABASE_SERVICE_KEY=.*|SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY|' backend/.env"
         else
             echo "SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY" >> backend/.env
         fi
         # Update or add SUPABASE_JWT_SECRET if we have it
         if [ -n "$SUPABASE_JWT_SECRET" ] && [ "$SUPABASE_JWT_SECRET" != "null" ]; then
             if grep -q "^SUPABASE_JWT_SECRET=" backend/.env; then
-                sed -i "s|^SUPABASE_JWT_SECRET=.*|SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET|" backend/.env
+                eval "$SED_INPLACE 's|^SUPABASE_JWT_SECRET=.*|SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET|' backend/.env"
             else
                 echo "SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET" >> backend/.env
             fi
@@ -298,14 +339,14 @@ if [ ! -f "frontend/.env.local" ]; then
 fi
 # Always ensure URL is set correctly
 if grep -q "^NEXT_PUBLIC_SUPABASE_URL=" frontend/.env.local; then
-    sed -i "s|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|" frontend/.env.local
+    eval "$SED_INPLACE 's|^NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS|' frontend/.env.local"
 else
     echo "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL_FOR_CONTAINERS" >> frontend/.env.local
 fi
 # Only update ANON_KEY if we extracted it
 if [ -n "$SUPABASE_ANON_KEY" ] && [ "$SUPABASE_ANON_KEY" != "null" ]; then
     if grep -q "^NEXT_PUBLIC_SUPABASE_ANON_KEY=" frontend/.env.local; then
-        sed -i "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|" frontend/.env.local
+        eval "$SED_INPLACE 's|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY|' frontend/.env.local"
     else
         echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> frontend/.env.local
     fi

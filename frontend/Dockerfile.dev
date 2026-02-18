@@ -1,19 +1,17 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 # Install build dependencies for native modules (jscanify/canvas)
-# build-base includes gcc, g++, make, and standard C/C++ libraries
-RUN apk add --no-cache \
-    build-base \
+# See: https://github.com/Automattic/node-canvas#compiling
+RUN apt-get update && apt-get install -y \
     python3 \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    musl-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
+    make \
+    g++ \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set environment variable to disable SWC and use Babel instead
 ENV NEXT_TELEMETRY_DISABLED=1

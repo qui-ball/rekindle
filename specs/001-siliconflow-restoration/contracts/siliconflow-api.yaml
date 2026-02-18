@@ -1,0 +1,149 @@
+openapi: 3.0.3
+info:
+  title: SiliconFlow API Contract (External)
+  description: |
+    Contract for SiliconFlow Image Generations API used by Rekindle.
+    This documents the external API we consume, not our own endpoints.
+  version: 1.0.0
+
+servers:
+  - url: https://api.siliconflow.com/v1
+    description: SiliconFlow China endpoint
+
+paths:
+  /images/generations:
+    post:
+      operationId: createImageEdit
+      summary: Create an image edit using Qwen-Image-Edit
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageEditRequest'
+      responses:
+        '200':
+          description: Successful image generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageEditResponse'
+        '400':
+          description: Invalid request (bad image, prompt too long)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    ImageEditRequest:
+      type: object
+      required:
+        - model
+        - prompt
+        - image
+      properties:
+        model:
+          type: string
+          enum:
+            - Qwen/Qwen-Image-Edit
+            - Qwen/Qwen-Image-Edit-2509
+          default: Qwen/Qwen-Image-Edit
+          description: Model identifier
+        prompt:
+          type: string
+          maxLength: 800
+          description: Text description of desired edit
+          example: "Restore this old damaged photo. Enhance clarity, remove scratches and damage, improve colors while preserving original details."
+        negative_prompt:
+          type: string
+          maxLength: 500
+          description: Elements to avoid in the output
+          example: "blur, distortion, artifacts"
+        image:
+          type: string
+          description: Source image as URL or base64-encoded data
+          example: "https://s3.amazonaws.com/bucket/photo.jpg"
+        num_inference_steps:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+          description: Number of denoising steps
+        guidance_scale:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 20
+          default: 7.5
+          description: How closely to follow the prompt
+        seed:
+          type: integer
+          minimum: 0
+          maximum: 9999999999
+          description: Random seed for reproducibility
+
+    ImageEditResponse:
+      type: object
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                format: uri
+                description: URL to download generated image (valid for 1 hour)
+        timings:
+          type: object
+          properties:
+            inference:
+              type: number
+              format: float
+              description: Inference time in seconds
+        seed:
+          type: integer
+          description: Seed used for generation
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Human-readable error message
+            code:
+              type: string
+              description: Error code
+            type:
+              type: string
+              description: Error type
