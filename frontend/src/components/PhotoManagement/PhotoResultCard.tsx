@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { PhotoResult } from '../../types/photo-management';
 import { apiClient } from '../../services/apiClient';
+import { PhotoMount } from '../ui';
 
 /**
  * PhotoResultCard Component
@@ -142,9 +143,10 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
   };
 
   return (
-    <div className="flex-shrink-0 w-full bg-white rounded-lg overflow-hidden">
+    <div className="flex-shrink-0 w-full bg-cozy-surface rounded-cozy-lg overflow-hidden border border-cozy-borderCard shadow-cozy-card">
       {/* Result Image/Video Display with Overlaid Actions */}
-      <div className="relative bg-gray-200" style={{ aspectRatio: '4/3', minHeight: '300px' }}>
+      <PhotoMount design="default" aspectRatio="4/3" className="rounded-t-cozy-lg">
+        <div className="absolute inset-0 min-h-[300px]">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center text-gray-500">
@@ -320,10 +322,11 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
             {getResultTypeName()}
           </span>
         </div>
-      </div>
+        </div>
+      </PhotoMount>
 
       {/* Result Metadata (Below Image) */}
-      <div className="p-3 bg-white">
+      <div className="p-3 bg-cozy-surface">
         <div className="text-xs text-gray-500 space-y-1">
           <div className="font-medium text-gray-700">
             {result.metadata.dimensions.width} × {result.metadata.dimensions.height}

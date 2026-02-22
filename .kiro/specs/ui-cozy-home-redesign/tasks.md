@@ -102,15 +102,15 @@ Set body background and default text to Cozy Home tokens; update existing utilit
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Implement shared layout primitives for max-width and padding.
 
 **Subtasks:**
-- [ ] Create `Container` (or `PageContainer`) component: max-width 1200px, horizontal padding from tokens, optional vertical padding **[FRONTEND]**
-- [ ] Create `Section` component (optional): vertical padding from tokens; variants if needed (default, hero, cta) **[FRONTEND]**
-- [ ] Export from `src/components/ui/` (or chosen design-system path) **_Requirements: Req 2_**
+- [x] Create `Container` (or `PageContainer`) component: max-width 1200px, horizontal padding from tokens, optional vertical padding **[FRONTEND]**
+- [x] Create `Section` component (optional): vertical padding from tokens; variants if needed (default, hero, cta) **[FRONTEND]**
+- [x] Export from `src/components/ui/` (or chosen design-system path) **_Requirements: Req 2_**
 
 ---
 
@@ -118,16 +118,16 @@ Implement shared layout primitives for max-width and padding.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Implement Headline, Tagline, Body, Caption (or equivalent) that use only theme tokens.
 
 **Subtasks:**
-- [ ] Create `Headline`: levels H1–H3, token font/size/weight/color; support `as` for semantics **[FRONTEND]**
-- [ ] Create `Tagline`: italic, secondary color, token size **[FRONTEND]**
-- [ ] Create `Body` and `Caption` (or document use of token-based Tailwind classes) **[FRONTEND]**
-- [ ] Export from ui and use in at least one migrated page to validate **_Requirements: Req 2_**
+- [x] Create `Headline`: levels H1–H3, token font/size/weight/color; support `as` for semantics **[FRONTEND]**
+- [x] Create `Tagline`: italic, secondary color, token size **[FRONTEND]**
+- [x] Create `Body` and `Caption` (or document use of token-based Tailwind classes) **[FRONTEND]**
+- [x] Export from ui and use in at least one migrated page to validate **_Requirements: Req 2_**
 
 ---
 
@@ -135,16 +135,16 @@ Implement Headline, Tagline, Body, Caption (or equivalent) that use only theme t
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Single Button component with primary (Cozy Home gradient, pill, hover), secondary, and optional ghost variants.
 
 **Subtasks:**
-- [ ] Create `Button` with variants: primary (gradient, pill radius, hover lift + shadow), secondary (outline or subtle), ghost **[FRONTEND]**
-- [ ] Support sizes (e.g. default, large for CTA) and full-width on small breakpoints **[FRONTEND]**
-- [ ] Preserve focus ring and keyboard usability; respect reduced-motion for hover lift **[FRONTEND]**
-- [ ] Export and use in one page or nav to validate **_Requirements: Req 2, Req 6_**
+- [x] Create `Button` with variants: primary (gradient, pill radius, hover lift + shadow), secondary (outline or subtle), ghost **[FRONTEND]**
+- [x] Support sizes (e.g. default, large for CTA) and full-width on small breakpoints **[FRONTEND]**
+- [x] Preserve focus ring and keyboard usability; respect reduced-motion for hover lift **[FRONTEND]**
+- [x] Export and use in one page or nav to validate **_Requirements: Req 2, Req 6_**
 
 ---
 
@@ -152,15 +152,15 @@ Single Button component with primary (Cozy Home gradient, pill, hover), secondar
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Reusable Card with optional left accent and hover behavior.
 
 **Subtasks:**
-- [ ] Create `Card`: surface bg, token border/radius/shadow; optional `accentLeft` (left border or bar); optional hover lift **[FRONTEND]**
-- [ ] Use only tokens (no hardcoded colors) **[FRONTEND]**
-- [ ] Export and use in one page to validate **_Requirements: Req 2_**
+- [x] Create `Card`: surface bg, token border/radius/shadow; optional `accentLeft` (left border or bar); optional hover lift **[FRONTEND]**
+- [x] Use only tokens (no hardcoded colors) **[FRONTEND]**
+- [x] Export and use in one page to validate **_Requirements: Req 2_**
 
 ---
 
@@ -168,15 +168,15 @@ Reusable Card with optional left accent and hover behavior.
 
 **Type:** Frontend  
 **Priority:** P2  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Frame component for “photo in a mount” look (upload preview, gallery tile, before/after).
 
 **Subtasks:**
-- [ ] Create `PhotoMount` (or `ImageFrame`): mount background, padding, radius; inner area with optional aspect-ratio **[FRONTEND]**
-- [ ] Use tokens for colors and radius **[FRONTEND]**
-- [ ] Use in gallery or upload flow where the sample’s frame look is desired **_Requirements: Req 2_**
+- [x] Create `PhotoMount` (or `ImageFrame`): mount background, padding, radius; inner area with optional aspect-ratio **[FRONTEND]**
+- [x] Use tokens for colors and radius **[FRONTEND]**
+- [x] Use in gallery or upload flow where the sample’s frame look is desired **_Requirements: Req 2_**
 
 ---
 

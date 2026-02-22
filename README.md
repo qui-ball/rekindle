@@ -87,6 +87,8 @@ This will automatically:
 ./dev stop
 ```
 
+If startup fails with **"port is already allocated"** (e.g. 8000 or 3000), the script will stop existing containers and retry once. If it still fails, run `./dev stop`, wait a few seconds, then start again. The dev script checks that ports are free before starting.
+
 ## 🔧 Development Commands
 
 ### Docker Management

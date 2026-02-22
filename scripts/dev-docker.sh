@@ -401,9 +401,52 @@ if [ ! -f "frontend/.env" ]; then
     touch frontend/.env
 fi
 
-# Stop any existing containers
-echo "🛑 Stopping existing containers..."
-docker compose down >/dev/null 2>&1 || true
+# Check if a port is in use (Linux/WSL: ss or netstat). Returns 0 if in use.
+port_in_use() {
+    local port="$1"
+    if command -v ss &>/dev/null; then
+        ss -tuln 2>/dev/null | grep -qE ":$port\s"
+        return $?
+    fi
+    if command -v netstat &>/dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":$port "
+        return $?
+    fi
+    # Fallback: try to connect (bash)
+    if (echo >/dev/tcp/127.0.0.1/"$port") 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+# Ensure required ports are free: stop containers, wait for release, then verify
+ensure_ports_free() {
+    local required_ports="3000 8000"
+    echo "🛑 Stopping existing containers..."
+    docker compose down -t 5 >/dev/null 2>&1 || true
+    echo "   Waiting for ports to be released..."
+    sleep 3
+    for port in $required_ports; do
+        if port_in_use "$port"; then
+            echo ""
+            echo "❌ Port $port is still in use after stopping containers."
+            echo "   To see what is using it:"
+            if command -v ss &>/dev/null; then
+                echo "   ss -tulnp | grep :$port"
+            elif command -v netstat &>/dev/null; then
+                echo "   netstat -tulnp | grep $port"
+            fi
+            echo "   Then run: ./dev stop  (or kill that process) and try again."
+            echo ""
+            return 1
+        fi
+    done
+    return 0
+}
+
+if ! ensure_ports_free; then
+    exit 1
+fi
 
 # Build and start containers with fallback logic
 echo "🔨 Building and starting containers..."
@@ -432,9 +475,43 @@ else
     echo "📋 Error details:"
     tail -50 "$TEMP_LOG" 2>/dev/null | grep -E "(ERROR|error|failed|Failed)" | tail -20 || tail -30 "$TEMP_LOG" 2>/dev/null || echo "   Check 'docker compose logs' for details"
     echo ""
-    
+
+    # If failure was due to port already allocated, retry once after aggressive teardown
+    PORT_CONFLICT=$(grep -E "port is already allocated|Bind for .* (3000|8000) failed" "$TEMP_LOG" 2>/dev/null || true)
+    if [ -n "$PORT_CONFLICT" ]; then
+        echo "🔄 Port conflict detected. Stopping containers and waiting for ports to release..."
+        docker compose down -t 5 >/dev/null 2>&1 || true
+        sleep 5
+        echo "🔄 Retrying container startup..."
+        echo ""
+        RETRY_LOG=$(mktemp)
+        set +e
+        docker compose up --build -d > "$RETRY_LOG" 2>&1
+        RETRY_EXIT_CODE=$?
+        grep -E "(ERROR|error|failed|Failed|Building|Creating|Starting)" "$RETRY_LOG" | head -20 || true
+        set -e
+        if [ $RETRY_EXIT_CODE -eq 0 ]; then
+            echo ""
+            echo "✅ Containers started successfully on retry"
+            rm -f "$TEMP_LOG" "$RETRY_LOG" 2>/dev/null
+            BUILD_EXIT_CODE=0
+        else
+            echo ""
+            echo "❌ Retry failed (exit code: $RETRY_EXIT_CODE)"
+            echo ""
+            echo "💡 Port 8000 or 3000 is in use. Try:"
+            echo "   1. Run: ./dev stop   then wait 5 seconds and run ./dev https again"
+            echo "   2. Or find and stop the process: ss -tulnp | grep -E ':3000|:8000'"
+            rm -f "$TEMP_LOG" "$RETRY_LOG" 2>/dev/null
+            exit 1
+        fi
+    fi
+
+    # If we recovered from port conflict, skip the .venv retry and failure handling below
+    if [ $BUILD_EXIT_CODE -eq 0 ]; then
+        true
     # Check if .venv exists and remove it, then retry
-    if [ -d "backend/.venv" ]; then
+    elif [ -d "backend/.venv" ]; then
         echo "🔄 Removing conflicting .venv directory and retrying..."
         rm -rf backend/.venv
         echo "🔄 Retrying container startup..."
