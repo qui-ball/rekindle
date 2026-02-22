@@ -90,7 +90,7 @@ export default function SignInPage() {
       // Success - redirect to intended destination or upload page
       const redirectTo = searchParams?.get('next') || '/upload';
       router.push(redirectTo);
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
@@ -111,7 +111,7 @@ export default function SignInPage() {
 
       // OAuth redirect will happen automatically
       // User will be redirected back to /auth/callback
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred with Google sign in. Please try again.');
       setIsLoading(false);
     }
@@ -338,7 +338,7 @@ export default function SignInPage() {
           {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/sign-up" className="text-blue-600 hover:text-blue-700 font-medium hover:underline">
                 Sign up
               </Link>

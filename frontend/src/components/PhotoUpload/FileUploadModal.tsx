@@ -217,6 +217,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
             onChange={handleFileInputChange}
             className="hidden"
             aria-label="File input"
+            data-testid="file-upload-modal-input"
             // On mobile, allow access to camera roll and files
             capture={undefined}
           />

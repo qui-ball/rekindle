@@ -296,7 +296,7 @@ describe.skip('CameraCaptureFlow - Upload Preview Integration', () => {
     expect(calls.length).toBeGreaterThan(0);
     const callArgs = calls[0];
     expect(callArgs[0]).toBeTruthy(); // Image data
-    expect(callArgs[1]).toBeTruthy(); // Corner points (format may vary)
+    expect(callArgs[1]).toMatchObject(expectedCornerPoints); // Corner points
     expect(callArgs[2]).toMatchObject({
       quality: 0.95,
       timeout: 5000

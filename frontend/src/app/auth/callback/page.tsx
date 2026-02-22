@@ -38,7 +38,7 @@ function AuthCallbackContent() {
                 const originUrl = new URL(originalOrigin);
                 currentUrl.protocol = originUrl.protocol;
                 currentUrl.port = originUrl.port;
-              } catch (e) {
+              } catch {
                 // Ignore URL parsing errors
               }
             }

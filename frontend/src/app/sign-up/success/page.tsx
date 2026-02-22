@@ -54,11 +54,11 @@ export default function SignUpSuccessPage() {
             <p className="text-gray-600">
               {displayEmail ? (
                 <>
-                  We've sent a confirmation email to{' '}
+                  We&apos;ve sent a confirmation email to{' '}
                   <span className="font-medium text-gray-900">{displayEmail}</span>
                 </>
               ) : (
-                "We've sent a confirmation email to your email address."
+                <>We&apos;ve sent a confirmation email to your email address.</>
               )}
             </p>
             <p className="text-sm text-gray-600">
@@ -83,7 +83,7 @@ export default function SignUpSuccessPage() {
                 />
               </svg>
               <div className="text-sm text-gray-700">
-                <p className="font-medium text-gray-900 mb-1">Didn't receive the email?</p>
+                <p className="font-medium text-gray-900 mb-1">Didn&apos;t receive the email?</p>
                 <ul className="list-disc list-inside space-y-1 text-gray-600">
                   <li>Check your spam/junk folder</li>
                   <li>Make sure you entered the correct email address</li>

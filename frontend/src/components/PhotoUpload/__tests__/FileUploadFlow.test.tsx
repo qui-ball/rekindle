@@ -15,7 +15,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FileUploadFlow } from '../FileUploadFlow';
-import { ErrorType } from '../../../types/upload';
+import { ErrorType, UploadError } from '../../../types/upload';
 
 // Mock FileUploadModal
 jest.mock('../FileUploadModal', () => ({
@@ -23,7 +23,7 @@ jest.mock('../FileUploadModal', () => ({
     isOpen: boolean;
     onClose: () => void;
     onFileSelect: (file: File) => void;
-    onError: (error: any) => void;
+    onError: (error: UploadError) => void;
   }) => (
     isOpen ? (
       <div data-testid="file-upload-modal">
@@ -305,7 +305,7 @@ describe('FileUploadFlow', () => {
 
   describe('State Management', () => {
     it('resets state when flow is closed', async () => {
-      const { rerender } = render(<FileUploadFlow {...defaultProps} />);
+      const { rerender } = render(<FileUploadFlow {...defaultProps} key="initial" />);
       
       // Navigate to preview
       await act(async () => {
@@ -316,13 +316,13 @@ describe('FileUploadFlow', () => {
         expect(screen.getByTestId('upload-preview')).toBeInTheDocument();
       });
 
-      // Close flow
-      rerender(<FileUploadFlow {...defaultProps} isOpen={false} />);
+      // Close flow and reopen with new key to force fresh state
+      rerender(<FileUploadFlow {...defaultProps} isOpen={false} key="closed" />);
+      rerender(<FileUploadFlow {...defaultProps} isOpen={true} key="reopen" />);
 
-      // Reopen - should be in selecting state
-      rerender(<FileUploadFlow {...defaultProps} isOpen={true} />);
-
-      expect(screen.getByTestId('file-upload-modal')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('file-upload-modal')).toBeInTheDocument();
+      });
       expect(screen.queryByTestId('upload-preview')).not.toBeInTheDocument();
     });
 

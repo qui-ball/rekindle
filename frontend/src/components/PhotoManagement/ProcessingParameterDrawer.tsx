@@ -4,8 +4,7 @@ import React from 'react';
 import { 
   ProcessingParameterDrawerProps, 
   RestoreParameters, 
-  AnimateParameters, 
-  BringTogetherParameters 
+  AnimateParameters
 } from '../../types/photo-management';
 
 /**

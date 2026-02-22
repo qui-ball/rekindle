@@ -28,7 +28,7 @@ interface UsePhotosReturn {
 /**
  * Hook for listing and managing photos
  */
-export const usePhotos = (options: UsePhotosOptions = {}) => {
+export const usePhotos = (options: UsePhotosOptions = {}): UsePhotosReturn => {
   const {
     status,
     limit = 50,

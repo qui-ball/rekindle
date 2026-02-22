@@ -10,7 +10,7 @@
  * - Edge cases
  */
 
-import { validateFile, base64ToFile, fileToDataUrl, getImageDimensionsFromBase64 } from '../fileUtils';
+import { validateFile, base64ToFile, fileToDataUrl } from '../fileUtils';
 
 describe('validateFile', () => {
   const DEFAULT_MAX_SIZE = 50 * 1024 * 1024; // 50MB

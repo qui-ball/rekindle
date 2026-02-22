@@ -11,7 +11,6 @@
  */
 
 import type { CornerPoints } from '../types/jscanify';
-import { opencvLoader } from './opencvLoader';
 import { imagePreprocessor } from './ImagePreprocessor';
 import { calculateConfidenceScore, type ConfidenceMetrics } from './ConfidenceScoring';
 
@@ -194,9 +193,9 @@ export class MultiPassDetector {
    * Expected accuracy ~85%
    */
   private async contourDetection(
-    src: any,
-    imageWidth: number,
-    imageHeight: number
+    _src: unknown,
+    _imageWidth: number,
+    _imageHeight: number
   ): Promise<DetectionCandidate | null> {
     // Simplified contour detection - return null for now
     // This avoids OpenCV compatibility issues
@@ -209,9 +208,9 @@ export class MultiPassDetector {
    * Expected accuracy ~90% for rectangular subjects
    */
   private async houghLineDetection(
-    src: any,
-    imageWidth: number,
-    imageHeight: number
+    _src: unknown,
+    _imageWidth: number,
+    _imageHeight: number
   ): Promise<DetectionCandidate | null> {
     // Simplified hough line detection - return null for now
     // This avoids OpenCV compatibility issues
@@ -224,7 +223,7 @@ export class MultiPassDetector {
    * Expected accuracy ~95% (refinement only)
    */
   private async cornerRefinement(
-    src: any,
+    _src: unknown,
     cornerPoints: CornerPoints
   ): Promise<CornerPoints> {
     // Corner refinement not available in this build
@@ -235,7 +234,7 @@ export class MultiPassDetector {
   /**
    * Calculate confidence score for detection candidate
    */
-  private calculateContourConfidence(approx: any, imageWidth: number, imageHeight: number): number {
+  private calculateContourConfidence(_approx: unknown, _imageWidth: number, _imageHeight: number): number {
     // Simplified confidence calculation
     return 0.8;
   }

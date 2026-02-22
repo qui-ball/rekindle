@@ -81,7 +81,7 @@ export default function SignUpPage() {
       // Success - user will receive confirmation email
       // Redirect to a confirmation page or show message
       router.push('/sign-up/success?email=' + encodeURIComponent(email));
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
@@ -103,7 +103,7 @@ export default function SignUpPage() {
       // OAuth redirect will happen automatically
       // User will be redirected back to /auth/callback
       // Terms acceptance will be handled after OAuth callback
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred with Google sign up. Please try again.');
       setIsLoading(false);
     }
@@ -395,7 +395,7 @@ export default function SignUpPage() {
             <Link href="/privacy" className="text-blue-600 hover:underline">
               Privacy Policy
             </Link>
-            . You'll be asked to confirm after sign-up.
+            . You&apos;ll be asked to confirm after sign-up.
           </p>
 
           {/* Sign In Link */}

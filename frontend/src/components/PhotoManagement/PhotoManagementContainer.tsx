@@ -13,7 +13,6 @@ import { PhotoGallery } from './PhotoGallery';
 import { PhotoDetailDrawer } from './PhotoDetailDrawer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useJobEvents } from '../../hooks/useJobEvents';
-import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 
 /**

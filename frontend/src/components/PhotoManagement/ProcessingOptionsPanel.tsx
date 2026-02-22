@@ -5,7 +5,6 @@ import {
   ProcessingOptionsPanelProps, 
   ProcessingOptions, 
   CostBreakdown,
-  ProcessingParameters,
   RestoreParameters,
   AnimateParameters,
   BringTogetherParameters

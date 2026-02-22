@@ -57,7 +57,7 @@ export default function AcceptTermsPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const next = searchParams.get('next') || '/upload';
       router.push(next);
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }

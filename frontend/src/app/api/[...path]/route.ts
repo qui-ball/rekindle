@@ -69,7 +69,7 @@ export async function GET(
           // If not JSON, wrap in error object with 'detail' field (FastAPI format)
           errorData = { detail: errorText || 'Backend API error' };
         }
-      } catch (error) {
+      } catch {
         errorData = { detail: 'Failed to read error response' };
       }
       
@@ -137,7 +137,7 @@ export async function POST(
           try {
             // Try to parse as JSON (FastAPI returns JSON errors)
             errorData = JSON.parse(errorText);
-          } catch (parseError) {
+          } catch {
             // If not JSON, wrap in error object with 'detail' field (FastAPI format)
             errorData = { detail: errorText || 'Backend API error' };
           }
@@ -181,7 +181,7 @@ export async function POST(
           try {
             // Try to parse as JSON (FastAPI returns JSON errors)
             errorData = JSON.parse(errorText);
-          } catch (parseError) {
+          } catch {
             // If not JSON, wrap in error object with 'detail' field (FastAPI format)
             errorData = { detail: errorText || 'Backend API error' };
           }
@@ -246,7 +246,7 @@ export async function DELETE(
           // If not JSON, wrap in error object with 'detail' field (FastAPI format)
           errorData = { detail: errorText || 'Backend API error' };
         }
-      } catch (error) {
+      } catch {
         errorData = { detail: 'Failed to read error response' };
       }
       

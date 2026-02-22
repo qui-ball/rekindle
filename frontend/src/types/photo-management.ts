@@ -99,9 +99,8 @@ export interface AnimateParameters {
   userPrompt?: string; // Advanced: custom instructions for animation
 }
 
-export interface BringTogetherParameters {
-  // Future parameters can be added here
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Placeholder for future parameters
+export interface BringTogetherParameters {}
 
 export interface CostBreakdown {
   individualCosts: {

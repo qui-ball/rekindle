@@ -211,7 +211,7 @@ export class S3UploadService implements UploadService {
             try {
               errorData = JSON.parse(text);
               errorDetail = errorData.detail || errorData.message || `Server error (${response.status})`;
-            } catch (parseError) {
+            } catch {
               // If JSON parsing fails, use the raw text
               errorDetail = text || `Server error (${response.status})`;
             }

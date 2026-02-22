@@ -100,7 +100,7 @@ export default function LandingPage() {
               router.replace(hasAcceptedTerms ? '/upload' : '/auth/accept-terms');
               return;
             }
-          } catch (exchangeErr) {
+          } catch {
             // exchangeCodeForSession requires PKCE which email confirmations don't use
             // This is expected to fail for email confirmations
             console.log('Code exchange not applicable (email confirmations use automatic session creation)');

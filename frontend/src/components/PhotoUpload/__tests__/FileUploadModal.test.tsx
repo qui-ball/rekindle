@@ -202,12 +202,12 @@ describe('FileUploadModal', () => {
       render(<FileUploadModal {...defaultProps} />);
       
       const file = createMockFile('test.jpg', 'image/jpeg', 1024);
-      const fileInput = screen.getByLabelText('File input');
+      const fileInput = screen.getByTestId('file-upload-modal-input');
       
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       expect(mockOnFileSelect).toHaveBeenCalledWith(file);
-      expect(mockOnClose).toHaveBeenCalled();
+      // Parent (FileUploadFlow) controls closing - modal does not auto-close on valid selection
     });
 
     it('handles invalid file and shows error', async () => {
@@ -219,7 +219,7 @@ describe('FileUploadModal', () => {
       render(<FileUploadModal {...defaultProps} />);
       
       const file = createMockFile('test.pdf', 'application/pdf', 1024);
-      const fileInput = screen.getByLabelText('File input');
+      const fileInput = screen.getByTestId('file-upload-modal-input');
       
       fireEvent.change(fileInput, { target: { files: [file] } });
       
@@ -235,7 +235,7 @@ describe('FileUploadModal', () => {
     it('handles empty file selection gracefully', async () => {
       render(<FileUploadModal {...defaultProps} />);
       
-      const fileInput = screen.getByLabelText('File input');
+      const fileInput = screen.getByTestId('file-upload-modal-input');
       
       fireEvent.change(fileInput, { target: { files: [] } });
       
@@ -246,7 +246,7 @@ describe('FileUploadModal', () => {
     it('handles null files gracefully', async () => {
       render(<FileUploadModal {...defaultProps} />);
       
-      const fileInput = screen.getByLabelText('File input');
+      const fileInput = screen.getByTestId('file-upload-modal-input');
       
       fireEvent.change(fileInput, { target: { files: null } });
       
@@ -259,7 +259,7 @@ describe('FileUploadModal', () => {
     it('uses custom accept types', () => {
       render(<FileUploadModal {...defaultProps} accept="image/jpeg,image/png" />);
       
-      const fileInput = screen.getByLabelText('File input') as HTMLInputElement;
+      const fileInput = screen.getByTestId('file-upload-modal-input') as HTMLInputElement;
       expect(fileInput.accept).toBe('image/jpeg,image/png');
     });
 

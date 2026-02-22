@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { PhotoDetailDrawerProps, PhotoAction, ProcessingOptions, Photo, PhotoResult } from '../../types/photo-management';
+import { PhotoDetailDrawerProps, ProcessingOptions, PhotoResult } from '../../types/photo-management';
 import { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
 import { PhotoResultCard } from './PhotoResultCard';
 import { apiClient } from '../../services/apiClient';
@@ -492,7 +492,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                     container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
                   }}
                 >
-                  {photo.results.map((result, index) => (
+                  {photo.results.map((result) => (
                     <div 
                       key={result.id} 
                       className="snap-center flex-shrink-0 px-4" 

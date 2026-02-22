@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CreditBalance } from '../types/photo-management';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
@@ -20,7 +20,6 @@ export const GlobalCreditBalanceBar: React.FC = () => {
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname();
   const { user, loading: authLoading } = useAuth();
 
   // Mock user ID - in real app, get from auth context

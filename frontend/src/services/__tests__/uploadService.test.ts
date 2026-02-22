@@ -1,5 +1,6 @@
 import { S3UploadService } from '../uploadService';
 import { UploadOptions, ErrorType } from '../../types/upload';
+import { getSupabaseClient } from '@/lib/supabase';
 
 // Mock fetch for simpler testing
 const mockFetch = jest.fn();
@@ -91,8 +92,7 @@ describe('S3UploadService', () => {
   describe('generatePresignedUrl', () => {
     it('should throw error when authentication is required', async () => {
       // Mock getSupabaseClient to return no session
-      const { getSupabaseClient } = require('@/lib/supabase');
-      getSupabaseClient.mockReturnValueOnce({
+      (getSupabaseClient as jest.Mock).mockReturnValueOnce({
         auth: {
           getSession: jest.fn(() => Promise.resolve({
             data: { session: null },
