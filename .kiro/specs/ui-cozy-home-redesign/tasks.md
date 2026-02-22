@@ -188,16 +188,16 @@ Frame component for “photo in a mount” look (upload preview, gallery tile, b
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Apply Cozy Home aesthetic to main nav: logo, tagline, links, container.
 
 **Subtasks:**
-- [ ] Restyle logo: Merriweather, accent color, token size; optional tagline below **[FRONTEND]**
-- [ ] Restyle nav links: Cozy Home text and hover (accent or underline); remove blue/gray **[FRONTEND]**
-- [ ] Add optional top double-border or accent line per sample **[FRONTEND]**
-- [ ] Use shared Container for nav width and padding **[FRONTEND]** **_Requirements: Req 3, Req 4_**
+- [x] Restyle logo: Merriweather, accent color, token size; optional tagline below **[FRONTEND]**
+- [x] Restyle nav links: Cozy Home text and hover (accent or underline); remove blue/gray **[FRONTEND]**
+- [x] Add optional top double-border or accent line per sample **[FRONTEND]**
+- [x] Use shared Container for nav width and padding **[FRONTEND]** **_Requirements: Req 3, Req 4_**
 
 ---
 
@@ -205,15 +205,15 @@ Apply Cozy Home aesthetic to main nav: logo, tagline, links, container.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Ensure layout and global credit bar use tokens and primitives.
 
 **Subtasks:**
-- [ ] Wrap main content in Container (or leave to per-page; document decision) **[FRONTEND]**
-- [ ] Restyle `GlobalCreditBalanceBar` with Cozy Home tokens and Card/Container as appropriate **[FRONTEND]**
-- [ ] Ensure background behind nav and content uses Cozy Home background token **_Requirements: Req 4_**
+- [x] Wrap main content in Container (or leave to per-page; document decision) **[FRONTEND]**
+- [x] Restyle `GlobalCreditBalanceBar` with Cozy Home tokens and Card/Container as appropriate **[FRONTEND]**
+- [x] Ensure background behind nav and content uses Cozy Home background token **_Requirements: Req 4_**
 
 ---
 

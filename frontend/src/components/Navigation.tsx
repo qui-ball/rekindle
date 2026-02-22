@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { Container } from '@/components/ui/Container';
+import { Tagline } from '@/components/ui/Tagline';
 import { UserMenu } from './UserMenu';
 
 export const Navigation: React.FC = () => {
@@ -22,44 +24,39 @@ export const Navigation: React.FC = () => {
     return null;
   }
 
+  const linkBase =
+    'px-3 py-2 rounded-cozy-md text-cozy-body font-serif font-medium transition-colors text-cozy-text hover:text-cozy-accent hover:underline';
+  const linkActive = 'text-cozy-accent underline bg-cozy-mount';
+
   return (
-    <nav className="bg-white shadow-sm border-b">
-      <div className="container mx-auto px-4 py-3">
+    <nav className="bg-cozy-surface shadow-sm border-b border-cozy-borderCard border-t-2 border-t-cozy-accent">
+      <Container className="py-3">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-blue-600">
-            Rekindle
+          <Link href="/" className="flex flex-col gap-0.5">
+            <span className="font-serif text-cozy-logo text-cozy-accent font-normal">
+              Rekindle
+            </span>
+            <Tagline>Your memories, gently kept</Tagline>
           </Link>
           
           <div className="flex items-center space-x-4">
             {/* Navigation Links */}
             <div className="flex space-x-4">
-              <Link 
-                href="/upload" 
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/upload' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
+              <Link
+                href="/upload"
+                className={`${linkBase} ${pathname === '/upload' ? linkActive : ''}`}
               >
                 Upload
               </Link>
-              <Link 
-                href="/gallery" 
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/gallery' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
+              <Link
+                href="/gallery"
+                className={`${linkBase} ${pathname === '/gallery' ? linkActive : ''}`}
               >
                 Gallery
               </Link>
-              <Link 
-                href="/subscription" 
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  pathname === '/subscription' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
+              <Link
+                href="/subscription"
+                className={`${linkBase} ${pathname === '/subscription' ? linkActive : ''}`}
               >
                 Subscription
               </Link>
@@ -69,7 +66,7 @@ export const Navigation: React.FC = () => {
             <UserMenu />
           </div>
         </div>
-      </div>
+      </Container>
     </nav>
   );
 };

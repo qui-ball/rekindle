@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { CreditBalance } from '../types/photo-management';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { Container } from '@/components/ui/Container';
+import { Button } from '@/components/ui/Button';
 
 /**
  * GlobalCreditBalanceBar Component
@@ -82,42 +84,45 @@ export const GlobalCreditBalanceBar: React.FC = () => {
     return null;
   }
 
-  // Simple SVG icons
+  // Simple SVG icons (Cozy tokens: accent for credit icon, currentColor for button icon)
   const CreditCardIcon = () => (
-    <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="h-4 w-4 text-cozy-accent shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
     </svg>
   );
 
   const PlusIcon = () => (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
   );
 
   return (
-    <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-      <div className="container mx-auto">
-        <div className="flex items-center justify-end space-x-4">
+    <div className="bg-cozy-surface border-b border-cozy-borderCard py-2">
+      <Container>
+        <div className="flex items-center justify-end gap-4">
           {/* Unified Credit Balance */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <CreditCardIcon />
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-cozy-text">
               Credits: {creditBalance.totalCredits}
             </span>
           </div>
 
           {/* Purchase Credits Button */}
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            size="default"
             onClick={handlePurchaseCredits}
-            className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            className="flex items-center gap-1"
             aria-label="Purchase additional credits"
           >
             <PlusIcon />
             <span>Add Credits</span>
-          </button>
+          </Button>
         </div>
-      </div>
+      </Container>
     </div>
   );
 };

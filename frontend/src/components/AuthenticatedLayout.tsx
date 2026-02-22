@@ -29,7 +29,7 @@ export const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ c
   const isAuthenticated = !loading && user !== null;
 
   return (
-    <>
+    <div className="bg-cozy-background min-h-screen">
       {/* Only render navigation components when authentication is confirmed */}
       {isAuthenticated && (
         <>
@@ -37,8 +37,9 @@ export const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ c
           <GlobalCreditBalanceBar />
         </>
       )}
+      {/* Per-page containers; no global wrapper. */}
       {children}
-    </>
+    </div>
   );
 };
 
