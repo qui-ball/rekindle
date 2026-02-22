@@ -25,7 +25,7 @@ export const Section = forwardRef<HTMLElement, SectionProps>(
     const variantClass = variantClasses[variant];
     return (
       <Component
-        ref={ref as React.Ref<HTMLElement>}
+        ref={ref as React.Ref<HTMLDivElement>}
         className={`${variantClass} ${className}`.trim()}
         {...rest}
       />

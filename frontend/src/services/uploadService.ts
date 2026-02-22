@@ -46,6 +46,7 @@ interface PresignedUploadResponse {
 
 interface ApiError {
   detail: string;
+  message?: string;
   status_code?: number;
 }
 

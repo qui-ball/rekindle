@@ -1,8 +1,8 @@
 'use client';
 
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 
 /**
  * Sign-Up Success Page
@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
  * Shown after successful sign-up to inform user to check their email
  * for confirmation (if email confirmation is enabled).
  */
-export default function SignUpSuccessPage() {
+function SignUpSuccessContent() {
   const searchParams = useSearchParams();
   const email = searchParams?.get('email') || '';
   const [displayEmail, setDisplayEmail] = useState('');
@@ -125,3 +125,10 @@ export default function SignUpSuccessPage() {
   );
 }
 
+export default function SignUpSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-gray-500">Loading...</div></div>}>
+      <SignUpSuccessContent />
+    </Suspense>
+  );
+}

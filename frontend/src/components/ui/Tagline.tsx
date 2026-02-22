@@ -2,7 +2,7 @@
 
 import { forwardRef } from 'react';
 
-export interface TaglineProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+export type TaglineProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const taglineClasses =
   'font-serif text-cozy-tagline text-cozy-accent italic';

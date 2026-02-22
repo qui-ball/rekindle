@@ -1,19 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Container, Section, Headline, Tagline, Body, Caption, Card, Button } from '@/components/ui';
 
-/**
- * Landing Page
- * 
- * Simple landing page with sign-in and sign-up links.
- * This is the default route users see when they first visit the app.
- * Also handles email confirmation links (both successful and error cases).
- */
-export default function LandingPage() {
+function LandingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
@@ -234,5 +227,13 @@ export default function LandingPage() {
         </Container>
       </Section>
     </main>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-cozy-background flex items-center justify-center"><div className="text-cozy-textSecondary">Loading...</div></main>}>
+      <LandingContent />
+    </Suspense>
   );
 }

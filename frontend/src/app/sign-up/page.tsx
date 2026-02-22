@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { Suspense, useState, FormEvent, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
  * - Loading states and error handling
  * - Mobile responsive design
  */
-export default function SignUpPage() {
+function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUp, signInWithOAuth, loading: authLoading } = useAuth();
@@ -427,3 +427,10 @@ export default function SignUpPage() {
   );
 }
 
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-gray-500">Loading...</div></div>}>
+      <SignUpContent />
+    </Suspense>
+  );
+}

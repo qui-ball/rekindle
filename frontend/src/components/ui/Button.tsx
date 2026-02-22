@@ -60,15 +60,17 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonPr
       .join(' ');
 
     if (href != null) {
-      const { type, ...linkRest } = rest as React.ButtonHTMLAttributes<HTMLButtonElement> & {
+      // Omit type so it isn't passed to Link (Link doesn't accept type); pass only anchor-safe props
+      const { type: _omit, ...linkRest } = rest as React.ButtonHTMLAttributes<HTMLButtonElement> & {
         type?: React.ButtonHTMLAttributes<HTMLButtonElement>['type'];
       };
+      void _omit;
       return (
         <Link
           ref={ref as React.Ref<HTMLAnchorElement>}
           href={href}
           className={classes}
-          {...linkRest}
+          {...(linkRest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
         >
           {children}
         </Link>

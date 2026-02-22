@@ -32,7 +32,7 @@ function GalleryContent() {
 
       <div className="flex-1 overflow-hidden container mx-auto px-4 pb-8 max-w-7xl">
         <PhotoManagementContainer 
-          userId={user.email} // Use authenticated user's email
+          userId={user.email ?? ''}
           onPhotoSelect={(photo) => console.log('Photo selected:', photo)}
           onProcessingComplete={(result) => console.log('Processing complete:', result)}
           onError={(error) => console.error('Gallery error:', error)}

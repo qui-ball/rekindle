@@ -126,33 +126,36 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
     }));
   };
 
-  // Handle parameter changes for each processing type
-  const handleRestoreParametersChange = (params: RestoreParameters) => {
+  // Handle parameter changes for each processing type (drawer passes union type)
+  const handleRestoreParametersChange = (params: RestoreParameters | AnimateParameters | BringTogetherParameters) => {
+    if (!('colourize' in params)) return;
     setOptions(prev => ({
       ...prev,
       parameters: {
         ...prev.parameters,
-        restore: params
+        restore: params as RestoreParameters
       }
     }));
   };
 
-  const handleAnimateParametersChange = (params: AnimateParameters) => {
+  const handleAnimateParametersChange = (params: RestoreParameters | AnimateParameters | BringTogetherParameters) => {
+    if (!('videoDuration' in params)) return;
     setOptions(prev => ({
       ...prev,
       parameters: {
         ...prev.parameters,
-        animate: params
+        animate: params as AnimateParameters
       }
     }));
   };
 
-  const handleBringTogetherParametersChange = (params: BringTogetherParameters) => {
+  const handleBringTogetherParametersChange = (params: RestoreParameters | AnimateParameters | BringTogetherParameters) => {
+    if ('colourize' in params || 'videoDuration' in params) return;
     setOptions(prev => ({
       ...prev,
       parameters: {
         ...prev.parameters,
-        bringTogether: params
+        bringTogether: params as BringTogetherParameters
       }
     }));
   };

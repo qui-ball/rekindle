@@ -2,7 +2,7 @@
 
 import { forwardRef } from 'react';
 
-export interface CaptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+export type CaptionProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const captionClasses =
   'font-serif text-cozy-caption text-cozy-textSecondary italic';

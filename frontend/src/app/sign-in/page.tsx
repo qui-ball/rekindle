@@ -1,23 +1,12 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { Suspense, useState, FormEvent, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabase';
 
-/**
- * Sign-In Page
- * 
- * Provides email/password authentication and social login options.
- * Features:
- * - Email/password form
- * - Google social login (Facebook and Apple coming later)
- * - Links to sign-up and password reset
- * - Loading states and error handling
- * - Mobile responsive design
- */
-export default function SignInPage() {
+function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn, signInWithOAuth, loading: authLoading, user } = useAuth();
@@ -364,3 +353,10 @@ export default function SignInPage() {
   );
 }
 
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-gray-500">Loading...</div></div>}>
+      <SignInContent />
+    </Suspense>
+  );
+}

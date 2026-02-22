@@ -129,8 +129,10 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
         return 'Animated';
       case 'combined':
         return 'Combined';
-      default:
-        return result.resultType.charAt(0).toUpperCase() + result.resultType.slice(1);
+      default: {
+        const value = String(result.resultType);
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
     }
   };
 

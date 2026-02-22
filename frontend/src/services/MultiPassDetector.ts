@@ -112,8 +112,8 @@ export class MultiPassDetector {
         return null;
       }
 
-      // Refine with Shi-Tomasi
-      const refined = this.refineCornerPoints(src, cornerPoints);
+      // Order corners consistently (top-left, top-right, bottom-right, bottom-left)
+      const refined = this.orderCornerPoints(cornerPoints);
       const metrics = calculateConfidenceScore(refined, imageWidth, imageHeight);
 
       const processingTime = performance.now() - startTime;
@@ -166,8 +166,8 @@ export class MultiPassDetector {
         return null;
       }
 
-      // Refine with Shi-Tomasi on original image
-      const refined = this.refineCornerPoints(src, cornerPoints);
+      // Order corners consistently on original image
+      const refined = this.orderCornerPoints(cornerPoints);
       const metrics = calculateConfidenceScore(refined, imageWidth, imageHeight);
 
       // Cleanup
@@ -242,15 +242,21 @@ export class MultiPassDetector {
   /**
    * Order corner points in consistent order: top-left, top-right, bottom-right, bottom-left
    */
-  private orderCornerPoints(points: Array<{ x: number; y: number }>): CornerPoints {
-    if (points.length !== 4) {
-      throw new Error('Expected exactly 4 corner points');
-    }
-
-    // Sort by y-coordinate to separate top and bottom
-    const sorted = [...points].sort((a, b) => a.y - b.y);
+  private orderCornerPoints(points: CornerPoints): CornerPoints {
+    const arr = [
+      points.topLeftCorner,
+      points.topRightCorner,
+      points.bottomRightCorner,
+      points.bottomLeftCorner
+    ];
+    const sorted = [...arr].sort((a, b) => a.y - b.y);
     const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
     const bottom = sorted.slice(2).sort((a, b) => a.x - b.x);
-    return [top[0], top[1], bottom[1], bottom[0]];
+    return {
+      topLeftCorner: top[0],
+      topRightCorner: top[1],
+      bottomRightCorner: bottom[1],
+      bottomLeftCorner: bottom[0]
+    };
   }
 }
