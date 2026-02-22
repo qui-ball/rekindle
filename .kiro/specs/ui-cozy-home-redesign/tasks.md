@@ -15,7 +15,7 @@
 
 | Phase | Focus | Status |
 |-------|--------|--------|
-| Phase 1: Design tokens | Tailwind theme + globals (Cozy Home palette, typography, spacing, radii, shadows) | Not Started |
+| Phase 1: Design tokens | Tailwind theme + globals (Cozy Home palette, typography, spacing, radii, shadows) | Done |
 | Phase 2: UI primitives | Container, Button, Card, typography components, optional PhotoMount | Not Started |
 | Phase 3: Layout and navigation | AppHeader / Navigation restyle, AuthenticatedLayout, global bar | Not Started |
 | Phase 4: Page migration | Landing, sign-in, sign-up, subscription, auth callback, terms, privacy | Not Started |
@@ -33,15 +33,15 @@
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Add Cozy Home colors to `theme.extend.colors` so all components can use named tokens instead of hex values.
 
 **Subtasks:**
-- [ ] Add `cozy` (or equivalent) color scale: background, surface, text, textMuted, heading, accent, accentDark, border, borderCard, mount, and gradient endpoints **[FRONTEND]**
-- [ ] Add semantic colors (success, error, warning) that fit the palette and meet contrast where used **[FRONTEND]**
-- [ ] Document token names in design.md or a short README in the repo **_Requirements: Req 1_**
+- [x] Add `cozy` (or equivalent) color scale: background, surface, text, textMuted, heading, accent, accentDark, border, borderCard, mount, and gradient endpoints **[FRONTEND]**
+- [x] Add semantic colors (success, error, warning) that fit the palette and meet contrast where used **[FRONTEND]**
+- [x] Document token names in design.md or a short README in the repo **_Requirements: Req 1_**
 
 ---
 
@@ -49,15 +49,15 @@ Add Cozy Home colors to `theme.extend.colors` so all components can use named to
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Configure Merriweather (and fallbacks) and typography tokens (sizes, weights, line-heights).
 
 **Subtasks:**
-- [ ] Add Merriweather (e.g. next/font/google or link) and set as default serif in Tailwind **[FRONTEND]**
-- [ ] Extend theme with font sizes and line heights used in the sample (logo, tagline, h1–h3, body, caption, button) **[FRONTEND]**
-- [ ] Update `globals.css` base styles to use Cozy Home body font and line-height **_Requirements: Req 1_**
+- [x] Add Merriweather (e.g. next/font/google or link) and set as default serif in Tailwind **[FRONTEND]**
+- [x] Extend theme with font sizes and line heights used in the sample (logo, tagline, h1–h3, body, caption, button) **[FRONTEND]**
+- [x] Update `globals.css` base styles to use Cozy Home body font and line-height **_Requirements: Req 1_**
 
 ---
 
@@ -65,16 +65,16 @@ Configure Merriweather (and fallbacks) and typography tokens (sizes, weights, li
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Add spacing, border-radius, and box-shadow tokens that match the sample.
 
 **Subtasks:**
-- [ ] Add container max-width (1200px) and horizontal padding values for container/section **[FRONTEND]**
-- [ ] Add border radius tokens (e.g. cozy radius lg 15px, md 12px, sm 10px, input 8px, pill 50px) **[FRONTEND]**
-- [ ] Add box-shadow tokens (card default, card hover, button) **[FRONTEND]**
-- [ ] Add breakpoint alignment with sample (768px, 480px) if not already present **_Requirements: Req 1_**
+- [x] Add container max-width (1200px) and horizontal padding values for container/section **[FRONTEND]**
+- [x] Add border radius tokens (e.g. cozy radius lg 15px, md 12px, sm 10px, input 8px, pill 50px) **[FRONTEND]**
+- [x] Add box-shadow tokens (card default, card hover, button) **[FRONTEND]**
+- [x] Add breakpoint alignment with sample (768px, 480px) if not already present **_Requirements: Req 1_**
 
 ---
 
@@ -82,15 +82,15 @@ Add spacing, border-radius, and box-shadow tokens that match the sample.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Set body background and default text to Cozy Home tokens; update existing utility classes (e.g. `.btn-primary`, `.upload-zone`) to use tokens so they look Cozy Home without breaking existing usage.
 
 **Subtasks:**
-- [ ] Set `body` background and text color to Cozy Home tokens in `globals.css` **[FRONTEND]**
-- [ ] Replace hardcoded colors in `.btn-primary`, `.btn-secondary`, `.upload-zone`, and other component-layer classes with theme tokens **[FRONTEND]**
-- [ ] Update viewport/theme-color meta to a Cozy Home color (e.g. accent or background) in layout **[FRONTEND]** **_Requirements: Req 1_**
+- [x] Set `body` background and text color to Cozy Home tokens in `globals.css` **[FRONTEND]**
+- [x] Replace hardcoded colors in `.btn-primary`, `.btn-secondary`, `.upload-zone`, and other component-layer classes with theme tokens **[FRONTEND]**
+- [x] Update viewport/theme-color meta to a Cozy Home color (e.g. accent or background) in layout **[FRONTEND]** **_Requirements: Req 1_**
 
 ---
 
