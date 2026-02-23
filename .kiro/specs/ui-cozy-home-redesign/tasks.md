@@ -261,15 +261,15 @@ Restyle auth pages with Container, Card, typography, and Button; optional Input/
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Apply same Container, Card, typography, and Button to remaining auth-related pages.
 
 **Subtasks:**
-- [ ] Auth callback: minimal UI with tokens and primitives **[FRONTEND]**
-- [ ] Accept-terms: Card + typography + Button **[FRONTEND]**
-- [ ] Forgot-password: form in Card, tokens, Button **[FRONTEND]** **_Requirements: Req 3_**
+- [x] Auth callback: minimal UI with tokens and primitives **[FRONTEND]**
+- [x] Accept-terms: Card + typography + Button **[FRONTEND]**
+- [x] Forgot-password: form in Card, tokens, Button **[FRONTEND]** **_Requirements: Req 3_**
 
 ---
 
@@ -277,15 +277,15 @@ Apply same Container, Card, typography, and Button to remaining auth-related pag
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Terms, privacy, sign-up success, subscription page to Cozy Home.
 
 **Subtasks:**
-- [ ] Terms and privacy: Container, typography tokens, optional Card for content blocks **[FRONTEND]**
-- [ ] Sign-up success: Container, Card, Headline, Body, Button **[FRONTEND]**
-- [ ] Subscription: Container, Card for plans, Button for actions, tokens throughout **[FRONTEND]** **_Requirements: Req 3_**
+- [x] Terms and privacy: Container, typography tokens, optional Card for content blocks **[FRONTEND]**
+- [x] Sign-up success: Container, Card, Headline, Body, Button **[FRONTEND]**
+- [x] Subscription: Container, Card for plans, Button for actions, tokens throughout **[FRONTEND]** **_Requirements: Req 3_**
 
 ---
 

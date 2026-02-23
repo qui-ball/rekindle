@@ -132,25 +132,27 @@ function AuthCallbackContent() {
 
   // Show loading state while processing callback
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+    <div className="min-h-screen bg-cozy-background flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Completing sign in...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cozy-accent mx-auto mb-4" aria-hidden="true" />
+        <p className="text-cozy-textSecondary" role="status" aria-live="polite">Completing sign in...</p>
       </div>
     </div>
   );
 }
 
+const callbackLoadingUi = (
+  <div className="min-h-screen bg-cozy-background flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cozy-accent mx-auto mb-4" aria-hidden="true" />
+      <p className="text-cozy-textSecondary" role="status" aria-live="polite">Loading...</p>
+    </div>
+  </div>
+);
+
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={callbackLoadingUi}>
       <AuthCallbackContent />
     </Suspense>
   );

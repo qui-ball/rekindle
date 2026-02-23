@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Container, Card, Headline, Body, Caption } from '@/components/ui';
 
 const lastUpdated = 'November 13, 2025';
 
@@ -73,14 +74,14 @@ const sections = [
   {
     title: '10. Limited Warranty & Disclaimers',
     content: [
-      'Rekindle is provided “as-is” without warranties of any kind, whether express or implied. We do not guarantee specific restoration outcomes, uninterrupted service, or permanent retention of your data.',
+      'Rekindle is provided "as-is" without warranties of any kind, whether express or implied. We do not guarantee specific restoration outcomes, uninterrupted service, or permanent retention of your data.',
       'To the extent permitted by law, Rekindle and its contributors disclaim liability for indirect, incidental, or consequential damages arising from the use of the service.',
     ],
   },
   {
     title: '11. Limitation of Liability',
     content: [
-      'In no event will Rekindle’s total liability exceed the amount you paid for the service in the twelve months preceding the claim. Some jurisdictions do not allow limitations on implied warranties or liability; these limits may not apply to you.',
+      'In no event will Rekindle\'s total liability exceed the amount you paid for the service in the twelve months preceding the claim. Some jurisdictions do not allow limitations on implied warranties or liability; these limits may not apply to you.',
     ],
   },
   {
@@ -106,54 +107,61 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-50 py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-8 sm:p-12 space-y-12">
-        <header className="space-y-4">
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-            Legal
-          </span>
-          <h1 className="text-3xl font-bold text-gray-900">Rekindle Terms of Use</h1>
-          <p className="text-sm text-gray-500">Last updated: {lastUpdated}</p>
-          <p className="text-gray-600">
-            Please read these Terms carefully. They describe the rules that govern your use of Rekindle’s
-            applications, including our web, mobile, and cross-device experiences.
-          </p>
-        </header>
+    <div className="min-h-screen bg-cozy-background">
+      <Container verticalPadding className="max-w-4xl">
+        <Card className="p-8 sm:p-12">
+          <header className="space-y-4 mb-10">
+            <span className="inline-flex items-center rounded-full bg-cozy-mount px-3 py-1 text-sm font-medium text-cozy-heading">
+              Legal
+            </span>
+            <Headline level={1} className="text-cozy-heading">
+              Rekindle Terms of Use
+            </Headline>
+            <Caption className="text-cozy-textSecondary">
+              Last updated: {lastUpdated}
+            </Caption>
+            <Body className="text-cozy-text">
+              Please read these Terms carefully. They describe the rules that govern your use of Rekindle&apos;s
+              applications, including our web, mobile, and cross-device experiences.
+            </Body>
+          </header>
 
-        <section className="space-y-10">
-          {sections.map((section) => (
-            <article key={section.title} className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">{section.title}</h2>
-              <div className="space-y-3 text-gray-700 leading-relaxed">
-                {section.content.map((paragraph) => (
-                  <p key={paragraph}>{paragraph}</p>
-                ))}
-              </div>
-            </article>
-          ))}
-        </section>
+          <section className="space-y-10">
+            {sections.map((section) => (
+              <article key={section.title} className="space-y-4">
+                <Headline level={2} as="h2" className="text-cozy-heading">
+                  {section.title}
+                </Headline>
+                <div className="space-y-3">
+                  {section.content.map((paragraph) => (
+                    <Body key={paragraph} className="text-cozy-text leading-relaxed">
+                      {paragraph}
+                    </Body>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </section>
 
-        <footer className="space-y-3 text-gray-600">
-          <p>
-            By continuing to use Rekindle, you acknowledge that you have read, understood, and agree to these Terms of
-            Use.
-          </p>
-          <p>
-            Need more information? Review our{' '}
-            <Link href="/privacy" className="text-blue-600 hover:text-blue-700 font-medium">
-              Privacy Policy
-            </Link>{' '}
-            to understand how we collect and use data, or{' '}
-            <a href="mailto:support@rekindle.app" className="text-blue-600 hover:text-blue-700 font-medium">
-              contact support
-            </a>
-            .
-          </p>
-        </footer>
-      </div>
+          <footer className="mt-12 pt-8 border-t border-cozy-borderCard space-y-3">
+            <Body className="text-cozy-text">
+              By continuing to use Rekindle, you acknowledge that you have read, understood, and agree to these Terms of
+              Use.
+            </Body>
+            <Body className="text-cozy-text">
+              Need more information? Review our{' '}
+              <Link href="/privacy" className="text-cozy-accent hover:underline font-medium">
+                Privacy Policy
+              </Link>{' '}
+              to understand how we collect and use data, or{' '}
+              <a href="mailto:support@rekindle.app" className="text-cozy-accent hover:underline font-medium">
+                contact support
+              </a>
+              .
+            </Body>
+          </footer>
+        </Card>
+      </Container>
     </div>
   );
 }
-
-
-

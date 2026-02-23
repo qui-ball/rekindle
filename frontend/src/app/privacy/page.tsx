@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Container, Card, Headline, Body, Caption } from '@/components/ui';
 
 const lastUpdated = 'November 13, 2025';
 
@@ -118,73 +119,85 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-slate-50 py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl p-8 sm:p-12 space-y-12">
-        <header className="space-y-4">
-          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
-            Privacy
-          </span>
-          <h1 className="text-3xl font-bold text-gray-900">Rekindle Privacy Policy</h1>
-          <p className="text-sm text-gray-500">Last updated: {lastUpdated}</p>
-          <p className="text-gray-600">
-            We respect the trust you place in Rekindle when you share your photographs and memories. This policy explains
-            how we collect, protect, and use your information.
-          </p>
-        </header>
+    <div className="min-h-screen bg-cozy-background">
+      <Container verticalPadding className="max-w-4xl">
+        <Card className="p-8 sm:p-12">
+          <header className="space-y-4 mb-10">
+            <span className="inline-flex items-center rounded-full bg-cozy-mount px-3 py-1 text-sm font-medium text-cozy-heading">
+              Privacy
+            </span>
+            <Headline level={1} className="text-cozy-heading">
+              Rekindle Privacy Policy
+            </Headline>
+            <Caption className="text-cozy-textSecondary">
+              Last updated: {lastUpdated}
+            </Caption>
+            <Body className="text-cozy-text">
+              We respect the trust you place in Rekindle when you share your photographs and memories. This policy explains
+              how we collect, protect, and use your information.
+            </Body>
+          </header>
 
-        <section className="space-y-10">
-          {sections.map((section) => (
-            <article key={section.title} className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">{section.title}</h2>
-              {'content' in section && section.content && (
-                <div className="space-y-3 text-gray-700 leading-relaxed">
-                  {section.content.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
-                </div>
-              )}
-              {'bullets' in section && section.bullets && (
-                <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                  {section.bullets.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              )}
-              {'subsections' in section && section.subsections && (
-                <div className="space-y-6">
-                  {section.subsections.map((subsection) => (
-                    <div key={subsection.heading} className="space-y-2">
-                      <h3 className="text-lg font-medium text-gray-900">{subsection.heading}</h3>
-                      <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                        {subsection.bullets.map((bullet) => (
-                          <li key={bullet}>{bullet}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
-          ))}
-        </section>
+          <section className="space-y-10">
+            {sections.map((section) => (
+              <article key={section.title} className="space-y-4">
+                <Headline level={2} as="h2" className="text-cozy-heading">
+                  {section.title}
+                </Headline>
+                {'content' in section && section.content && (
+                  <div className="space-y-3">
+                    {section.content.map((paragraph) => (
+                      <Body key={paragraph} className="text-cozy-text leading-relaxed">
+                        {paragraph}
+                      </Body>
+                    ))}
+                  </div>
+                )}
+                {'bullets' in section && section.bullets && (
+                  <ul className="list-disc pl-5 space-y-2 text-cozy-body text-cozy-text font-serif leading-cozy">
+                    {section.bullets.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+                {'subsections' in section && section.subsections && (
+                  <div className="space-y-6">
+                    {section.subsections.map((subsection) => (
+                      <div key={subsection.heading} className="space-y-2">
+                        <Headline level={3} as="h3" className="text-cozy-heading text-lg font-medium">
+                          {subsection.heading}
+                        </Headline>
+                        <ul className="list-disc pl-5 space-y-2 text-cozy-body text-cozy-text font-serif leading-cozy">
+                          {subsection.bullets.map((bullet) => (
+                            <li key={bullet}>{bullet}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+          </section>
 
-        <footer className="space-y-3 text-gray-600">
-          <p>
-            This Privacy Policy should be read together with our{' '}
-            <Link href="/terms" className="text-blue-600 hover:text-blue-700 font-medium">
-              Terms of Use
-            </Link>
-            .
-          </p>
-          <p>
-            For additional questions or to exercise privacy rights,{' '}
-            <a href="mailto:privacy@rekindle.app" className="text-blue-600 hover:text-blue-700 font-medium">
-              contact us by email
-            </a>{' '}
-            or write to Rekindle Privacy, 432 Memory Lane, Portland, OR 97205, USA.
-          </p>
-        </footer>
-      </div>
+          <footer className="mt-12 pt-8 border-t border-cozy-borderCard space-y-3">
+            <Body className="text-cozy-text">
+              This Privacy Policy should be read together with our{' '}
+              <Link href="/terms" className="text-cozy-accent hover:underline font-medium">
+                Terms of Use
+              </Link>
+              .
+            </Body>
+            <Body className="text-cozy-text">
+              For additional questions or to exercise privacy rights,{' '}
+              <a href="mailto:privacy@rekindle.app" className="text-cozy-accent hover:underline font-medium">
+                contact us by email
+              </a>{' '}
+              or write to Rekindle Privacy, 432 Memory Lane, Portland, OR 97205, USA.
+            </Body>
+          </footer>
+        </Card>
+      </Container>
     </div>
   );
 }

@@ -3,6 +3,10 @@
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { Container, Card, Headline, Body, Button } from '@/components/ui';
+
+const inputClasses =
+  'w-full px-4 py-3 border border-cozy-borderCard rounded-cozy-input bg-cozy-surface text-cozy-text font-serif text-cozy-body placeholder:text-cozy-textMuted focus:ring-2 focus:ring-cozy-accent focus:border-cozy-accent outline-none transition-colors disabled:bg-cozy-mount disabled:cursor-not-allowed';
 
 export default function ForgotPasswordPage() {
   const { resetPassword, loading } = useAuth();
@@ -29,61 +33,59 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-cozy-background flex items-center justify-center px-4 py-12">
+      <Container className="max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4">
-            <h1 className="text-3xl font-bold text-blue-600">Rekindle</h1>
+            <Headline level={1} className="text-cozy-accent">Rekindle</Headline>
           </Link>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Reset your password</h2>
-          <p className="text-gray-600">
+          <Headline level={2} className="mb-2">Reset your password</Headline>
+          <Body>
             Enter the email you use for Rekindle and we&apos;ll send a link to create a new password.
-          </p>
+          </Body>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-8 space-y-6">
+        <Card className="p-8 space-y-6">
           {success ? (
             <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-cozySemantic-success bg-cozy-mount">
+                <svg className="h-6 w-6 text-cozySemantic-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Check your inbox</h3>
-              <p className="text-gray-600">
-                If an account exists for <span className="font-medium text-gray-900">{email}</span>, you will receive an email with a reset
+              <Headline level={3}>Check your inbox</Headline>
+              <Body>
+                If an account exists for <span className="font-medium text-cozy-heading">{email}</span>, you will receive an email with a reset
                 link. The link expires after a short period for security.
-              </p>
-              <p className="text-sm text-gray-500">Didn&apos;t get the email? Be sure to check spam or try again.</p>
+              </Body>
+              <p className="text-sm text-cozy-textSecondary">Didn&apos;t get the email? Be sure to check spam or try again.</p>
               <div className="space-y-2">
-                <button
+                <Button
+                  variant="secondary"
+                  fullWidth
                   type="button"
                   onClick={() => {
                     setSuccess(false);
                     setEmail('');
                   }}
-                  className="w-full rounded-lg border border-blue-600 px-4 py-2 text-blue-600 font-medium hover:bg-blue-50 transition"
                 >
                   Send another link
-                </button>
-                <Link
-                  href="/sign-in"
-                  className="block text-center w-full rounded-lg bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700 transition"
-                >
+                </Button>
+                <Button href="/sign-in" variant="primary" fullWidth>
                   Return to sign in
-                </Link>
+                </Button>
               </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <div className="rounded-cozy-md border border-cozySemantic-error bg-cozy-mount p-4 text-sm text-cozy-text" role="alert">
                   {error}
                 </div>
               )}
 
               <div className="space-y-2">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="email" className="block text-sm font-medium text-cozy-heading font-serif">
                   Email address
                 </label>
                 <input
@@ -94,14 +96,17 @@ export default function ForgotPasswordPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   disabled={loading}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className={inputClasses}
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="primary"
+                size="large"
+                fullWidth
                 disabled={loading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-white font-medium hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                className="flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -118,18 +123,18 @@ export default function ForgotPasswordPage() {
                 ) : (
                   <span>Send reset link</span>
                 )}
-              </button>
+              </Button>
 
-              <div className="text-center text-sm text-gray-600">
+              <div className="text-center text-sm text-cozy-textSecondary">
                 Remembered your password?{' '}
-                <Link href="/sign-in" className="text-blue-600 font-medium hover:text-blue-700 hover:underline">
+                <Link href="/sign-in" className="text-cozy-accent font-medium hover:underline">
                   Return to sign in
                 </Link>
               </div>
             </form>
           )}
-        </div>
-      </div>
+        </Card>
+      </Container>
     </div>
   );
 }

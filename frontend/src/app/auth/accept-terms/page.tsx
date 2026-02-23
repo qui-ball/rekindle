@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { Container, Card, Headline, Body, Button } from '@/components/ui';
 
 /**
  * Terms Acceptance Page
@@ -66,10 +67,10 @@ export default function AcceptTermsPage() {
   // Show loading state while checking auth
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-cozy-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cozy-accent mx-auto mb-4" aria-hidden="true" />
+          <p className="text-cozy-textSecondary" role="status" aria-live="polite">Loading...</p>
         </div>
       </div>
     );
@@ -83,25 +84,25 @@ export default function AcceptTermsPage() {
   const isLoadingState = isLoading || authLoading;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-cozy-background flex items-center justify-center px-4 py-12">
+      <Container className="max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-4">
-            <h1 className="text-3xl font-bold text-blue-600">Rekindle</h1>
+            <Headline level={1} className="text-cozy-accent">Rekindle</Headline>
           </Link>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Welcome!</h2>
-          <p className="text-gray-600">Please accept our terms to continue.</p>
+          <Headline level={2} className="mb-2">Welcome!</Headline>
+          <Body>Please accept our terms to continue.</Body>
         </div>
 
         {/* Terms Acceptance Card */}
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <Card className="p-8">
           {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <div className="flex items-center space-x-2">
+            <div className="mb-6 p-4 bg-cozy-mount border border-cozySemantic-error rounded-cozy-md" role="alert">
+              <div className="flex items-center gap-2">
                 <svg
-                  className="w-5 h-5 text-red-500 flex-shrink-0"
+                  className="w-5 h-5 text-cozySemantic-error shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -113,7 +114,7 @@ export default function AcceptTermsPage() {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
                   />
                 </svg>
-                <p className="text-sm text-red-700">{error}</p>
+                <p className="text-sm text-cozy-text">{error}</p>
               </div>
             </div>
           )}
@@ -128,15 +129,15 @@ export default function AcceptTermsPage() {
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
                 disabled={isLoadingState}
                 required
-                className="mt-1 h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-1 h-5 w-5 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <label htmlFor="terms" className="text-sm text-gray-700">
+              <label htmlFor="terms" className="text-sm text-cozy-text">
                 I agree to the{' '}
-                <Link href="/terms" target="_blank" className="text-blue-600 hover:text-blue-700 hover:underline font-medium">
+                <Link href="/terms" target="_blank" className="text-cozy-accent hover:underline font-medium">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" target="_blank" className="text-blue-600 hover:text-blue-700 hover:underline font-medium">
+                <Link href="/privacy" target="_blank" className="text-cozy-accent hover:underline font-medium">
                   Privacy Policy
                 </Link>
               </label>
@@ -144,15 +145,19 @@ export default function AcceptTermsPage() {
           </div>
 
           {/* Accept Button */}
-          <button
+          <Button
+            type="button"
+            variant="primary"
+            size="large"
+            fullWidth
             onClick={handleAcceptTerms}
             disabled={isLoadingState || !acceptedTerms}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="flex items-center justify-center gap-2"
           >
             {isLoadingState ? (
               <>
                 <svg
-                  className="animate-spin h-5 w-5 text-white"
+                  className="animate-spin h-5 w-5"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -176,9 +181,9 @@ export default function AcceptTermsPage() {
             ) : (
               <span>Accept and Continue</span>
             )}
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Card>
+      </Container>
     </div>
   );
 }
