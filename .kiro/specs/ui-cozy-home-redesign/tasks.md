@@ -243,17 +243,17 @@ Align landing with Cozy Home: hero, feature cards, CTA, buttons.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Restyle auth pages with Container, Card, typography, and Button; optional Input/FormField.
 
 **Subtasks:**
-- [ ] Wrap content in Container; use Card for form panel **[FRONTEND]**
-- [ ] Use Headline/Body for titles and descriptions **[FRONTEND]**
-- [ ] Restyle primary and secondary buttons with Button component **[FRONTEND]**
-- [ ] Restyle inputs (borders, focus) with tokens; optional shared Input/FormField **[FRONTEND]**
-- [ ] Use Cozy Home background and spacing **_Requirements: Req 3, Req 5_**
+- [x] Wrap content in Container; use Card for form panel **[FRONTEND]**
+- [x] Use Headline/Body for titles and descriptions **[FRONTEND]**
+- [x] Restyle primary and secondary buttons with Button component **[FRONTEND]**
+- [x] Restyle inputs (borders, focus) with tokens; optional shared Input/FormField **[FRONTEND]**
+- [x] Use Cozy Home background and spacing **_Requirements: Req 3, Req 5_**
 
 ---
 
