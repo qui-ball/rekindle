@@ -225,17 +225,17 @@ Ensure layout and global credit bar use tokens and primitives.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Align landing with Cozy Home: hero, feature cards, CTA, buttons.
 
 **Subtasks:**
-- [ ] Replace layout with Container and Section **[FRONTEND]**
-- [ ] Use Headline/Tagline/Body for logo, tagline, hero title, hero subtitle **[FRONTEND]**
-- [ ] Replace value-prop blocks with Card (or FeatureCard) and tokens **[FRONTEND]**
-- [ ] Replace CTAs with Button primary/secondary **[FRONTEND]**
-- [ ] Use Cozy Home background; remove blue/gray gradients **_Requirements: Req 3, Req 5_**
+- [x] Replace layout with Container and Section **[FRONTEND]**
+- [x] Use Headline/Tagline/Body for logo, tagline, hero title, hero subtitle **[FRONTEND]**
+- [x] Replace value-prop blocks with Card (or FeatureCard) and tokens **[FRONTEND]**
+- [x] Replace CTAs with Button primary/secondary **[FRONTEND]**
+- [x] Use Cozy Home background; remove blue/gray gradients **_Requirements: Req 3, Req 5_**
 
 ---
 

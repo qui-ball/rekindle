@@ -161,10 +161,10 @@ function LandingContent() {
   // Show loading state while processing email confirmation
   if (isProcessing) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-cozy-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Confirming your email...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cozy-accent mx-auto mb-4"></div>
+          <p className="text-cozy-textSecondary">Confirming your email...</p>
         </div>
       </div>
     );
@@ -174,51 +174,49 @@ function LandingContent() {
     <main className="min-h-screen bg-cozy-background flex items-center justify-center">
       <Section variant="default" className="w-full flex items-center justify-center">
         <Container className="w-full max-w-2xl text-center">
-          {/* Logo/Title */}
+          {/* Hero: logo, tagline, title, subtitle */}
           <div className="mb-12">
             <Headline level={1} className="mb-4 text-cozy-accent">Rekindle</Headline>
             <Tagline className="mb-2 block">Restore Your Memories</Tagline>
-            <Body>
+            <Body className="text-cozy-hero italic text-cozy-textSecondary">
               Transform old, damaged, or faded family photos into vibrant, restored memories with professional-grade AI.
             </Body>
           </div>
 
-          {/* Value Proposition */}
-          <Card hover className="p-8 mb-8">
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              <div>
-                <div className="text-3xl mb-2">✨</div>
-                <Headline level={3} className="mb-2">AI-Powered Restoration</Headline>
-                <Caption>
-                  Advanced AI technology restores your photos to their original beauty
-                </Caption>
-              </div>
-              <div>
-                <div className="text-3xl mb-2">🎨</div>
-                <Headline level={3} className="mb-2">Color & Enhance</Headline>
-                <Caption>
-                  Add color to black and white photos and enhance image quality
-                </Caption>
-              </div>
-              <div>
-                <div className="text-3xl mb-2">📸</div>
-                <Headline level={3} className="mb-2">Easy Upload</Headline>
-                <Caption>
-                  Simple, secure photo upload and processing workflow
-                </Caption>
-              </div>
-            </div>
+          {/* Value proposition: feature cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-10">
+            <Card hover className="p-6">
+              <div className="text-3xl mb-2">✨</div>
+              <Headline level={3} className="mb-2 text-cozy-heading">AI-Powered Restoration</Headline>
+              <Caption>
+                Advanced AI technology restores your photos to their original beauty
+              </Caption>
+            </Card>
+            <Card hover className="p-6">
+              <div className="text-3xl mb-2">🎨</div>
+              <Headline level={3} className="mb-2 text-cozy-heading">Color & Enhance</Headline>
+              <Caption>
+                Add color to black and white photos and enhance image quality
+              </Caption>
+            </Card>
+            <Card hover className="p-6">
+              <div className="text-3xl mb-2">📸</div>
+              <Headline level={3} className="mb-2 text-cozy-heading">Easy Upload</Headline>
+              <Caption>
+                Simple, secure photo upload and processing workflow
+              </Caption>
+            </Card>
+          </div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button href="/sign-up" variant="primary" size="large" fullWidth>
-                Get Started Free
-              </Button>
-              <Button href="/sign-in" variant="secondary" size="large" fullWidth>
-                Sign In
-              </Button>
-            </div>
-          </Card>
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <Button href="/sign-up" variant="primary" size="large" fullWidth>
+              Get Started Free
+            </Button>
+            <Button href="/sign-in" variant="secondary" size="large" fullWidth>
+              Sign In
+            </Button>
+          </div>
 
           {/* Footer Note */}
           <Caption>

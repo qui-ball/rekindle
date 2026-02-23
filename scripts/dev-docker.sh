@@ -8,6 +8,7 @@ set -e  # Exit on any error
 # Parse arguments
 HTTPS_MODE=false
 SHOW_LOGS=true
+WSL_NETWORK_ACCESS=false
 
 for arg in "$@"; do
   case $arg in
@@ -17,6 +18,10 @@ for arg in "$@"; do
       ;;
     --no-logs)
       SHOW_LOGS=false
+      shift
+      ;;
+    --wsl)
+      WSL_NETWORK_ACCESS=true
       shift
       ;;
   esac
@@ -93,14 +98,23 @@ get_windows_host_ip() {
 
 # Function to get local IP (exclude Docker networks)
 get_local_ip() {
-    # For WSL2, prioritize Windows host IP
+    # For WSL2, prioritize Windows host IP (ipconfig.exe parsing)
     local windows_ip=$(get_windows_host_ip)
     if [ -n "$windows_ip" ]; then
         echo "$windows_ip"
         return
     fi
     
-    # Fallback: Try to get from network interfaces
+    # WSL2 fallback: PowerShell Get-NetIPAddress (more reliable than ipconfig parsing on some setups)
+    if grep -qi microsoft /proc/version 2>/dev/null && command -v powershell.exe &> /dev/null; then
+        windows_ip=$(powershell.exe -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { (\$_.InterfaceAlias -match 'Wi-Fi|Ethernet') -and (\$_.IPAddress -notmatch '^169\.') -and (\$_.IPAddress -notmatch '^172\.(1[7-9]|2[0-9]|3[0-1])\.') } | Select-Object -First 1).IPAddress" 2>/dev/null | tr -d '\r\n')
+        if [ -n "$windows_ip" ] && [[ "$windows_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$windows_ip"
+            return
+        fi
+    fi
+    
+    # Fallback: Try to get from network interfaces (native Linux / Mac)
     local ip=""
     if command -v hostname &> /dev/null; then
         ip=$(hostname -I 2>/dev/null | awk '{
@@ -120,6 +134,36 @@ get_local_ip() {
     
     # If we can't find a good IP, return empty
     echo ""
+}
+
+# Setup WSL2/Windows network access (portproxy + firewall) so mobile devices can reach Docker
+# Run only when --wsl is passed (requires Windows + WSL2 + PowerShell Admin)
+setup_wsl2_network_access() {
+    if ! grep -qi microsoft /proc/version 2>/dev/null; then
+        return 0
+    fi
+    if [ "$WSL_NETWORK_ACCESS" != true ]; then
+        return 0
+    fi
+    echo "🔒 Setting up network access for mobile devices (WSL2)..."
+    local script_path win_path
+    script_path="$PROJECT_ROOT/scripts/wsl-network-access.ps1"
+    if [ ! -f "$script_path" ]; then
+        echo "⚠️  Network setup script not found: $script_path"
+        return 0
+    fi
+    win_path=$(wslpath -w "$script_path" 2>/dev/null)
+    if [ -z "$win_path" ]; then
+        # Fallback: \\wsl.localhost\Ubuntu\home\user\...\scripts\wsl-network-access.ps1
+        win_path="\\\\wsl.localhost\\Ubuntu$(echo "$script_path" | sed 's|^/||' | sed 's|/|\\|g')"
+    fi
+    if powershell.exe -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','$win_path' -Wait" 2>/dev/null; then
+        echo "✅ Network access configured (portproxy + firewall for 3000, 8000)"
+    else
+        echo "⚠️  Could not run network setup as Administrator."
+        echo "   To allow mobile access on WSL2, run in Windows (as Admin):"
+        echo "   PowerShell -ExecutionPolicy Bypass -File \"$win_path\""
+    fi
 }
 
 LOCAL_IP=$(get_local_ip)
@@ -620,6 +664,12 @@ if docker compose ps postgres >/dev/null 2>&1; then
     }
 fi
 
+# WSL2: set up Windows portproxy + firewall so mobile devices can reach Docker (only when --wsl and https)
+if [ "$HTTPS_MODE" = true ] && [ "$WSL_NETWORK_ACCESS" = true ]; then
+    setup_wsl2_network_access
+    echo ""
+fi
+
 # Exit hook for clean shutdown / messaging
 cleanup() {
     local exit_code=$?
@@ -636,14 +686,20 @@ trap cleanup EXIT
 echo ""
 echo "✅ Development Environment Ready!"
 echo ""
-echo "🔗 Access: $PROTOCOL://localhost:3000"
+echo "📱 Access URLs:"
+echo "   Local:    $PROTOCOL://localhost:3000"
+if [ -n "$LOCAL_IP" ] && [ "$LOCAL_IP" != "localhost" ]; then
+    echo "   Mobile:   $PROTOCOL://${LOCAL_IP}:3000"
+    echo "   (Use the Mobile URL on your phone/tablet - same WiFi network required)"
+else
+    echo "   Mobile:   (IP not detected - see below if you need HTTPS for camera)"
+fi
+echo ""
 if [ "$HTTPS_MODE" = true ]; then
     if [ -n "$LOCAL_IP" ] && [ "$LOCAL_IP" != "localhost" ]; then
-        echo "📱 Mobile: https://$LOCAL_IP:3000"
-        echo "   (Use this URL on your mobile device - same WiFi network required)"
+        echo "   🔒 Camera on mobile: open https://${LOCAL_IP}:3000 (trust the certificate if prompted)"
     else
-        echo "📱 Mobile: Unable to auto-detect Windows host IP"
-        echo ""
+        echo "   📱 Mobile (HTTPS for camera): Unable to auto-detect host IP"
         echo "   To find your Windows host IP:"
         echo "   1. Open PowerShell or CMD on Windows"
         echo "   2. Run: ipconfig"

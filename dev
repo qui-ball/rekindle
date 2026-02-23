@@ -57,10 +57,11 @@ case "$1" in
     echo ""
     echo "📱 For mobile camera testing:"
     echo "   Use '$0 https' to enable HTTPS with local certificates"
-    echo "   This allows camera access on mobile devices"
+    echo "   On Windows WSL2, use '$0 https --wsl' to set up port forwarding + firewall so phones can reach the app"
     echo ""
     echo "🔧 Additional options:"
     echo "   --no-logs       Don't show container logs after startup"
+    echo "   --wsl           (with https) Run PowerShell as Admin to set up portproxy + firewall for mobile access (Windows WSL2 only)"
     exit 1
     ;;
 esac
