@@ -39,7 +39,6 @@ jest.mock('../../utils/fileUtils', () => ({
 }));
 
 // Mock the usePhotoUpload hook
-const mockUploadPhoto = jest.fn();
 const mockResetUpload = jest.fn();
 
 // Track upload state for testing
@@ -47,7 +46,7 @@ let uploadStateStatus: 'idle' | 'uploading' | 'complete' | 'error' = 'idle';
 
 jest.mock('../../hooks/usePhotoUpload', () => ({
   usePhotoUpload: () => ({
-    uploadPhoto: async (file: File, options?: any) => {
+    uploadPhoto: async (file: File, options?: { onProgress?: (p: number) => void }) => {
       uploadStateStatus = 'uploading';
       // Simulate upload progress
       if (options?.onProgress) {
@@ -103,8 +102,7 @@ describe('PhotoUploadContainer', () => {
 
     expect(screen.getByText('Upload Your Photo')).toBeInTheDocument();
     expect(screen.getByText('📷 Take Photo')).toBeInTheDocument();
-    expect(screen.getByText('📁 Choose from Gallery (Coming Soon)')).toBeInTheDocument();
-    expect(screen.getByText('💻 Upload from Computer (Coming Soon)')).toBeInTheDocument();
+    expect(screen.getByText('📁 Upload File')).toBeInTheDocument();
   });
 
   it('should open camera flow when Take Photo is clicked', () => {
@@ -144,7 +142,7 @@ describe('PhotoUploadContainer', () => {
   });
 
   it('should handle photo capture from flow', async () => {
-    const { rerender } = render(
+    render(
       <PhotoUploadContainer
         onUploadComplete={mockOnUploadComplete}
         onError={mockOnError}

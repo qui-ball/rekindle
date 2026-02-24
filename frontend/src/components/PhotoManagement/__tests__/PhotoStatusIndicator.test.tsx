@@ -215,35 +215,35 @@ describe('PhotoStatusIndicator', () => {
       render(<PhotoStatusIndicator {...defaultProps} status="ready" />);
       
       const statusBadge = screen.getByText('Ready to Process').closest('div');
-      expect(statusBadge).toHaveClass('text-green-500', 'bg-green-100');
+      expect(statusBadge).toHaveClass('text-cozySemantic-success', 'bg-cozy-mount');
     });
 
     it('should apply correct CSS classes for queued status', () => {
       render(<PhotoStatusIndicator {...defaultProps} status="queued" />);
       
       const statusBadge = screen.getByText('In Queue').closest('div');
-      expect(statusBadge).toHaveClass('text-blue-500', 'bg-blue-100', 'animate-pulse');
+      expect(statusBadge).toHaveClass('text-cozy-accentDark', 'bg-cozy-mount', 'animate-pulse');
     });
 
     it('should apply correct CSS classes for processing status', () => {
       render(<PhotoStatusIndicator {...defaultProps} status="processing" />);
       
       const statusBadge = screen.getByText('Processing...').closest('div');
-      expect(statusBadge).toHaveClass('text-orange-500', 'bg-orange-100', 'animate-spin');
+      expect(statusBadge).toHaveClass('text-cozySemantic-warning', 'bg-cozy-mount', 'animate-spin');
     });
 
     it('should apply correct CSS classes for completed status', () => {
       render(<PhotoStatusIndicator {...defaultProps} status="completed" />);
       
       const statusBadge = screen.getByText('Completed').closest('div');
-      expect(statusBadge).toHaveClass('text-green-500', 'bg-green-100', 'animate-bounce');
+      expect(statusBadge).toHaveClass('text-cozySemantic-success', 'bg-cozy-mount', 'animate-bounce');
     });
 
     it('should apply correct CSS classes for failed status', () => {
       render(<PhotoStatusIndicator {...defaultProps} status="failed" />);
       
       const statusBadge = screen.getByText('Failed - Tap to Retry').closest('div');
-      expect(statusBadge).toHaveClass('text-red-500', 'bg-red-100', 'animate-shake');
+      expect(statusBadge).toHaveClass('text-cozySemantic-error', 'bg-cozy-mount', 'animate-shake');
     });
   });
 

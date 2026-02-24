@@ -128,7 +128,7 @@ describe('QuadrilateralCropper', () => {
     // Wait for crop area to be initialized and handles to appear
     // Handles use w-12 h-12 (not w-8 h-8) and are only rendered when imageLoaded && quadArea
     await waitFor(() => {
-      const handles = document.querySelectorAll('.w-12.h-12.bg-blue-500');
+      const handles = document.querySelectorAll('.w-12.h-12.bg-cozy-accent');
       expect(handles.length).toBeGreaterThanOrEqual(4); // Four corner handles
     }, { timeout: 3000 });
   });
@@ -278,7 +278,7 @@ describe('QuadrilateralCropper', () => {
       
       // Wait for handles to appear (handles use w-12 h-12, not w-8 h-8)
       await waitFor(() => {
-        const handles = document.querySelectorAll('.w-12.h-12.bg-blue-500');
+        const handles = document.querySelectorAll('.w-12.h-12.bg-cozy-accent');
         expect(handles.length).toBeGreaterThanOrEqual(4); // Four corner handles should be present
       }, { timeout: 2000 });
       

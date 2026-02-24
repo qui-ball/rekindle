@@ -2,8 +2,7 @@
  * Next.js Middleware for Route Protection
  * 
  * This middleware protects authenticated routes by checking Supabase session.
- * It uses the Supabase SSR package to create a middleware client that works
- * in the Edge Runtime environment.
+ * It uses createServerClient from @supabase/ssr with cookie getAll/setAll for Edge Runtime.
  * 
  * Protected Routes:
  * - /dashboard/*
@@ -23,7 +22,7 @@
  * - /gallery (user's photo gallery)
  */
 
-import { createMiddlewareClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
@@ -75,20 +74,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // At this point, we know it's a protected route
-  // Create a response object to modify
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
+  const response = NextResponse.next({
+    request: { headers: request.headers },
+  });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return response;
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
     },
   });
 
-  // Create Supabase client for middleware
-  // createMiddlewareClient reads from NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-  // These environment variables are available in Edge Runtime
-  const supabase = createMiddlewareClient({ req: request, res: response });
-
-  // Refresh session if expired (Supabase will handle this automatically)
-  // This ensures the session is up-to-date before checking authentication
   const {
     data: { session },
     error: sessionError,

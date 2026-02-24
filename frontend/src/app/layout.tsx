@@ -1,12 +1,17 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Merriweather } from 'next/font/google';
 import './globals.css';
 import { DevMenu } from '@/components/DevMenu';
 import { AppInitializationProvider } from '@/components/AppInitializationProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { AuthenticatedLayout } from '@/components/AuthenticatedLayout';
 
-const inter = Inter({ subsets: ['latin'] });
+const merriweather = Merriweather({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-merriweather',
+});
 
 export const metadata: Metadata = {
   title: 'Rekindle - Restore Your Memories',
@@ -18,7 +23,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent', // Cozy Home: status bar blends with #faf5f0
     title: 'Rekindle',
   },
 };
@@ -28,7 +33,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#3b82f6',
+  themeColor: '#faf5f0', /* cozy.background */
   viewportFit: 'cover', // Use full screen including safe areas
 };
 
@@ -38,13 +43,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={merriweather.variable}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Rekindle" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#3b82f6" />
+        <meta name="msapplication-TileColor" content="#faf5f0" />
         <meta name="msapplication-tap-highlight" content="no" />
         
         {/* Hide mobile home indicator and use full viewport */}
@@ -233,7 +238,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={merriweather.className}>
         <AuthProvider>
           <AppInitializationProvider>
             <AuthenticatedLayout>

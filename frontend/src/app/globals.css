@@ -4,29 +4,31 @@
 
 @layer base {
   html {
-    font-family: system-ui, sans-serif;
+    font-family: var(--font-merriweather), 'Merriweather', 'Georgia', serif;
   }
   
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-cozy-background text-cozy-text font-serif text-cozy-body leading-cozy;
   }
 }
 
 @layer components {
+  /* Legacy: Prefer the Button component from @/components/ui (variant="primary"). */
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gradient-to-br from-cozy-gradientButtonStart to-cozy-gradientButtonEnd text-white font-medium py-2 px-4 rounded-cozy-pill shadow-cozy-button hover:shadow-cozy-button-hover motion-safe:hover:-translate-y-0.5 motion-safe:transition-transform motion-reduce:hover:translate-y-0 transition-shadow duration-300 ease-out;
   }
-  
+
+  /* Legacy: Prefer the Button component from @/components/ui (variant="secondary"). */
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-900 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-cozy-mount hover:bg-cozy-borderCard text-cozy-text font-medium py-2 px-4 rounded-cozy-md border-2 border-cozy-borderCard hover:border-cozy-accent transition-colors duration-200;
   }
-  
+
   .upload-zone {
-    @apply border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors duration-200;
+    @apply border-2 border-dashed border-cozy-borderCard rounded-cozy-md p-8 text-center transition-colors duration-200;
   }
   
   .upload-zone.active {
-    @apply border-primary-500 bg-primary-50;
+    @apply border-cozy-accent bg-cozy-mount;
   }
   
   .camera-overlay {
@@ -62,11 +64,12 @@
   animation: shake 0.5s ease-in-out;
 }
 
-/* PWA specific styles */
+/* PWA standalone: Cozy Home background (matches splash and theme-color) */
 @media (display-mode: standalone) {
   body {
     user-select: none;
     -webkit-user-select: none;
+    background-color: #faf5f0; /* cozy.background - no blue/gray */
   }
 }
 
@@ -86,7 +89,7 @@
 
 /* Cropping interface styles */
 .crop-area {
-  border: 2px solid #3b82f6;
+  @apply border-2 border-cozy-accent;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
 }
 
@@ -94,10 +97,7 @@
   position: absolute;
   width: 20px;
   height: 20px;
-  background: #3b82f6;
-  border: 2px solid white;
-  border-radius: 50%;
-  cursor: grab;
+  @apply bg-cozy-accent border-2 border-white rounded-full cursor-grab;
 }
 
 .crop-handle:active {
@@ -106,11 +106,11 @@
 
 /* Upload progress styles */
 .upload-progress {
-  @apply w-full bg-gray-200 rounded-full h-2;
+  @apply w-full bg-cozy-borderCard rounded-full h-2;
 }
 
 .upload-progress-bar {
-  @apply bg-primary-600 h-2 rounded-full transition-all duration-300 ease-out;
+  @apply bg-cozy-accent h-2 rounded-full transition-all duration-300 ease-out;
 }
 
 /* Mobile optimizations */

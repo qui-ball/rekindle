@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { PhotoDetailDrawerProps, PhotoAction, ProcessingOptions, Photo, PhotoResult } from '../../types/photo-management';
+import { PhotoDetailDrawerProps, ProcessingOptions, PhotoResult } from '../../types/photo-management';
 import { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
 import { PhotoResultCard } from './PhotoResultCard';
 import { apiClient } from '../../services/apiClient';
+import { Headline, Body } from '@/components/ui';
 
 /**
  * PhotoDetailDrawer Component
@@ -262,16 +263,17 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full bg-white shadow-xl transition-transform duration-300 z-50 ${
+        className={`fixed top-0 right-0 h-full bg-cozy-surface border border-cozy-borderCard border-r-0 shadow-cozy-card transition-transform duration-300 z-50 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
-        } ${isMobile ? 'w-full' : 'w-3/5 max-w-2xl'}`}
+        } ${isMobile ? 'w-full rounded-none' : 'w-3/5 max-w-2xl rounded-cozy-lg rounded-r-none'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-cozy-borderCard">
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-cozy-mount rounded-full transition-colors text-cozy-text"
+              aria-label="Close"
             >
               {isMobile ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,15 +286,15 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
               )}
             </button>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <Headline level={2} className="text-cozy-heading">
                 {isMobile ? 'Back to Gallery' : 'Photo Details'}
-              </h2>
-              <p className="text-sm text-gray-500">{photo.originalFilename}</p>
+              </Headline>
+              <Body className="text-sm text-cozy-text">{photo.originalFilename}</Body>
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-cozy-text">
               {new Date(photo.createdAt).toLocaleDateString()}
             </span>
           </div>
@@ -303,8 +305,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
           {/* Original Photo */}
           <div className="p-4">
             <div className="mb-4">
-              <h3 className="text-md font-medium text-gray-900 mb-2">Original Photo</h3>
-              <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: '24rem' }}>
+              <Headline level={3} className="text-cozy-heading mb-2">Original Photo</Headline>
+              <div className="relative bg-cozy-mount border border-cozy-borderCard rounded-cozy-lg overflow-hidden" style={{ height: '24rem' }}>
                 {photo.metadata.originalUrl ? (
                   <Image
                     src={photo.metadata.originalUrl}
@@ -316,19 +318,19 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                     priority={false}
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-                    <div className="text-center text-gray-500">
-                      <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute inset-0 bg-cozy-surface border border-cozy-borderCard flex items-center justify-center">
+                    <div className="text-center text-cozy-textSecondary">
+                      <svg className="w-12 h-12 mx-auto mb-2 text-cozy-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <p className="text-sm">Loading image...</p>
+                      <Body className="text-sm">Loading image...</Body>
                     </div>
                   </div>
                 )}
                 <div className="absolute top-2 right-2 flex space-x-2">
                   <button
                     onClick={handleDownloadOriginal}
-                    className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-md transition-all"
+                    className="bg-cozy-surface/90 hover:bg-cozy-surface border border-cozy-borderCard p-2 rounded-full shadow-cozy-card transition-all text-cozy-text"
                     title="Download original photo"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,7 +339,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                   </button>
                   <button
                     onClick={handleDeleteOriginal}
-                    className="bg-red-500 bg-opacity-90 hover:bg-opacity-100 text-white p-2 rounded-full shadow-md transition-all"
+                    className="bg-cozySemantic-error/90 hover:opacity-100 text-white p-2 rounded-full shadow-cozy-card transition-all"
                     title="Delete photo and all results"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -352,10 +354,10 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
             {photo.results.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-md font-medium text-gray-900">
+                  <Headline level={3} className="text-cozy-heading">
                     Processed Results
-                  </h3>
-                  <span className="text-sm text-gray-500">
+                  </Headline>
+                  <span className="text-sm text-cozy-textSecondary">
                     {currentResultIndex + 1} / {photo.results.length}
                   </span>
                 </div>
@@ -492,7 +494,7 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                     container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
                   }}
                 >
-                  {photo.results.map((result, index) => (
+                  {photo.results.map((result) => (
                     <div 
                       key={result.id} 
                       className="snap-center flex-shrink-0 px-4" 
@@ -514,8 +516,8 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                         key={index} 
                         className={`h-2 w-2 rounded-full transition-all ${
                           index === currentResultIndex 
-                            ? 'bg-blue-500 w-6' 
-                            : 'bg-gray-300'
+                            ? 'bg-cozy-accent w-6' 
+                            : 'bg-cozy-borderCard'
                         }`}
                       />
                     ))}
@@ -527,9 +529,9 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
             {/* Empty Results State */}
             {photo.results.length === 0 && (
               <div className="mb-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                <div className="bg-cozy-mount border border-cozy-borderCard rounded-cozy-lg p-4 text-center">
                   <svg 
-                    className="w-12 h-12 mx-auto mb-2 text-blue-400" 
+                    className="w-12 h-12 mx-auto mb-2 text-cozy-accent" 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -541,10 +543,10 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
                       d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
                     />
                   </svg>
-                  <h4 className="text-sm font-medium text-gray-900 mb-1">No processed results yet</h4>
-                  <p className="text-xs text-gray-600">
+                  <Headline level={3} as="h4" className="text-cozy-heading text-sm mb-1">No processed results yet</Headline>
+                  <Body className="text-cozy-textSecondary text-xs">
                     Use the processing options below to restore, colourize, or animate this photo
-                  </p>
+                  </Body>
                 </div>
               </div>
             )}

@@ -4,24 +4,36 @@
 
 import { NextRequest } from 'next/server';
 import { middleware } from '../middleware';
-import { createMiddlewareClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 
 jest.mock('@supabase/ssr', () => ({
-  createMiddlewareClient: jest.fn(),
+  createServerClient: jest.fn(),
 }));
 
-const mockedCreateMiddlewareClient = createMiddlewareClient as jest.Mock;
+const mockedCreateServerClient = createServerClient as jest.Mock;
 
 describe('authentication middleware', () => {
+  const env = process.env;
+
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+  });
+
+  afterAll(() => {
+    process.env = env;
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
 
   it('redirects unauthenticated users from protected routes', async () => {
-    mockedCreateMiddlewareClient.mockReturnValueOnce({
+    mockedCreateServerClient.mockReturnValueOnce({
       auth: {
         getSession: jest.fn().mockResolvedValue({
           data: { session: null },
+          error: null,
         }),
       },
     });
@@ -29,15 +41,21 @@ describe('authentication middleware', () => {
     const request = new NextRequest('http://localhost/upload');
     const response = await middleware(request);
 
-    expect(mockedCreateMiddlewareClient).toHaveBeenCalled();
+    expect(mockedCreateServerClient).toHaveBeenCalled();
     expect(response.headers.get('location')).toBe('http://localhost/sign-in?next=%2Fupload');
   });
 
   it('allows authenticated users through protected routes', async () => {
-    mockedCreateMiddlewareClient.mockReturnValueOnce({
+    mockedCreateServerClient.mockReturnValueOnce({
       auth: {
         getSession: jest.fn().mockResolvedValue({
-          data: { session: { user: { id: 'user-123' }, access_token: 'eyJ.mock.token' } },
+          data: {
+            session: {
+              user: { id: 'user-123' },
+              access_token: 'eyJ.mock.token',
+            },
+          },
+          error: null,
         }),
       },
     });

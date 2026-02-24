@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { Card, Headline, Body, Button } from '@/components/ui';
 import { PhotoUploadContainerProps, UploadError, ErrorType } from '../../types/upload';
 import { CameraCaptureFlow } from './CameraCaptureFlow';
 import { FileUploadFlow } from './FileUploadFlow';
@@ -171,31 +172,32 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
   }, [onError]);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+    <Card className="p-8 text-center">
+      <Headline level={2} className="text-cozy-heading mb-4">
         Upload Your Photo
-      </h2>
-      
+      </Headline>
+
       {uploadState.status === 'idle' && !showCamera && !showFileUpload && (
         <div>
-          <p className="text-gray-600 mb-6">
+          <Body className="text-cozy-text mb-6">
             Choose how you&apos;d like to upload your photo for restoration
-          </p>
-          
-          {/* Upload method selection */}
+          </Body>
+
           <div className="space-y-4">
-            <button 
+            <Button
               onClick={() => setShowCamera(true)}
-              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
+              fullWidth
             >
               📷 Take Photo
-            </button>
-            <button 
+            </Button>
+            <Button
               onClick={() => setShowFileUpload(true)}
-              className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+              variant="primary"
+              fullWidth
             >
               📁 Upload File
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -224,38 +226,35 @@ export const PhotoUploadContainer: React.FC<PhotoUploadContainerProps> = ({
 
       {uploadState.status === 'uploading' && (
         <div>
-          <p className="text-gray-600 mb-4">Uploading your photo...</p>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+          <p className="text-cozy-text mb-4">Uploading your photo...</p>
+          <div className="w-full bg-cozy-borderCard rounded-full h-2">
+            <div
+              className="bg-cozy-accent h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadState.progress}%` }}
             />
           </div>
-          <p className="text-sm text-gray-500 mt-2">{uploadState.progress}% complete</p>
+          <p className="text-sm text-cozy-textSecondary mt-2">{uploadState.progress}% complete</p>
         </div>
       )}
 
       {uploadState.status === 'complete' && uploadState.uploadResult && (
         <div>
-          <p className="text-green-600 mb-4">✅ Photo uploaded successfully!</p>
-          <p className="text-gray-600">Your photo is ready for processing.</p>
+          <p className="text-cozy-accent mb-4">✅ Photo uploaded successfully!</p>
+          <Body className="text-cozy-text">Your photo is ready for processing.</Body>
         </div>
       )}
 
       {uploadState.status === 'error' && uploadState.error && (
         <div>
-          <p className="text-red-600 mb-4">❌ Upload failed</p>
-          <p className="text-gray-600 mb-4">{uploadState.error.message}</p>
+          <p className="text-cozy-accentDark mb-4">❌ Upload failed</p>
+          <Body className="text-cozy-text mb-4">{uploadState.error.message}</Body>
           {uploadState.error.retryable && (
-            <button 
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              onClick={resetUpload}
-            >
+            <Button variant="primary" onClick={resetUpload}>
               Try Again
-            </button>
+            </Button>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 };

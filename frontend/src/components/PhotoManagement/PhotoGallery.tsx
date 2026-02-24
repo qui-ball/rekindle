@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { PhotoGalleryProps, Photo } from '../../types/photo-management';
+import { Headline } from '@/components/ui/Headline';
+import { Body } from '@/components/ui/Body';
 // import { PhotoStatusIndicator } from './PhotoStatusIndicator';
 
 /**
@@ -146,7 +148,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     return (
       <div
         key={photo.id}
-        className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer group hover:shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95 touch-manipulation"
+        className="relative aspect-square bg-cozy-surface border border-cozy-borderCard rounded-cozy-lg shadow-cozy-card overflow-hidden cursor-pointer group transition-all duration-200 transform motion-safe:hover:scale-105 hover:shadow-cozy-card-hover motion-reduce:hover:scale-100 active:scale-95 touch-manipulation"
         onClick={() => onPhotoClick(photo)}
         role="gridcell"
         tabIndex={0}
@@ -157,8 +159,8 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
             onPhotoClick(photo);
           }
         }}
-        style={{ 
-          minHeight: '120px', // Ensure minimum touch target size
+        style={{
+          minHeight: '120px',
           minWidth: '120px'
         }}
       >
@@ -172,16 +174,15 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
             className="object-cover"
             onError={(e) => {
               console.error('Image failed to load:', photo.metadata?.thumbnailUrl, e);
-              // Next/Image does not allow changing src on error; render fallback overlay
             }}
             unoptimized
             priority={false}
           />
-          
+
           {/* Fallback for broken images */}
           {!photo.metadata?.thumbnailUrl && (
-            <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-              <div className="text-center text-gray-500">
+            <div className="absolute inset-0 bg-cozy-mount flex items-center justify-center">
+              <div className="text-center text-cozy-textSecondary">
                 <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
@@ -189,17 +190,13 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
               </div>
             </div>
           )}
-          
-          {/* Processing overlay removed for now - just show photos */}
         </div>
-
-        {/* Status indicators removed for now - just show photos */}
 
         {/* Hover Overlay */}
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="bg-white bg-opacity-90 rounded-full p-2">
-              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-cozy-surface bg-opacity-90 rounded-full p-2 border border-cozy-borderCard">
+              <svg className="w-6 h-6 text-cozy-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
@@ -212,8 +209,8 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
 
   // Render skeleton loading state
   const renderSkeleton = () => (
-    <div className="aspect-square bg-gray-200 rounded-lg animate-pulse">
-      <div className="w-full h-full bg-gray-300 rounded-lg"></div>
+    <div className="aspect-square bg-cozy-mount rounded-cozy-lg animate-pulse">
+      <div className="w-full h-full bg-cozy-surface rounded-cozy-lg"></div>
     </div>
   );
 
@@ -221,8 +218,8 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     <div className="photo-gallery h-full overflow-y-auto">
       {/* Pull-to-refresh indicator */}
       {isPulling && (
-        <div 
-          className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white text-center py-2 transition-transform duration-200"
+        <div
+          className="fixed top-0 left-0 right-0 z-50 bg-cozy-surface border-b border-cozy-borderCard text-cozy-text text-center py-2 transition-transform duration-200"
           style={{ transform: `translateY(${Math.min(pullDistance - 50, 50)}px)` }}
         >
           {pullDistance > 50 ? 'Release to refresh' : 'Pull to refresh'}
@@ -255,16 +252,16 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       {isLoading && (
         <div className="flex justify-center py-8" role="status" aria-live="polite">
           <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" aria-hidden="true"></div>
-            <span className="text-gray-600">Loading more photos...</span>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cozy-accent" aria-hidden="true"></div>
+            <span className="text-cozy-textSecondary">Loading more photos...</span>
           </div>
         </div>
       )}
 
       {/* End of photos indicator */}
       {!hasMore && photos.length > 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <p>You&apos;ve reached the end of your photos</p>
+        <div className="text-center py-8 text-cozy-textSecondary">
+          <Body>You&apos;ve reached the end of your photos</Body>
         </div>
       )}
 
@@ -272,9 +269,9 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       {photos.length === 0 && !isLoading && (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="text-gray-400 text-6xl mb-4">📸</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No photos yet</h3>
-            <p className="text-gray-600">Upload your first photo to get started</p>
+            <div className="text-cozy-textSecondary text-6xl mb-4" aria-hidden="true">📸</div>
+            <Headline level={3} className="text-cozy-heading mb-2">No photos yet</Headline>
+            <Body className="text-cozy-text">Upload your first photo to get started</Body>
           </div>
         </div>
       )}

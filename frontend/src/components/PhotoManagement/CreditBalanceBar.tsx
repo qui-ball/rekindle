@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { CreditBalance } from '../../types/photo-management';
+import { Container } from '../ui/Container';
+import { Button } from '../ui/Button';
 
 interface CreditBalanceBarProps {
   balance: CreditBalance;
@@ -25,7 +27,7 @@ export const CreditBalanceBar: React.FC<CreditBalanceBarProps> = ({
 }) => {
   // Simple SVG icons
   const CreditCardIcon = () => (
-    <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg className="h-4 w-4 text-cozy-accent" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
     </svg>
   );
@@ -37,31 +39,29 @@ export const CreditBalanceBar: React.FC<CreditBalanceBarProps> = ({
   );
 
   return (
-    <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
-      <div className="container mx-auto">
+    <div className="bg-cozy-mount border-b border-cozy-borderCard px-4 py-2">
+      <Container>
         <div className="flex items-center justify-between">
-          {/* Credit Balances */}
           <div className="flex items-center space-x-6">
-            {/* Credit Details */}
             <div className="flex items-center space-x-2">
               <CreditCardIcon />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-cozy-heading font-serif">
                 Total: {balance.totalCredits}
               </span>
             </div>
           </div>
-
-          {/* Purchase Credits Button */}
-          <button
+          <Button
             onClick={onPurchaseCredits}
-            className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            variant="primary"
+            size="default"
+            className="flex items-center gap-1 text-cozy-button"
             aria-label="Purchase additional credits"
           >
             <PlusIcon />
             <span>Add Credits</span>
-          </button>
+          </Button>
         </div>
-      </div>
+      </Container>
     </div>
   );
 };

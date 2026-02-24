@@ -72,6 +72,13 @@ export const FileUploadFlow: React.FC<FileUploadFlowProps> = ({
     return () => setMounted(false);
   }, []);
 
+  // Reset flow state when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      resetFlow();
+    }
+  }, [isOpen, resetFlow]);
+
   // Handle escape key
   useEffect(() => {
     if (!closeOnEscape || !isOpen) return;

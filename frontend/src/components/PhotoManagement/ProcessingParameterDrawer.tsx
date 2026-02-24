@@ -4,9 +4,9 @@ import React from 'react';
 import { 
   ProcessingParameterDrawerProps, 
   RestoreParameters, 
-  AnimateParameters, 
-  BringTogetherParameters 
+  AnimateParameters
 } from '../../types/photo-management';
+import { Body } from '@/components/ui';
 
 /**
  * ProcessingParameterDrawer Component
@@ -64,7 +64,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
       <>
         {/* Common Parameters */}
         <div className="space-y-3">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Common Parameters</p>
+          <p className="text-xs font-medium text-cozy-textSecondary uppercase tracking-wide">Common Parameters</p>
           
           {/* Colourize Checkbox */}
           <label className="flex items-center space-x-3 cursor-pointer">
@@ -72,20 +72,20 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
               type="checkbox"
               checked={parameters.colourize}
               onChange={(e) => handleRestoreParameterChange('colourize', e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-cozy-accent border-cozy-borderCard rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">Colourize</span>
-              <p className="text-xs text-gray-500">Add realistic colors during restoration (+2 credits)</p>
+              <span className="text-sm font-medium text-cozy-heading">Colourize</span>
+              <Body className="text-xs text-cozy-textSecondary">Add realistic colors during restoration (+2 credits)</Body>
             </div>
           </label>
         </div>
 
         {/* Advanced Options */}
-        <div className="mt-4 border-t border-gray-200 pt-4">
+        <div className="mt-4 border-t border-cozy-borderCard pt-4">
           <button
             onClick={onToggleAdvancedOptions}
-            className="flex items-center justify-between w-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            className="flex items-center justify-between w-full text-sm font-medium text-cozy-text hover:text-cozy-heading transition-colors"
           >
             <span>Advanced Options</span>
             <svg 
@@ -107,7 +107,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
             <div className="space-y-4">
               {/* Denoise Level Slider */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-cozy-heading mb-2">
                   Denoise Level: {(parameters.denoiseLevel || 0.7).toFixed(2)}
                 </label>
                 <input
@@ -117,20 +117,20 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
                   step="0.01"
                   value={parameters.denoiseLevel || 0.7}
                   onChange={(e) => handleRestoreParameterChange('denoiseLevel', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  className="w-full h-2 bg-cozy-borderCard rounded-cozy-lg appearance-none cursor-pointer accent-cozy-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:ring-offset-2 focus-visible:ring-offset-cozy-surface"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-cozy-textSecondary mt-1">
                   <span>0.5 (Less)</span>
                   <span>0.9 (More)</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <Body className="text-xs text-cozy-textSecondary mt-1">
                   Higher values reduce noise but may soften details
-                </p>
+                </Body>
               </div>
 
               {/* User Prompt Text Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-cozy-heading mb-2">
                   User Prompt (Optional)
                 </label>
                 <textarea
@@ -138,11 +138,11 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
                   onChange={(e) => handleRestoreParameterChange('userPrompt', e.target.value)}
                   placeholder="e.g., Focus on face details, preserve background texture..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 border border-cozy-borderCard rounded-cozy-lg text-sm text-cozy-text focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:border-transparent resize-none"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <Body className="text-xs text-cozy-textSecondary mt-1">
                   Provide specific instructions for the restoration process
-                </p>
+                </Body>
               </div>
             </div>
           </div>
@@ -159,11 +159,11 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
       <>
         {/* Common Parameters */}
         <div className="space-y-3">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Common Parameters</p>
+          <p className="text-xs font-medium text-cozy-textSecondary uppercase tracking-wide">Common Parameters</p>
           
           {/* Video Duration Slider */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-cozy-heading mb-2">
               Video Duration: {parameters.videoDuration} seconds
             </label>
             <input
@@ -172,24 +172,24 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
               max="30"
               value={parameters.videoDuration}
               onChange={(e) => handleAnimateParameterChange('videoDuration', parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="w-full h-2 bg-cozy-borderCard rounded-cozy-lg appearance-none cursor-pointer accent-cozy-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:ring-offset-2 focus-visible:ring-offset-cozy-surface"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-cozy-textSecondary mt-1">
               <span>5s</span>
               <span>15s</span>
               <span>30s</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <Body className="text-xs text-cozy-textSecondary mt-1">
               Longer videos cost more to process (10-50 credits)
-            </p>
+            </Body>
           </div>
         </div>
 
         {/* Advanced Options */}
-        <div className="mt-4 border-t border-gray-200 pt-4">
+        <div className="mt-4 border-t border-cozy-borderCard pt-4">
           <button
             onClick={onToggleAdvancedOptions}
-            className="flex items-center justify-between w-full text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            className="flex items-center justify-between w-full text-sm font-medium text-cozy-text hover:text-cozy-heading transition-colors"
           >
             <span>Advanced Options</span>
             <svg 
@@ -211,7 +211,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
             <div className="space-y-4">
               {/* User Prompt Text Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-cozy-heading mb-2">
                   User Prompt (Optional)
                 </label>
                 <textarea
@@ -219,11 +219,11 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
                   onChange={(e) => handleAnimateParameterChange('userPrompt', e.target.value)}
                   placeholder="e.g., Make eyes blink and subtle smile..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 border border-cozy-borderCard rounded-cozy-lg text-sm text-cozy-text focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:border-transparent resize-none"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <Body className="text-xs text-cozy-textSecondary mt-1">
                   Describe the animation effects you want
-                </p>
+                </Body>
               </div>
             </div>
           </div>
@@ -235,9 +235,9 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
   // Render bring together parameters (placeholder for future)
   const renderBringTogetherParameters = () => {
     return (
-      <div className="text-sm text-gray-500 italic">
+      <Body className="text-sm text-cozy-textSecondary italic">
         Parameters for Bring Together will be available soon.
-      </div>
+      </Body>
     );
   };
 
@@ -261,7 +261,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
         isOpen ? 'max-h-[600px] opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
       }`}
     >
-      <div className="ml-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <div className="ml-8 p-4 bg-cozy-mount rounded-cozy-lg border border-cozy-borderCard">
         {renderParameters()}
       </div>
     </div>

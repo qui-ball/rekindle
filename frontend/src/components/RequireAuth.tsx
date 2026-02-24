@@ -57,8 +57,8 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({
   // IMPORTANT: Never render children until user is confirmed authenticated
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Checking your session…</div>
+      <main className="min-h-screen bg-cozy-background flex items-center justify-center">
+        <div className="text-sm text-cozy-textSecondary" role="status" aria-live="polite">Checking your session…</div>
       </main>
     );
   }
@@ -67,8 +67,8 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({
   // If we have a session but no user yet, wait a bit more (might be loading)
   if (!user && !session) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Redirecting to sign in…</div>
+      <main className="min-h-screen flex items-center justify-center bg-cozy-background">
+        <div className="text-sm text-cozy-textSecondary" role="status" aria-live="polite">Redirecting to sign in…</div>
       </main>
     );
   }
@@ -77,8 +77,8 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({
   // This handles the case where session exists but user object is still loading
   if (session && !user) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">Loading user information…</div>
+      <main className="min-h-screen flex items-center justify-center bg-cozy-background">
+        <div className="text-sm text-cozy-textSecondary" role="status" aria-live="polite">Loading user information…</div>
       </main>
     );
   }

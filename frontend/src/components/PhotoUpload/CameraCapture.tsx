@@ -531,7 +531,7 @@ export const CameraCapture: React.FC<CameraCaptureExtendedProps> = ({
       {/* Status indicator - only show when camera is starting */}
       {!stream && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="bg-blue-500 text-white text-sm px-4 py-2 rounded">
+          <div className="bg-cozy-accent text-white text-sm font-serif px-4 py-2 rounded-cozy-md">
             {status}
           </div>
         </div>

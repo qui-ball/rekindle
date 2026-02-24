@@ -2,6 +2,10 @@
 'use client';
 
 import React from 'react';
+import { Headline } from './ui/Headline';
+import { Body } from './ui/Body';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 
 interface AppLoadingScreenProps {
   progress: number;
@@ -15,35 +19,25 @@ export const AppLoadingScreen: React.FC<AppLoadingScreenProps> = ({
   error
 }) => {
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-cozy-background flex items-center justify-center z-50">
       <div className="max-w-md w-full mx-4">
-        {/* App Logo/Title */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Rekindle
-          </h1>
-          <p className="text-lg text-gray-600">
-            Bring Your Memories to Life
-          </p>
+          <Headline level={1} className="text-cozy-heading mb-2">Rekindle</Headline>
+          <Body className="text-cozy-textSecondary">Bring Your Memories to Life</Body>
         </div>
 
-        {/* Error Content */}
-        <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-          <div className="text-red-600 mb-4">
-            <p className="mb-2">⚠️ App Loading Issue</p>
-            <p className="text-sm text-gray-600">{message}</p>
+        <Card className="p-6 text-center shadow-cozy-card-hover">
+          <div className="text-cozySemantic-error mb-4">
+            <p className="mb-2 font-serif">⚠️ App Loading Issue</p>
+            <Body className="text-sm !mb-0">{message}</Body>
             {error && (
-              <p className="text-xs text-gray-500 mt-2">{error}</p>
+              <p className="text-cozy-caption text-cozy-textMuted mt-2 font-serif">{error}</p>
             )}
           </div>
-          
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <Button onClick={() => window.location.reload()} variant="primary">
             Reload App
-          </button>
-        </div>
+          </Button>
+        </Card>
       </div>
     </div>
   );

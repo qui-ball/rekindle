@@ -10,7 +10,6 @@ export interface OpenCVMat {
   clone(): OpenCVMat;
   copyTo(dst: OpenCVMat): void;
   channels(): number;
-  static ones(rows: number, cols: number, type: number): OpenCVMat;
 }
 
 export interface OpenCVSize {

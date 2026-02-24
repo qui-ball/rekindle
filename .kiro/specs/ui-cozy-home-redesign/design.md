@@ -35,55 +35,68 @@ Tokens below are extracted from the sample and should be implemented in Tailwind
 | Shadow hover      | `0 8px 25px rgba(0,0,0,0.12)` | Cards hover |
 | Shadow button     | `0 5px 20px rgba(201,168,130,0.3)` | Primary button |
 
-**Semantic extensions (for forms/feedback):** Define success, error, warning, and info colors that harmonize with the palette (e.g. muted greens/reds) and meet contrast requirements.
+**Tailwind tokens:** Colors are in `theme.extend.colors.cozy` and `theme.extend.colors.cozySemantic`. Use `bg-cozy-background`, `text-cozy-heading`, `border-cozy-borderCard`, etc. See tailwind.config.js.
+
+**Semantic colors (cozySemantic):** Success, error, warning, and info that harmonize with the palette and meet WCAG AA contrast: `cozySemantic.success`, `cozySemantic.error`, `cozySemantic.warning`, `cozySemantic.info` (plus `*Muted` variants for backgrounds).
 
 ### 1.2 Typography
 
-| Token        | Sample                          | Usage |
-|-------------|----------------------------------|--------|
-| Font family | `'Merriweather', 'Georgia', serif` | Headings and body |
-| Line height | `1.8`                           | Body |
-| Logo size   | `2.8rem` (desktop)              | App logo |
-| Tagline     | `1.1rem`, italic, accent color  | Tagline under logo |
-| H1          | `2.8rem`, weight 400, heading color | Hero title |
-| Hero body   | `1.2rem`, italic, secondary    | Hero subtitle |
-| H2          | `2.5rem` (e.g. CTA section)     | Section titles |
-| H3          | `1.4rem`, weight 400             | Feature titles |
-| Body        | `1rem`, secondary color, italic where used in sample | Feature text, captions |
-| Caption     | `0.9rem`, italic, secondary    | Photo captions, small text |
-| Button      | `1.1rem`, weight 400, Merriweather | Primary button |
+| Token        | Sample                          | Tailwind token | Usage |
+|-------------|----------------------------------|----------------|--------|
+| Font family | `'Merriweather', 'Georgia', serif` | `font-serif` | Headings and body |
+| Line height | `1.8`                           | `leading-cozy` | Body |
+| Logo size   | `2.8rem` (desktop)              | `text-cozy-logo` | App logo |
+| Tagline     | `1.1rem`, italic, accent color  | `text-cozy-tagline` | Tagline under logo |
+| H1          | `2.8rem`, weight 400, heading color | `text-cozy-h1` | Hero title |
+| Hero body   | `1.2rem`, italic, secondary    | `text-cozy-hero` | Hero subtitle |
+| H2          | `2.5rem` (e.g. CTA section)     | `text-cozy-h2` | Section titles |
+| H3          | `1.4rem`, weight 400             | `text-cozy-h3` | Feature titles |
+| Body        | `1rem`, secondary color, italic where used in sample | `text-cozy-body` | Feature text, captions |
+| Caption     | `0.9rem`, italic, secondary    | `text-cozy-caption` | Photo captions, small text |
+| Button      | `1.1rem`, weight 400, Merriweather | `text-cozy-button` | Primary button |
 
-**Fallback:** Ensure a serif fallback (e.g. Georgia) and system UI fallback if Merriweather fails to load.
+**Implementation:** Merriweather loaded via `next/font/google`; `font-serif` in Tailwind uses `var(--font-merriweather), Merriweather, Georgia, serif`. Body in globals.css uses `font-serif text-cozy-body leading-cozy`.
+
+**Fallback:** Georgia and generic serif used if Merriweather fails to load.
 
 ### 1.3 Spacing & Layout
 
-| Token           | Sample        | Usage |
-|-----------------|---------------|--------|
-| Container max   | `1200px`      | Main content width |
-| Container pad   | `2rem` (desktop), `1.5rem` (768), `1rem` (480) | Horizontal padding |
-| Section padding | `4rem 0` (desktop), reduced on smaller breakpoints | Vertical rhythm |
-| Card padding    | `2rem`–`3rem`| Inner padding of cards |
-| Gap (grid/flex) | `2rem`–`3rem`| Between cards, features |
+| Token           | Sample        | Tailwind token | Usage |
+|-----------------|---------------|----------------|--------|
+| Container max   | `1200px`      | `max-w-cozy-container` | Main content width |
+| Container pad   | `2rem` (desktop), `1.5rem` (768), `1rem` (480) | `p-cozy-container`, `cozy-tablet:p-cozy-container-tablet`, `cozy-mobile:p-cozy-container-mobile` | Horizontal padding |
+| Section padding | `4rem 0` (desktop) | `py-cozy-section` | Vertical rhythm |
+| Card padding    | `2rem`–`3rem`| `p-8`–`p-12` | Inner padding of cards |
+| Gap (grid/flex) | `2rem`–`3rem`| `gap-8`–`gap-12` | Between cards, features |
 
 ### 1.4 Border Radius
 
-| Token    | Sample  | Usage |
-|----------|---------|--------|
-| Large    | `15px` | Hero, testimonial, CTA section |
-| Medium   | `12px` | Feature cards |
-| Small    | `10px` | Album page card |
-| Input    | `8px`  | Photo mount, inputs |
-| Pill     | `50px` | Primary button |
+| Token    | Sample  | Tailwind token | Usage |
+|----------|---------|----------------|--------|
+| Large    | `15px` | `rounded-cozy-lg` | Hero, testimonial, CTA section |
+| Medium   | `12px` | `rounded-cozy-md` | Feature cards |
+| Small    | `10px` | `rounded-cozy-sm` | Album page card |
+| Input    | `8px`  | `rounded-cozy-input` | Photo mount, inputs |
+| Pill     | `50px` | `rounded-cozy-pill` | Primary button |
 
-### 1.5 Breakpoints (from Sample)
+### 1.5 Box Shadow
+
+| Token    | Sample | Tailwind token | Usage |
+|----------|--------|----------------|--------|
+| Card default | `0 5px 20px rgba(0,0,0,0.08)` | `shadow-cozy-card` | Cards, hero |
+| Card hover | `0 8px 25px rgba(0,0,0,0.12)` | `shadow-cozy-card-hover` | Cards hover |
+| Button | `0 5px 20px rgba(201,168,130,0.3)` | `shadow-cozy-button` | Primary button |
+| Button hover | `0 8px 25px rgba(201,168,130,0.4)` | `shadow-cozy-button-hover` | Primary button hover |
+
+### 1.6 Breakpoints (from Sample)
 
 - **Desktop:** default (no max-width).
-- **Tablet:** `max-width: 768px`.
-- **Mobile:** `max-width: 480px`.
+- **Tablet:** `cozy-tablet: 768px` (min-width).
+- **Mobile:** `cozy-mobile: 480px` (min-width).
 
-Use these for layout and typography scaling so behavior matches the sample.
+Use `cozy-mobile:` and `cozy-tablet:` for layout and typography scaling to match the sample.
 
-### 1.6 Motion
+### 1.7 Motion
 
 - **Hover (card):** `transform: translateY(-5px)`, shadow and border transition `0.3s ease`.
 - **Hover (button):** `translateY(-3px)`, stronger shadow `0.3s ease`.
@@ -221,5 +234,7 @@ Use kebab-case for CSS classes and PascalCase for components, per development-st
 - **Focus:** Visible focus ring using accent (or a high-contrast outline) on Button, Card (if interactive), and form controls.
 - **Reduced motion:** Use `@media (prefers-reduced-motion: reduce)` to disable or reduce hover lift and other motion.
 - **Theme color:** Set `theme-color` / viewport and PWA theme to a Cozy Home color (e.g. accent or background) so browser chrome matches the app.
+
+**Task 6.1 contrast spot-check (Feb 2025):** Body text (`cozy.text` #5a4a3a on `cozy.background` #faf5f0) and primary button text (white on gradient) meet WCAG AA. No token changes were required.
 
 This design document gives implementers a clear map from the Cozy Home sample to tokens and reusable components, enabling a modular, duplication-free UI redesign across the application.

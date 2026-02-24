@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { PhotoResult } from '../../types/photo-management';
 import { apiClient } from '../../services/apiClient';
+import { PhotoMount } from '../ui';
 
 /**
  * PhotoResultCard Component
@@ -103,17 +104,17 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
     }
   };
 
-  // Get status color
+  // Get status color (Cozy semantic tokens)
   const getStatusColor = () => {
     switch (result.status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-cozySemantic-success/15 text-cozySemantic-success';
       case 'processing':
-        return 'bg-orange-100 text-orange-800 animate-pulse';
+        return 'bg-cozySemantic-warning/15 text-cozySemantic-warning animate-pulse';
       case 'failed':
-        return 'bg-red-100 text-red-800';
+        return 'bg-cozySemantic-error/15 text-cozySemantic-error';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-cozy-mount text-cozy-text';
     }
   };
 
@@ -128,8 +129,10 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
         return 'Animated';
       case 'combined':
         return 'Combined';
-      default:
-        return result.resultType.charAt(0).toUpperCase() + result.resultType.slice(1);
+      default: {
+        const value = String(result.resultType);
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
     }
   };
 
@@ -142,17 +145,19 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
   };
 
   return (
-    <div className="flex-shrink-0 w-full bg-white rounded-lg overflow-hidden">
+    <div className="flex-shrink-0 w-full bg-cozy-surface rounded-cozy-lg overflow-hidden border border-cozy-borderCard shadow-cozy-card">
       {/* Result Image/Video Display with Overlaid Actions */}
-      <div className="relative bg-gray-200" style={{ aspectRatio: '4/3', minHeight: '300px' }}>
+      <PhotoMount design="default" aspectRatio="4/3" className="rounded-t-cozy-lg">
+        <div className="absolute inset-0 min-h-[300px]">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-gray-500">
+          <div className="absolute inset-0 flex items-center justify-center" role="status" aria-live="polite">
+            <div className="text-center text-cozy-textSecondary">
               <svg 
-                className="animate-spin h-8 w-8 mx-auto mb-2 text-gray-400" 
+                className="animate-spin h-8 w-8 mx-auto mb-2 text-cozy-accent" 
                 xmlns="http://www.w3.org/2000/svg" 
                 fill="none" 
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <circle 
                   className="opacity-25" 
@@ -174,13 +179,14 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
         )}
 
         {hasError && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-red-500">
+          <div className="absolute inset-0 flex items-center justify-center" role="alert">
+            <div className="text-center text-cozySemantic-error">
               <svg 
                 className="w-12 h-12 mx-auto mb-2" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path 
                   strokeLinecap="round" 
@@ -219,13 +225,14 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
         )}
 
         {!isLoading && !hasError && !imageUrl && result.status === 'processing' && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-gray-500">
+          <div className="absolute inset-0 flex items-center justify-center" role="status" aria-live="polite">
+            <div className="text-center text-cozy-textSecondary">
               <svg 
-                className="animate-spin h-8 w-8 mx-auto mb-2 text-blue-500" 
+                className="animate-spin h-8 w-8 mx-auto mb-2 text-cozy-accent" 
                 xmlns="http://www.w3.org/2000/svg" 
                 fill="none" 
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <circle 
                   className="opacity-25" 
@@ -251,11 +258,12 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
           <div className="absolute top-2 right-2 flex space-x-2">
             <button
               onClick={handleDownload}
-              className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-md transition-all"
+              className="bg-cozy-surface border border-cozy-borderCard hover:bg-cozy-mount p-2 rounded-full shadow-cozy-card transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
               title="Download result"
+              aria-label="Download result"
             >
               <svg 
-                className="w-4 h-4 text-gray-700" 
+                className="w-4 h-4 text-cozy-text" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -271,8 +279,9 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-red-500 bg-opacity-90 hover:bg-opacity-100 text-white p-2 rounded-full shadow-md transition-all disabled:opacity-50"
+              className="bg-cozySemantic-error/90 hover:bg-cozySemantic-error text-white p-2 rounded-full shadow-cozy-card transition-all disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
               title="Delete result"
+              aria-label="Delete result"
             >
               {isDeleting ? (
                 <svg 
@@ -320,19 +329,20 @@ export const PhotoResultCard: React.FC<PhotoResultCardProps> = ({
             {getResultTypeName()}
           </span>
         </div>
-      </div>
+        </div>
+      </PhotoMount>
 
       {/* Result Metadata (Below Image) */}
-      <div className="p-3 bg-white">
-        <div className="text-xs text-gray-500 space-y-1">
-          <div className="font-medium text-gray-700">
+      <div className="p-3 bg-cozy-surface">
+        <div className="text-xs text-cozy-textSecondary space-y-1">
+          <div className="font-medium text-cozy-heading">
             {result.metadata.dimensions.width} × {result.metadata.dimensions.height}
           </div>
           <div>
             {formatFileSize(result.metadata.fileSize)} • {result.metadata.format.toUpperCase()}
           </div>
           {result.completedAt && (
-            <div className="text-gray-400">
+            <div className="text-cozy-textMuted">
               {new Date(result.completedAt).toLocaleDateString()}
             </div>
           )}

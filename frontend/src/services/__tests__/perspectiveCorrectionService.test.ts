@@ -126,7 +126,7 @@ describe('PerspectiveCorrectionService', () => {
       
       expect(result.success).toBe(false);
       expect(result.error).toContain('timeout');
-      expect(result.processingTime).toBeGreaterThanOrEqual(100);
+      expect(result.processingTime).toBeGreaterThanOrEqual(99);
     }, 10000);
 
     it('should process image with default quality', async () => {

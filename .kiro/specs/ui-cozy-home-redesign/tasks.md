@@ -15,12 +15,12 @@
 
 | Phase | Focus | Status |
 |-------|--------|--------|
-| Phase 1: Design tokens | Tailwind theme + globals (Cozy Home palette, typography, spacing, radii, shadows) | Not Started |
+| Phase 1: Design tokens | Tailwind theme + globals (Cozy Home palette, typography, spacing, radii, shadows) | Done |
 | Phase 2: UI primitives | Container, Button, Card, typography components, optional PhotoMount | Not Started |
 | Phase 3: Layout and navigation | AppHeader / Navigation restyle, AuthenticatedLayout, global bar | Not Started |
 | Phase 4: Page migration | Landing, sign-in, sign-up, subscription, auth callback, terms, privacy | Not Started |
 | Phase 5: Feature components | Gallery, Upload, PhotoManagement, UserMenu, forms | Not Started |
-| Phase 6: Polish and cleanup | Focus states, reduced motion, theme-color, remove duplication | Not Started |
+| Phase 6: Polish and cleanup | Focus states, reduced motion, theme-color, remove duplication | In Progress |
 
 ---
 
@@ -33,15 +33,15 @@
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Add Cozy Home colors to `theme.extend.colors` so all components can use named tokens instead of hex values.
 
 **Subtasks:**
-- [ ] Add `cozy` (or equivalent) color scale: background, surface, text, textMuted, heading, accent, accentDark, border, borderCard, mount, and gradient endpoints **[FRONTEND]**
-- [ ] Add semantic colors (success, error, warning) that fit the palette and meet contrast where used **[FRONTEND]**
-- [ ] Document token names in design.md or a short README in the repo **_Requirements: Req 1_**
+- [x] Add `cozy` (or equivalent) color scale: background, surface, text, textMuted, heading, accent, accentDark, border, borderCard, mount, and gradient endpoints **[FRONTEND]**
+- [x] Add semantic colors (success, error, warning) that fit the palette and meet contrast where used **[FRONTEND]**
+- [x] Document token names in design.md or a short README in the repo **_Requirements: Req 1_**
 
 ---
 
@@ -49,15 +49,15 @@ Add Cozy Home colors to `theme.extend.colors` so all components can use named to
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Configure Merriweather (and fallbacks) and typography tokens (sizes, weights, line-heights).
 
 **Subtasks:**
-- [ ] Add Merriweather (e.g. next/font/google or link) and set as default serif in Tailwind **[FRONTEND]**
-- [ ] Extend theme with font sizes and line heights used in the sample (logo, tagline, h1–h3, body, caption, button) **[FRONTEND]**
-- [ ] Update `globals.css` base styles to use Cozy Home body font and line-height **_Requirements: Req 1_**
+- [x] Add Merriweather (e.g. next/font/google or link) and set as default serif in Tailwind **[FRONTEND]**
+- [x] Extend theme with font sizes and line heights used in the sample (logo, tagline, h1–h3, body, caption, button) **[FRONTEND]**
+- [x] Update `globals.css` base styles to use Cozy Home body font and line-height **_Requirements: Req 1_**
 
 ---
 
@@ -65,16 +65,16 @@ Configure Merriweather (and fallbacks) and typography tokens (sizes, weights, li
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Add spacing, border-radius, and box-shadow tokens that match the sample.
 
 **Subtasks:**
-- [ ] Add container max-width (1200px) and horizontal padding values for container/section **[FRONTEND]**
-- [ ] Add border radius tokens (e.g. cozy radius lg 15px, md 12px, sm 10px, input 8px, pill 50px) **[FRONTEND]**
-- [ ] Add box-shadow tokens (card default, card hover, button) **[FRONTEND]**
-- [ ] Add breakpoint alignment with sample (768px, 480px) if not already present **_Requirements: Req 1_**
+- [x] Add container max-width (1200px) and horizontal padding values for container/section **[FRONTEND]**
+- [x] Add border radius tokens (e.g. cozy radius lg 15px, md 12px, sm 10px, input 8px, pill 50px) **[FRONTEND]**
+- [x] Add box-shadow tokens (card default, card hover, button) **[FRONTEND]**
+- [x] Add breakpoint alignment with sample (768px, 480px) if not already present **_Requirements: Req 1_**
 
 ---
 
@@ -82,15 +82,15 @@ Add spacing, border-radius, and box-shadow tokens that match the sample.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Set body background and default text to Cozy Home tokens; update existing utility classes (e.g. `.btn-primary`, `.upload-zone`) to use tokens so they look Cozy Home without breaking existing usage.
 
 **Subtasks:**
-- [ ] Set `body` background and text color to Cozy Home tokens in `globals.css` **[FRONTEND]**
-- [ ] Replace hardcoded colors in `.btn-primary`, `.btn-secondary`, `.upload-zone`, and other component-layer classes with theme tokens **[FRONTEND]**
-- [ ] Update viewport/theme-color meta to a Cozy Home color (e.g. accent or background) in layout **[FRONTEND]** **_Requirements: Req 1_**
+- [x] Set `body` background and text color to Cozy Home tokens in `globals.css` **[FRONTEND]**
+- [x] Replace hardcoded colors in `.btn-primary`, `.btn-secondary`, `.upload-zone`, and other component-layer classes with theme tokens **[FRONTEND]**
+- [x] Update viewport/theme-color meta to a Cozy Home color (e.g. accent or background) in layout **[FRONTEND]** **_Requirements: Req 1_**
 
 ---
 
@@ -102,15 +102,15 @@ Set body background and default text to Cozy Home tokens; update existing utilit
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Implement shared layout primitives for max-width and padding.
 
 **Subtasks:**
-- [ ] Create `Container` (or `PageContainer`) component: max-width 1200px, horizontal padding from tokens, optional vertical padding **[FRONTEND]**
-- [ ] Create `Section` component (optional): vertical padding from tokens; variants if needed (default, hero, cta) **[FRONTEND]**
-- [ ] Export from `src/components/ui/` (or chosen design-system path) **_Requirements: Req 2_**
+- [x] Create `Container` (or `PageContainer`) component: max-width 1200px, horizontal padding from tokens, optional vertical padding **[FRONTEND]**
+- [x] Create `Section` component (optional): vertical padding from tokens; variants if needed (default, hero, cta) **[FRONTEND]**
+- [x] Export from `src/components/ui/` (or chosen design-system path) **_Requirements: Req 2_**
 
 ---
 
@@ -118,16 +118,16 @@ Implement shared layout primitives for max-width and padding.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Implement Headline, Tagline, Body, Caption (or equivalent) that use only theme tokens.
 
 **Subtasks:**
-- [ ] Create `Headline`: levels H1–H3, token font/size/weight/color; support `as` for semantics **[FRONTEND]**
-- [ ] Create `Tagline`: italic, secondary color, token size **[FRONTEND]**
-- [ ] Create `Body` and `Caption` (or document use of token-based Tailwind classes) **[FRONTEND]**
-- [ ] Export from ui and use in at least one migrated page to validate **_Requirements: Req 2_**
+- [x] Create `Headline`: levels H1–H3, token font/size/weight/color; support `as` for semantics **[FRONTEND]**
+- [x] Create `Tagline`: italic, secondary color, token size **[FRONTEND]**
+- [x] Create `Body` and `Caption` (or document use of token-based Tailwind classes) **[FRONTEND]**
+- [x] Export from ui and use in at least one migrated page to validate **_Requirements: Req 2_**
 
 ---
 
@@ -135,16 +135,16 @@ Implement Headline, Tagline, Body, Caption (or equivalent) that use only theme t
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Single Button component with primary (Cozy Home gradient, pill, hover), secondary, and optional ghost variants.
 
 **Subtasks:**
-- [ ] Create `Button` with variants: primary (gradient, pill radius, hover lift + shadow), secondary (outline or subtle), ghost **[FRONTEND]**
-- [ ] Support sizes (e.g. default, large for CTA) and full-width on small breakpoints **[FRONTEND]**
-- [ ] Preserve focus ring and keyboard usability; respect reduced-motion for hover lift **[FRONTEND]**
-- [ ] Export and use in one page or nav to validate **_Requirements: Req 2, Req 6_**
+- [x] Create `Button` with variants: primary (gradient, pill radius, hover lift + shadow), secondary (outline or subtle), ghost **[FRONTEND]**
+- [x] Support sizes (e.g. default, large for CTA) and full-width on small breakpoints **[FRONTEND]**
+- [x] Preserve focus ring and keyboard usability; respect reduced-motion for hover lift **[FRONTEND]**
+- [x] Export and use in one page or nav to validate **_Requirements: Req 2, Req 6_**
 
 ---
 
@@ -152,15 +152,15 @@ Single Button component with primary (Cozy Home gradient, pill, hover), secondar
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Reusable Card with optional left accent and hover behavior.
 
 **Subtasks:**
-- [ ] Create `Card`: surface bg, token border/radius/shadow; optional `accentLeft` (left border or bar); optional hover lift **[FRONTEND]**
-- [ ] Use only tokens (no hardcoded colors) **[FRONTEND]**
-- [ ] Export and use in one page to validate **_Requirements: Req 2_**
+- [x] Create `Card`: surface bg, token border/radius/shadow; optional `accentLeft` (left border or bar); optional hover lift **[FRONTEND]**
+- [x] Use only tokens (no hardcoded colors) **[FRONTEND]**
+- [x] Export and use in one page to validate **_Requirements: Req 2_**
 
 ---
 
@@ -168,15 +168,15 @@ Reusable Card with optional left accent and hover behavior.
 
 **Type:** Frontend  
 **Priority:** P2  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Frame component for “photo in a mount” look (upload preview, gallery tile, before/after).
 
 **Subtasks:**
-- [ ] Create `PhotoMount` (or `ImageFrame`): mount background, padding, radius; inner area with optional aspect-ratio **[FRONTEND]**
-- [ ] Use tokens for colors and radius **[FRONTEND]**
-- [ ] Use in gallery or upload flow where the sample’s frame look is desired **_Requirements: Req 2_**
+- [x] Create `PhotoMount` (or `ImageFrame`): mount background, padding, radius; inner area with optional aspect-ratio **[FRONTEND]**
+- [x] Use tokens for colors and radius **[FRONTEND]**
+- [x] Use in gallery or upload flow where the sample’s frame look is desired **_Requirements: Req 2_**
 
 ---
 
@@ -188,16 +188,16 @@ Frame component for “photo in a mount” look (upload preview, gallery tile, b
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Apply Cozy Home aesthetic to main nav: logo, tagline, links, container.
 
 **Subtasks:**
-- [ ] Restyle logo: Merriweather, accent color, token size; optional tagline below **[FRONTEND]**
-- [ ] Restyle nav links: Cozy Home text and hover (accent or underline); remove blue/gray **[FRONTEND]**
-- [ ] Add optional top double-border or accent line per sample **[FRONTEND]**
-- [ ] Use shared Container for nav width and padding **[FRONTEND]** **_Requirements: Req 3, Req 4_**
+- [x] Restyle logo: Merriweather, accent color, token size; optional tagline below **[FRONTEND]**
+- [x] Restyle nav links: Cozy Home text and hover (accent or underline); remove blue/gray **[FRONTEND]**
+- [x] Add optional top double-border or accent line per sample **[FRONTEND]**
+- [x] Use shared Container for nav width and padding **[FRONTEND]** **_Requirements: Req 3, Req 4_**
 
 ---
 
@@ -205,15 +205,15 @@ Apply Cozy Home aesthetic to main nav: logo, tagline, links, container.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Ensure layout and global credit bar use tokens and primitives.
 
 **Subtasks:**
-- [ ] Wrap main content in Container (or leave to per-page; document decision) **[FRONTEND]**
-- [ ] Restyle `GlobalCreditBalanceBar` with Cozy Home tokens and Card/Container as appropriate **[FRONTEND]**
-- [ ] Ensure background behind nav and content uses Cozy Home background token **_Requirements: Req 4_**
+- [x] Wrap main content in Container (or leave to per-page; document decision) **[FRONTEND]**
+- [x] Restyle `GlobalCreditBalanceBar` with Cozy Home tokens and Card/Container as appropriate **[FRONTEND]**
+- [x] Ensure background behind nav and content uses Cozy Home background token **_Requirements: Req 4_**
 
 ---
 
@@ -225,17 +225,17 @@ Ensure layout and global credit bar use tokens and primitives.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Align landing with Cozy Home: hero, feature cards, CTA, buttons.
 
 **Subtasks:**
-- [ ] Replace layout with Container and Section **[FRONTEND]**
-- [ ] Use Headline/Tagline/Body for logo, tagline, hero title, hero subtitle **[FRONTEND]**
-- [ ] Replace value-prop blocks with Card (or FeatureCard) and tokens **[FRONTEND]**
-- [ ] Replace CTAs with Button primary/secondary **[FRONTEND]**
-- [ ] Use Cozy Home background; remove blue/gray gradients **_Requirements: Req 3, Req 5_**
+- [x] Replace layout with Container and Section **[FRONTEND]**
+- [x] Use Headline/Tagline/Body for logo, tagline, hero title, hero subtitle **[FRONTEND]**
+- [x] Replace value-prop blocks with Card (or FeatureCard) and tokens **[FRONTEND]**
+- [x] Replace CTAs with Button primary/secondary **[FRONTEND]**
+- [x] Use Cozy Home background; remove blue/gray gradients **_Requirements: Req 3, Req 5_**
 
 ---
 
@@ -243,17 +243,17 @@ Align landing with Cozy Home: hero, feature cards, CTA, buttons.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Restyle auth pages with Container, Card, typography, and Button; optional Input/FormField.
 
 **Subtasks:**
-- [ ] Wrap content in Container; use Card for form panel **[FRONTEND]**
-- [ ] Use Headline/Body for titles and descriptions **[FRONTEND]**
-- [ ] Restyle primary and secondary buttons with Button component **[FRONTEND]**
-- [ ] Restyle inputs (borders, focus) with tokens; optional shared Input/FormField **[FRONTEND]**
-- [ ] Use Cozy Home background and spacing **_Requirements: Req 3, Req 5_**
+- [x] Wrap content in Container; use Card for form panel **[FRONTEND]**
+- [x] Use Headline/Body for titles and descriptions **[FRONTEND]**
+- [x] Restyle primary and secondary buttons with Button component **[FRONTEND]**
+- [x] Restyle inputs (borders, focus) with tokens; optional shared Input/FormField **[FRONTEND]**
+- [x] Use Cozy Home background and spacing **_Requirements: Req 3, Req 5_**
 
 ---
 
@@ -261,15 +261,15 @@ Restyle auth pages with Container, Card, typography, and Button; optional Input/
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Apply same Container, Card, typography, and Button to remaining auth-related pages.
 
 **Subtasks:**
-- [ ] Auth callback: minimal UI with tokens and primitives **[FRONTEND]**
-- [ ] Accept-terms: Card + typography + Button **[FRONTEND]**
-- [ ] Forgot-password: form in Card, tokens, Button **[FRONTEND]** **_Requirements: Req 3_**
+- [x] Auth callback: minimal UI with tokens and primitives **[FRONTEND]**
+- [x] Accept-terms: Card + typography + Button **[FRONTEND]**
+- [x] Forgot-password: form in Card, tokens, Button **[FRONTEND]** **_Requirements: Req 3_**
 
 ---
 
@@ -277,15 +277,15 @@ Apply same Container, Card, typography, and Button to remaining auth-related pag
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Terms, privacy, sign-up success, subscription page to Cozy Home.
 
 **Subtasks:**
-- [ ] Terms and privacy: Container, typography tokens, optional Card for content blocks **[FRONTEND]**
-- [ ] Sign-up success: Container, Card, Headline, Body, Button **[FRONTEND]**
-- [ ] Subscription: Container, Card for plans, Button for actions, tokens throughout **[FRONTEND]** **_Requirements: Req 3_**
+- [x] Terms and privacy: Container, typography tokens, optional Card for content blocks **[FRONTEND]**
+- [x] Sign-up success: Container, Card, Headline, Body, Button **[FRONTEND]**
+- [x] Subscription: Container, Card for plans, Button for actions, tokens throughout **[FRONTEND]** **_Requirements: Req 3_**
 
 ---
 
@@ -297,16 +297,16 @@ Terms, privacy, sign-up success, subscription page to Cozy Home.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Align gallery layout and components with Cozy Home.
 
 **Subtasks:**
-- [ ] Page wrapper: Container and Cozy Home background **[FRONTEND]**
-- [ ] Credit balance and any top panels: Card and typography tokens **[FRONTEND]**
-- [ ] Photo grid/tiles: use Card or PhotoMount where appropriate; token borders/shadows **[FRONTEND]**
-- [ ] Buttons (e.g. upload, actions): Button component **[FRONTEND]** **_Requirements: Req 3, Req 5_**
+- [x] Page wrapper: Container and Cozy Home background **[FRONTEND]**
+- [x] Credit balance and any top panels: Card and typography tokens **[FRONTEND]**
+- [x] Photo grid/tiles: use Card or PhotoMount where appropriate; token borders/shadows **[FRONTEND]**
+- [x] Buttons (e.g. upload, actions): Button component **[FRONTEND]** **_Requirements: Req 3, Req 5_**
 
 ---
 
@@ -314,15 +314,15 @@ Align gallery layout and components with Cozy Home.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Restyle upload zone, modals, and preview with tokens and primitives.
 
 **Subtasks:**
-- [ ] Upload zone: token borders, radius, background (replace gray/blue) **[FRONTEND]**
-- [ ] Modals and overlays: Card or surface token, Button **[FRONTEND]**
-- [ ] Preview and cropping UI: borders and controls with tokens **[FRONTEND]** **_Requirements: Req 3_**
+- [x] Upload zone: token borders, radius, background (replace gray/blue) **[FRONTEND]**
+- [x] Modals and overlays: Card or surface token, Button **[FRONTEND]**
+- [x] Preview and cropping UI: borders and controls with tokens **[FRONTEND]** **_Requirements: Req 3_**
 
 ---
 
@@ -330,15 +330,15 @@ Restyle upload zone, modals, and preview with tokens and primitives.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Drawer and processing panels to Cozy Home.
 
 **Subtasks:**
-- [ ] Drawer panel: surface color, border/radius/shadow from tokens **[FRONTEND]**
-- [ ] Processing options panel: Card/typography/Button where applicable **[FRONTEND]**
-- [ ] Credit display and parameter controls: tokens and primitives **_Requirements: Req 3_**
+- [x] Drawer panel: surface color, border/radius/shadow from tokens **[FRONTEND]**
+- [x] Processing options panel: Card/typography/Button where applicable **[FRONTEND]**
+- [x] Credit display and parameter controls: tokens and primitives **_Requirements: Req 3_**
 
 ---
 
@@ -346,15 +346,15 @@ Drawer and processing panels to Cozy Home.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 User menu, dev menu, and any remaining shared chrome to tokens and primitives.
 
 **Subtasks:**
-- [ ] UserMenu dropdown: surface, border, typography tokens **[FRONTEND]**
-- [ ] DevMenu (if visible): align with tokens **[FRONTEND]**
-- [ ] Any remaining global chrome (e.g. loading screen): Cozy Home background and typography **_Requirements: Req 4_**
+- [x] UserMenu dropdown: surface, border, typography tokens **[FRONTEND]**
+- [x] DevMenu (if visible): align with tokens **[FRONTEND]**
+- [x] Any remaining global chrome (e.g. loading screen): Cozy Home background and typography **_Requirements: Req 4_**
 
 ---
 
@@ -366,15 +366,15 @@ User menu, dev menu, and any remaining shared chrome to tokens and primitives.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Focus states and reduced-motion behavior.
 
 **Subtasks:**
-- [ ] Ensure Button, Card (if interactive), and form controls have visible focus ring (accent or high-contrast) **[FRONTEND]**
-- [ ] Add or verify `prefers-reduced-motion` for hover lift and animations **[FRONTEND]**
-- [ ] Spot-check contrast (e.g. body text on background) and adjust tokens if needed **_Requirements: Req 6_**
+- [x] Ensure Button, Card (if interactive), and form controls have visible focus ring (accent or high-contrast) **[FRONTEND]**
+- [x] Add or verify `prefers-reduced-motion` for hover lift and animations **[FRONTEND]**
+- [x] Spot-check contrast (e.g. body text on background) and adjust tokens if needed **_Requirements: Req 6_**
 
 ---
 
@@ -382,15 +382,15 @@ Focus states and reduced-motion behavior.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Remove redundant Cozy Home styling and document the system.
 
 **Subtasks:**
-- [ ] Search for hardcoded Cozy Home colors/fonts (hex, old blue/gray) and replace with tokens or primitives **[FRONTEND]**
-- [ ] Deprecate or remove legacy utility classes that duplicate primitives **[FRONTEND]**
-- [ ] Document token names and primitive usage (design.md or README in repo) **_Requirements: Req 2, Req 7_**
+- [x] Search for hardcoded Cozy Home colors/fonts (hex, old blue/gray) and replace with tokens or primitives **[FRONTEND]**
+- [x] Deprecate or remove legacy utility classes that duplicate primitives **[FRONTEND]**
+- [x] Document token names and primitive usage (design.md or README in repo) **_Requirements: Req 2, Req 7_**
 
 ---
 
@@ -398,14 +398,14 @@ Remove redundant Cozy Home styling and document the system.
 
 **Type:** Frontend  
 **Priority:** P2  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Align PWA theme-color and any app-shell styling with Cozy Home.
 
 **Subtasks:**
-- [ ] Set theme-color and related meta tags to Cozy Home accent or background **[FRONTEND]**
-- [ ] Ensure standalone/splash styling is consistent with Cozy Home **_Requirements: Req 3_**
+- [x] Set theme-color and related meta tags to Cozy Home accent or background **[FRONTEND]**
+- [x] Ensure standalone/splash styling is consistent with Cozy Home **_Requirements: Req 3_**
 
 ---
 
