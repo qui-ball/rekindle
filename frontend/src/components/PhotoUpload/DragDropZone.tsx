@@ -31,13 +31,13 @@ const styles = {
   base: 'relative border-2 border-dashed border-cozy-borderCard rounded-cozy-lg bg-cozy-surface p-12 text-center transition-all duration-200 cursor-pointer',
   states: {
     disabled: 'border-cozy-borderCard bg-cozy-mount cursor-not-allowed opacity-50',
-    dragover: 'border-cozy-accent bg-cozy-mount scale-105 shadow-cozy-card',
+    dragover: 'border-cozy-accent bg-cozy-mount motion-safe:scale-105 motion-reduce:scale-100 shadow-cozy-card',
     dragging: 'border-cozy-accent bg-cozy-mount',
     idle: 'border-cozy-borderCard bg-cozy-surface hover:border-cozy-accent hover:bg-cozy-mount'
   },
   icon: {
-    base: 'text-6xl transition-transform duration-200',
-    scaled: 'scale-110'
+    base: 'text-6xl transition-transform duration-200 motion-reduce:transition-none',
+    scaled: 'motion-safe:scale-110 motion-reduce:scale-100'
   },
   title: {
     active: 'text-cozy-accent',

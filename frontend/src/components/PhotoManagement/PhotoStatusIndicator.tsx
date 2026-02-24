@@ -23,40 +23,40 @@ export const PhotoStatusIndicator: React.FC<PhotoStatusIndicatorProps> = ({
   const statusConfig = {
     ready: {
       icon: '✓',
-      color: 'text-green-500',
-      bgColor: 'bg-green-100',
+      color: 'text-cozySemantic-success',
+      bgColor: 'bg-cozy-mount',
       animation: '',
       text: 'Ready to Process',
       showProgress: false
     },
     queued: {
       icon: '⏱️',
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-100',
+      color: 'text-cozy-accentDark',
+      bgColor: 'bg-cozy-mount',
       animation: 'animate-pulse',
       text: 'In Queue',
       showProgress: false
     },
     processing: {
       icon: '⚙️',
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-100',
+      color: 'text-cozySemantic-warning',
+      bgColor: 'bg-cozy-mount',
       animation: 'animate-spin',
       text: 'Processing...',
       showProgress: true
     },
     completed: {
       icon: '✅',
-      color: 'text-green-500',
-      bgColor: 'bg-green-100',
+      color: 'text-cozySemantic-success',
+      bgColor: 'bg-cozy-mount',
       animation: 'animate-bounce',
       text: 'Completed',
       showProgress: false
     },
     failed: {
       icon: '❌',
-      color: 'text-red-500',
-      bgColor: 'bg-red-100',
+      color: 'text-cozySemantic-error',
+      bgColor: 'bg-cozy-mount',
       animation: 'animate-shake',
       text: 'Failed - Tap to Retry',
       showProgress: false
@@ -113,9 +113,9 @@ export const PhotoStatusIndicator: React.FC<PhotoStatusIndicatorProps> = ({
 
       {/* Progress Bar */}
       {config.showProgress && progress > 0 && (
-        <div className="mt-1 w-full bg-gray-200 rounded-full h-1">
+        <div className="mt-1 w-full bg-cozy-borderCard rounded-full h-1">
           <div
-            className="bg-orange-500 h-1 rounded-full transition-all duration-300"
+            className="bg-cozy-accent h-1 rounded-full transition-all duration-300"
             style={{ width: `${Math.min(progress, 100)}%` }}
             role="progressbar"
             aria-valuenow={Math.min(progress, 100)}
@@ -133,7 +133,7 @@ export const PhotoStatusIndicator: React.FC<PhotoStatusIndicatorProps> = ({
             e.stopPropagation();
             onRetry();
           }}
-          className="mt-1 w-full bg-red-500 hover:bg-red-600 text-white text-xs py-1 px-2 rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+          className="mt-1 w-full bg-cozySemantic-error hover:opacity-90 text-white text-xs font-serif py-1 px-2 rounded-cozy-input transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:ring-offset-2"
           aria-label="Retry processing this photo"
           type="button"
         >

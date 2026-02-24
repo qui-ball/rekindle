@@ -203,7 +203,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
                 checked={options.restore}
                 onChange={(e) => handleOptionChange('restore', e.target.checked)}
                 disabled={isProcessing}
-                className="w-5 h-5 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent"
+                className="w-5 h-5 text-cozy-accent border-cozy-borderCard rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
               />
               <div>
                 <span className="font-medium text-cozy-heading">Restore</span>
@@ -233,7 +233,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
                 checked={options.animate}
                 onChange={(e) => handleOptionChange('animate', e.target.checked)}
                 disabled={isProcessing}
-                className="w-5 h-5 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent"
+                className="w-5 h-5 text-cozy-accent border-cozy-borderCard rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
               />
               <div>
                 <span className="font-medium text-cozy-heading">Animate</span>
@@ -302,7 +302,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
               checked={options.quality === 'standard'}
               onChange={() => handleQualityChange('standard')}
               disabled={isProcessing}
-              className="w-4 h-4 text-cozy-accent border-cozy-borderCard focus:ring-cozy-accent"
+              className="w-4 h-4 text-cozy-accent border-cozy-borderCard focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
             />
             <span className="ml-2 text-sm text-cozy-text">Standard (480p)</span>
           </label>
@@ -314,7 +314,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
               checked={options.quality === 'hd'}
               onChange={() => handleQualityChange('hd')}
               disabled={isProcessing}
-              className="w-4 h-4 text-cozy-accent border-cozy-borderCard focus:ring-cozy-accent"
+              className="w-4 h-4 text-cozy-accent border-cozy-borderCard focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
             />
             <span className="ml-2 text-sm text-cozy-text">HD (720p)</span>
           </label>

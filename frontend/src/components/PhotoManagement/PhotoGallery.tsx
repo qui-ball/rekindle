@@ -148,7 +148,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     return (
       <div
         key={photo.id}
-        className="relative aspect-square bg-cozy-surface border border-cozy-borderCard rounded-cozy-lg shadow-cozy-card overflow-hidden cursor-pointer group transition-all duration-200 transform hover:scale-105 hover:shadow-cozy-card-hover active:scale-95 touch-manipulation"
+        className="relative aspect-square bg-cozy-surface border border-cozy-borderCard rounded-cozy-lg shadow-cozy-card overflow-hidden cursor-pointer group transition-all duration-200 transform motion-safe:hover:scale-105 hover:shadow-cozy-card-hover motion-reduce:hover:scale-100 active:scale-95 touch-manipulation"
         onClick={() => onPhotoClick(photo)}
         role="gridcell"
         tabIndex={0}

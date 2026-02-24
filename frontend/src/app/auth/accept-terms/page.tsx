@@ -129,7 +129,7 @@ export default function AcceptTermsPage() {
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
                 disabled={isLoadingState}
                 required
-                className="mt-1 h-5 w-5 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-1 h-5 w-5 text-cozy-accent border-cozy-borderCard rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <label htmlFor="terms" className="text-sm text-cozy-text">
                 I agree to the{' '}

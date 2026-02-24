@@ -8,7 +8,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { Container, Card, Headline, Body, Caption, Button } from '@/components/ui';
 
 const inputClasses =
-  'w-full px-4 py-3 border border-cozy-borderCard rounded-cozy-input bg-cozy-surface text-cozy-text font-serif text-cozy-body placeholder:text-cozy-textMuted focus:ring-2 focus:ring-cozy-accent focus:border-cozy-accent outline-none transition-colors disabled:bg-cozy-mount disabled:cursor-not-allowed';
+  'w-full px-4 py-3 border border-cozy-borderCard rounded-cozy-input bg-cozy-surface text-cozy-text font-serif text-cozy-body placeholder:text-cozy-textMuted focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:border-cozy-accent transition-colors disabled:bg-cozy-mount disabled:cursor-not-allowed';
 
 function SignInContent() {
   const router = useRouter();

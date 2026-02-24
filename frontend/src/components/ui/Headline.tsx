@@ -3,7 +3,7 @@
 import { createElement, forwardRef } from 'react';
 
 export type HeadlineLevel = 1 | 2 | 3;
-export type HeadlineAs = 'h1' | 'h2' | 'h3';
+export type HeadlineAs = 'h1' | 'h2' | 'h3' | 'h4';
 
 export interface HeadlineProps extends Omit<React.HTMLAttributes<HTMLHeadingElement>, 'color'> {
   /** Visual level (H1–H3); drives size/weight from theme tokens. */

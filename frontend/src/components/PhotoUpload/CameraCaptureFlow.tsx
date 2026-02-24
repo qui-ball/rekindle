@@ -485,9 +485,9 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
             <button
               onClick={() => setShowGuides(!showGuides)}
               className={`w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-white shadow-lg transition-all duration-300 ${
-                showGuides 
-                  ? 'bg-blue-500 bg-opacity-70 hover:bg-opacity-90' 
-                  : 'bg-gray-500 bg-opacity-70 hover:bg-opacity-90'
+                showGuides
+                  ? 'bg-cozy-accent/70 hover:bg-cozy-accent/90'
+                  : 'bg-black/70 hover:bg-black/90'
               }`}
               aria-label={showGuides ? 'Hide positioning guides' : 'Show positioning guides'}
             >
@@ -573,7 +573,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
           <div className="col-start-3 row-start-3 flex items-center justify-center">
             <button
               onClick={() => cropButtonRef.current?.()}
-              className="w-16 h-16 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-2xl transition-colors shadow-lg flex items-center justify-center"
+              className="w-16 h-16 rounded-full bg-cozy-accent hover:bg-cozy-accentDark active:opacity-90 text-white font-serif font-bold text-2xl transition-colors shadow-cozy-button flex items-center justify-center"
               aria-label="Apply crop"
             >
               ✓
@@ -600,7 +600,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
         {/* Smart Detection Status */}
         {isDetecting && (
           <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20">
-            <div className="bg-blue-500 bg-opacity-90 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+            <div className="bg-cozy-accent/90 text-white px-4 py-2 rounded-cozy-md flex items-center gap-2 font-serif">
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               <span className="text-sm font-medium">Analyzing photo...</span>
             </div>
@@ -641,7 +641,7 @@ export const CameraCaptureFlow: React.FC<CameraCaptureFlowProps> = ({
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 bg-gray-900 camera-fullscreen">
+    <div className="fixed inset-0 z-50 bg-black camera-fullscreen">
       {renderCurrentView()}
     </div>
   );

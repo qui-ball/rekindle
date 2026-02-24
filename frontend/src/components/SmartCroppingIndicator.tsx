@@ -27,15 +27,15 @@ export const SmartCroppingIndicator: React.FC<SmartCroppingIndicatorProps> = ({
   return (
     <div className={`flex items-center gap-2 text-sm ${className}`}>
       {status === 'loading' && (
-        <div className="flex items-center gap-2 text-blue-600">
-          <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex items-center gap-2 text-cozy-accent">
+          <div className="w-3 h-3 border-2 border-cozy-accent border-t-transparent rounded-full animate-spin"></div>
           <span>Loading smart detection... {Math.round(progress)}%</span>
         </div>
       )}
       
       {status === 'ready' && hasSmartDetection && (
-        <div className="flex items-center gap-2 text-green-600">
-          <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+        <div className="flex items-center gap-2 text-cozySemantic-success">
+          <div className="w-3 h-3 bg-cozySemantic-success rounded-full"></div>
           <span>
             Smart detection ready
             {confidence !== undefined && (
@@ -48,8 +48,8 @@ export const SmartCroppingIndicator: React.FC<SmartCroppingIndicatorProps> = ({
       )}
       
       {status === 'fallback' && (
-        <div className="flex items-center gap-2 text-yellow-600">
-          <div className="w-3 h-3 bg-yellow-600 rounded-full"></div>
+        <div className="flex items-center gap-2 text-cozySemantic-warning">
+          <div className="w-3 h-3 bg-cozySemantic-warning rounded-full"></div>
           <span>Basic cropping mode</span>
         </div>
       )}

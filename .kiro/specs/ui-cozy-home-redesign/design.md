@@ -235,4 +235,6 @@ Use kebab-case for CSS classes and PascalCase for components, per development-st
 - **Reduced motion:** Use `@media (prefers-reduced-motion: reduce)` to disable or reduce hover lift and other motion.
 - **Theme color:** Set `theme-color` / viewport and PWA theme to a Cozy Home color (e.g. accent or background) so browser chrome matches the app.
 
+**Task 6.1 contrast spot-check (Feb 2025):** Body text (`cozy.text` #5a4a3a on `cozy.background` #faf5f0) and primary button text (white on gradient) meet WCAG AA. No token changes were required.
+
 This design document gives implementers a clear map from the Cozy Home sample to tokens and reusable components, enabling a modular, duplication-free UI redesign across the application.

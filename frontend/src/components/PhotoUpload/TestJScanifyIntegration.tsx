@@ -40,13 +40,13 @@ export const TestJScanifyIntegration: React.FC = () => {
       <div className="mb-4 space-x-2">
         <button
           onClick={generateMockCornerPoints}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="px-4 py-2 bg-cozy-accent text-white rounded-cozy-md hover:opacity-90 font-serif"
         >
           Simulate JScanify Detection
         </button>
         <button
           onClick={clearMockData}
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          className="px-4 py-2 bg-cozy-accentDark text-white rounded-cozy-md hover:opacity-90 font-serif"
         >
           Clear Mock Data
         </button>

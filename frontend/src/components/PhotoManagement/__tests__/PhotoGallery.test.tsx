@@ -351,7 +351,7 @@ describe('PhotoGallery', () => {
     render(<PhotoGallery {...defaultProps} />);
     
     const photo = screen.getByAltText('test1.jpg').closest('[role="gridcell"]');
-    expect(photo).toHaveClass('group', 'hover:shadow-cozy-card-hover', 'hover:scale-105');
+    expect(photo).toHaveClass('group', 'hover:shadow-cozy-card-hover', 'motion-safe:hover:scale-105');
   });
 
   it('has proper touch targets for mobile', () => {

@@ -115,7 +115,7 @@ describe('DragDropZone', () => {
       fireEvent(dropZone, dragEvent);
       
       expect(dropZone).toHaveAttribute('data-drag-state', 'dragover');
-      expect(dropZone).toHaveClass('border-cozy-accent', 'bg-cozy-mount', 'scale-105', 'shadow-cozy-card');
+      expect(dropZone).toHaveClass('border-cozy-accent', 'bg-cozy-mount', 'motion-safe:scale-105', 'shadow-cozy-card');
     });
 
     it('handles drag leave event with counter-based tracking', () => {
@@ -316,7 +316,7 @@ describe('DragDropZone', () => {
       
       fireEvent(dropZone, createDragEvent('dragover', { types: ['Files'] }));
       
-      expect(dropZone).toHaveClass('border-cozy-accent', 'bg-cozy-mount', 'scale-105', 'shadow-cozy-card');
+      expect(dropZone).toHaveClass('border-cozy-accent', 'bg-cozy-mount', 'motion-safe:scale-105', 'shadow-cozy-card');
       expect(screen.getByText(/drop your photo here/i)).toBeInTheDocument();
     });
 

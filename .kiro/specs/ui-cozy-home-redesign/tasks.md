@@ -20,7 +20,7 @@
 | Phase 3: Layout and navigation | AppHeader / Navigation restyle, AuthenticatedLayout, global bar | Not Started |
 | Phase 4: Page migration | Landing, sign-in, sign-up, subscription, auth callback, terms, privacy | Not Started |
 | Phase 5: Feature components | Gallery, Upload, PhotoManagement, UserMenu, forms | Not Started |
-| Phase 6: Polish and cleanup | Focus states, reduced motion, theme-color, remove duplication | Not Started |
+| Phase 6: Polish and cleanup | Focus states, reduced motion, theme-color, remove duplication | In Progress |
 
 ---
 
@@ -366,15 +366,15 @@ User menu, dev menu, and any remaining shared chrome to tokens and primitives.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Focus states and reduced-motion behavior.
 
 **Subtasks:**
-- [ ] Ensure Button, Card (if interactive), and form controls have visible focus ring (accent or high-contrast) **[FRONTEND]**
-- [ ] Add or verify `prefers-reduced-motion` for hover lift and animations **[FRONTEND]**
-- [ ] Spot-check contrast (e.g. body text on background) and adjust tokens if needed **_Requirements: Req 6_**
+- [x] Ensure Button, Card (if interactive), and form controls have visible focus ring (accent or high-contrast) **[FRONTEND]**
+- [x] Add or verify `prefers-reduced-motion` for hover lift and animations **[FRONTEND]**
+- [x] Spot-check contrast (e.g. body text on background) and adjust tokens if needed **_Requirements: Req 6_**
 
 ---
 
@@ -382,15 +382,15 @@ Focus states and reduced-motion behavior.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Remove redundant Cozy Home styling and document the system.
 
 **Subtasks:**
-- [ ] Search for hardcoded Cozy Home colors/fonts (hex, old blue/gray) and replace with tokens or primitives **[FRONTEND]**
-- [ ] Deprecate or remove legacy utility classes that duplicate primitives **[FRONTEND]**
-- [ ] Document token names and primitive usage (design.md or README in repo) **_Requirements: Req 2, Req 7_**
+- [x] Search for hardcoded Cozy Home colors/fonts (hex, old blue/gray) and replace with tokens or primitives **[FRONTEND]**
+- [x] Deprecate or remove legacy utility classes that duplicate primitives **[FRONTEND]**
+- [x] Document token names and primitive usage (design.md or README in repo) **_Requirements: Req 2, Req 7_**
 
 ---
 
@@ -398,14 +398,14 @@ Remove redundant Cozy Home styling and document the system.
 
 **Type:** Frontend  
 **Priority:** P2  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Align PWA theme-color and any app-shell styling with Cozy Home.
 
 **Subtasks:**
-- [ ] Set theme-color and related meta tags to Cozy Home accent or background **[FRONTEND]**
-- [ ] Ensure standalone/splash styling is consistent with Cozy Home **_Requirements: Req 3_**
+- [x] Set theme-color and related meta tags to Cozy Home accent or background **[FRONTEND]**
+- [x] Ensure standalone/splash styling is consistent with Cozy Home **_Requirements: Req 3_**
 
 ---
 

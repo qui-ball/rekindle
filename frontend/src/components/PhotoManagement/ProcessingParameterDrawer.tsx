@@ -72,7 +72,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
               type="checkbox"
               checked={parameters.colourize}
               onChange={(e) => handleRestoreParameterChange('colourize', e.target.checked)}
-              className="w-4 h-4 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent"
+              className="w-4 h-4 text-cozy-accent border-cozy-borderCard rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent"
             />
             <div>
               <span className="text-sm font-medium text-cozy-heading">Colourize</span>
@@ -117,7 +117,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
                   step="0.01"
                   value={parameters.denoiseLevel || 0.7}
                   onChange={(e) => handleRestoreParameterChange('denoiseLevel', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-cozy-borderCard rounded-cozy-lg appearance-none cursor-pointer accent-cozy-accent"
+                  className="w-full h-2 bg-cozy-borderCard rounded-cozy-lg appearance-none cursor-pointer accent-cozy-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:ring-offset-2 focus-visible:ring-offset-cozy-surface"
                 />
                 <div className="flex justify-between text-xs text-cozy-textSecondary mt-1">
                   <span>0.5 (Less)</span>
@@ -138,7 +138,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
                   onChange={(e) => handleRestoreParameterChange('userPrompt', e.target.value)}
                   placeholder="e.g., Focus on face details, preserve background texture..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-cozy-borderCard rounded-cozy-lg text-sm text-cozy-text focus:ring-2 focus:ring-cozy-accent focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 border border-cozy-borderCard rounded-cozy-lg text-sm text-cozy-text focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:border-transparent resize-none"
                 />
                 <Body className="text-xs text-cozy-textSecondary mt-1">
                   Provide specific instructions for the restoration process
@@ -172,7 +172,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
               max="30"
               value={parameters.videoDuration}
               onChange={(e) => handleAnimateParameterChange('videoDuration', parseInt(e.target.value))}
-              className="w-full h-2 bg-cozy-borderCard rounded-cozy-lg appearance-none cursor-pointer accent-cozy-accent"
+              className="w-full h-2 bg-cozy-borderCard rounded-cozy-lg appearance-none cursor-pointer accent-cozy-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:ring-offset-2 focus-visible:ring-offset-cozy-surface"
             />
             <div className="flex justify-between text-xs text-cozy-textSecondary mt-1">
               <span>5s</span>
@@ -219,7 +219,7 @@ export const ProcessingParameterDrawer: React.FC<ProcessingParameterDrawerProps>
                   onChange={(e) => handleAnimateParameterChange('userPrompt', e.target.value)}
                   placeholder="e.g., Make eyes blink and subtle smile..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-cozy-borderCard rounded-cozy-lg text-sm text-cozy-text focus:ring-2 focus:ring-cozy-accent focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 border border-cozy-borderCard rounded-cozy-lg text-sm text-cozy-text focus:outline-none focus-visible:ring-2 focus-visible:ring-cozy-accent focus-visible:border-transparent resize-none"
                 />
                 <Body className="text-xs text-cozy-textSecondary mt-1">
                   Describe the animation effects you want

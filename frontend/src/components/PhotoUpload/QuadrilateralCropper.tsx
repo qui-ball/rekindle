@@ -475,7 +475,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
     return (
       <div
         key={corner}
-        className="absolute w-12 h-12 bg-blue-500 border-3 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-lg z-20 touch-none select-none"
+        className="absolute w-12 h-12 bg-cozy-accent border-3 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-cozy-accentDark active:opacity-90 transition-colors shadow-lg z-20 touch-none select-none"
         style={{
           left: Math.round(point.x || 0),
           top: Math.round(point.y || 0),
@@ -535,13 +535,13 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         <polygon
           points={points}
           fill="none"
-          stroke="#3b82f6"
+          stroke="#c9a882"
           strokeWidth="2"
           strokeDasharray="5,5"
         />
 
         {/* Grid lines inside quadrilateral */}
-        <g stroke="#3b82f6" strokeWidth="1" opacity="0.5">
+        <g stroke="#c9a882" strokeWidth="1" opacity="0.5">
           {/* Horizontal grid lines */}
           <line
             x1={Math.round(quad.topLeft.x + (quad.topRight.x - quad.topLeft.x) * 0.33)}
@@ -627,7 +627,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         {onCancel && (
           <button
             onClick={onCancel}
-            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-lg"
+            className="px-6 py-3 bg-cozy-accentDark hover:opacity-90 text-white font-serif font-medium rounded-cozy-md transition-colors duration-200 shadow-cozy-card"
             type="button"
           >
             Cancel
@@ -637,7 +637,7 @@ export const QuadrilateralCropper: React.FC<QuadrilateralCropperProps> = ({
         <button
           onClick={handleAccept}
           disabled={!quadArea}
-          className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 shadow-lg"
+          className="px-6 py-3 bg-cozySemantic-success hover:opacity-90 disabled:bg-cozy-accentDark disabled:cursor-not-allowed text-white font-serif font-medium rounded-cozy-md transition-colors duration-200 shadow-cozy-card"
           type="button"
         >
           ✓ Crop

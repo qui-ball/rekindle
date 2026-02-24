@@ -13,14 +13,16 @@
 }
 
 @layer components {
+  /* Legacy: Prefer the Button component from @/components/ui (variant="primary"). */
   .btn-primary {
-    @apply bg-gradient-to-br from-cozy-gradientButtonStart to-cozy-gradientButtonEnd text-white font-medium py-2 px-4 rounded-cozy-pill shadow-cozy-button hover:shadow-cozy-button-hover hover:-translate-y-0.5 transition-all duration-300 ease-out;
+    @apply bg-gradient-to-br from-cozy-gradientButtonStart to-cozy-gradientButtonEnd text-white font-medium py-2 px-4 rounded-cozy-pill shadow-cozy-button hover:shadow-cozy-button-hover motion-safe:hover:-translate-y-0.5 motion-safe:transition-transform motion-reduce:hover:translate-y-0 transition-shadow duration-300 ease-out;
   }
-  
+
+  /* Legacy: Prefer the Button component from @/components/ui (variant="secondary"). */
   .btn-secondary {
     @apply bg-cozy-mount hover:bg-cozy-borderCard text-cozy-text font-medium py-2 px-4 rounded-cozy-md border-2 border-cozy-borderCard hover:border-cozy-accent transition-colors duration-200;
   }
-  
+
   .upload-zone {
     @apply border-2 border-dashed border-cozy-borderCard rounded-cozy-md p-8 text-center transition-colors duration-200;
   }
@@ -62,11 +64,12 @@
   animation: shake 0.5s ease-in-out;
 }
 
-/* PWA specific styles */
+/* PWA standalone: Cozy Home background (matches splash and theme-color) */
 @media (display-mode: standalone) {
   body {
     user-select: none;
     -webkit-user-select: none;
+    background-color: #faf5f0; /* cozy.background - no blue/gray */
   }
 }
 

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent', // Cozy Home: status bar blends with #faf5f0
     title: 'Rekindle',
   },
 };
