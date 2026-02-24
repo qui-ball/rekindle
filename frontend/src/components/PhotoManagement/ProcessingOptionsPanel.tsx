@@ -10,6 +10,7 @@ import {
   BringTogetherParameters
 } from '../../types/photo-management';
 import ProcessingParameterDrawer from './ProcessingParameterDrawer';
+import { Headline, Body, Caption, Button } from '@/components/ui';
 
 /**
  * ProcessingOptionsPanel Component
@@ -188,28 +189,28 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
   const hasSelectedOptions = options.restore || options.animate || options.bringTogether;
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
-      <h3 className="text-md font-medium text-gray-900 mb-4">Processing Options</h3>
+    <div className="bg-cozy-mount rounded-cozy-lg border border-cozy-borderCard p-4 sm:p-6">
+      <Headline level={3} className="text-cozy-heading mb-4">Processing Options</Headline>
       
       {/* Processing Options */}
       <div className="space-y-2 mb-4">
         {/* Restore Option */}
         <div>
-          <label className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors touch-manipulation min-h-[48px] cursor-pointer">
+          <label className="flex items-center justify-between p-3 bg-cozy-surface rounded-cozy-lg border border-cozy-borderCard hover:border-cozy-accent transition-colors touch-manipulation min-h-[48px] cursor-pointer">
             <div className="flex items-center space-x-3">
               <input
                 type="checkbox"
                 checked={options.restore}
                 onChange={(e) => handleOptionChange('restore', e.target.checked)}
                 disabled={isProcessing}
-                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-5 h-5 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent"
               />
               <div>
-                <span className="font-medium text-gray-900">Restore</span>
-                <p className="text-sm text-gray-500">Fix damage, scratches, and imperfections</p>
+                <span className="font-medium text-cozy-heading">Restore</span>
+                <Body className="text-sm text-cozy-text">Fix damage, scratches, and imperfections</Body>
               </div>
             </div>
-            <span className="text-sm font-medium text-gray-600">{creditCosts.restore}+ credits</span>
+            <span className="text-sm font-medium text-cozy-text">{creditCosts.restore}+ credits</span>
           </label>
           
           {/* Restore Parameter Drawer */}
@@ -225,21 +226,21 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
 
         {/* Animate Option */}
         <div>
-          <label className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors touch-manipulation min-h-[48px] cursor-pointer">
+          <label className="flex items-center justify-between p-3 bg-cozy-surface rounded-cozy-lg border border-cozy-borderCard hover:border-cozy-accent transition-colors touch-manipulation min-h-[48px] cursor-pointer">
             <div className="flex items-center space-x-3">
               <input
                 type="checkbox"
                 checked={options.animate}
                 onChange={(e) => handleOptionChange('animate', e.target.checked)}
                 disabled={isProcessing}
-                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                className="w-5 h-5 text-cozy-accent border-cozy-borderCard rounded focus:ring-cozy-accent"
               />
               <div>
-                <span className="font-medium text-gray-900">Animate</span>
-                <p className="text-sm text-gray-500">Bring photos to life with motion</p>
+                <span className="font-medium text-cozy-heading">Animate</span>
+                <Body className="text-sm text-cozy-text">Bring photos to life with motion</Body>
               </div>
             </div>
-            <span className="text-sm font-medium text-gray-600">
+            <span className="text-sm font-medium text-cozy-text">
               {options.animate 
                 ? `${calculateAnimateCost(options.parameters?.animate?.videoDuration || 15)} credits`
                 : '10-50 credits'
@@ -260,19 +261,19 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
 
         {/* Bring Together Option (Post-MVP) */}
         <div>
-          <label className="flex items-center justify-between p-3 bg-gray-100 rounded-lg border border-gray-200 opacity-50">
+          <label className="flex items-center justify-between p-3 bg-cozy-mount rounded-cozy-lg border border-cozy-borderCard opacity-60 cursor-not-allowed">
             <div className="flex items-center space-x-3">
               <input
                 type="checkbox"
                 disabled
-                className="w-4 h-4 text-gray-400 border-gray-300 rounded"
+                className="w-4 h-4 text-cozy-textMuted border-cozy-borderCard rounded"
               />
               <div>
-                <span className="font-medium text-gray-500">Bring Together</span>
-                <p className="text-sm text-gray-400">Coming soon - Combine multiple photos</p>
+                <span className="font-medium text-cozy-textMuted">Bring Together</span>
+                <Body className="text-sm text-cozy-textMuted">Coming soon - Combine multiple photos</Body>
               </div>
             </div>
-            <span className="text-sm font-medium text-gray-400">{creditCosts.bringTogether} credits</span>
+            <span className="text-sm font-medium text-cozy-textMuted">{creditCosts.bringTogether} credits</span>
           </label>
           
           {/* Bring Together Parameter Drawer (disabled for MVP) */}
@@ -291,7 +292,7 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
 
       {/* Quality Selection */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Quality</label>
+        <label className="block text-sm font-medium text-cozy-heading mb-2">Quality</label>
         <div className="flex space-x-4">
           <label className="flex items-center cursor-pointer">
             <input
@@ -301,9 +302,9 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
               checked={options.quality === 'standard'}
               onChange={() => handleQualityChange('standard')}
               disabled={isProcessing}
-              className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+              className="w-4 h-4 text-cozy-accent border-cozy-borderCard focus:ring-cozy-accent"
             />
-            <span className="ml-2 text-sm text-gray-700">Standard (480p)</span>
+            <span className="ml-2 text-sm text-cozy-text">Standard (480p)</span>
           </label>
           <label className="flex items-center cursor-pointer">
             <input
@@ -313,68 +314,68 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
               checked={options.quality === 'hd'}
               onChange={() => handleQualityChange('hd')}
               disabled={isProcessing}
-              className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+              className="w-4 h-4 text-cozy-accent border-cozy-borderCard focus:ring-cozy-accent"
             />
-            <span className="ml-2 text-sm text-gray-700">HD (720p)</span>
+            <span className="ml-2 text-sm text-cozy-text">HD (720p)</span>
           </label>
         </div>
       </div>
 
       {/* Cost Breakdown */}
       {costBreakdown && costBreakdown.totalCost > 0 && (
-        <div className="bg-white rounded-lg p-3 mb-4 border border-gray-200">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Cost Breakdown</h4>
+        <div className="bg-cozy-surface rounded-cozy-lg p-3 mb-4 border border-cozy-borderCard">
+          <Headline level={3} as="h4" className="text-cozy-heading text-sm mb-2">Cost Breakdown</Headline>
           
           {/* Individual Costs */}
           <div className="space-y-1 text-sm">
             {costBreakdown.individualCosts.restore > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-600">
+                <span className="text-cozy-text">
                   Restore{options.parameters?.restore?.colourize ? ' + Colourize' : ''}
                 </span>
-                <span className="text-gray-900">{costBreakdown.individualCosts.restore} credits</span>
+                <span className="text-cozy-accent">{costBreakdown.individualCosts.restore} credits</span>
               </div>
             )}
             {costBreakdown.individualCosts.animate > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-600">
+                <span className="text-cozy-text">
                   Animate ({options.parameters?.animate?.videoDuration || 15}s)
                 </span>
-                <span className="text-gray-900">{costBreakdown.individualCosts.animate} credits</span>
+                <span className="text-cozy-accent">{costBreakdown.individualCosts.animate} credits</span>
               </div>
             )}
             {costBreakdown.individualCosts.bringTogether > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Bring Together</span>
-                <span className="text-gray-900">{costBreakdown.individualCosts.bringTogether} credits</span>
+                <span className="text-cozy-text">Bring Together</span>
+                <span className="text-cozy-accent">{costBreakdown.individualCosts.bringTogether} credits</span>
               </div>
             )}
           </div>
           
-          <div className="border-t border-gray-200 mt-2 pt-2">
+          <div className="border-t border-cozy-borderCard mt-2 pt-2">
             <div className="flex justify-between font-medium">
-              <span className="text-gray-900">Total Cost</span>
-              <span className="text-gray-900">{costBreakdown.totalCost} credits</span>
+              <span className="text-cozy-heading">Total Cost</span>
+              <span className="text-cozy-accent">{costBreakdown.totalCost} credits</span>
             </div>
             
             {/* Credit Usage */}
-            <div className="mt-2 text-xs text-gray-500">
-              <div>Available: {costBreakdown.availableCredits} credits</div>
-              <div>Remaining after: {costBreakdown.remainingCredits} credits</div>
+            <div className="mt-2">
+              <Caption className="text-cozy-text">Available: {costBreakdown.availableCredits} credits</Caption>
+              <Caption className="text-cozy-text">Remaining after: {costBreakdown.remainingCredits} credits</Caption>
             </div>
           </div>
         </div>
       )}
 
       {/* Process Button */}
-      <button
+      <Button
+        type="button"
+        variant="primary"
+        size="large"
+        fullWidth
         onClick={handleProcess}
         disabled={!hasSelectedOptions || !canAfford || isProcessing}
-        className={`w-full py-4 px-4 rounded-lg font-medium transition-colors touch-manipulation min-h-[48px] ${
-          hasSelectedOptions && canAfford && !isProcessing
-            ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-        }`}
+        className="touch-manipulation min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label={hasSelectedOptions && canAfford ? 'Start processing photo' : 'Select processing options to continue'}
       >
         {isProcessing ? (
@@ -385,18 +386,18 @@ export const ProcessingOptionsPanel: React.FC<ProcessingOptionsPanelProps> = ({
         ) : (
           `Process Photo${costBreakdown ? ` (${costBreakdown.totalCost} credits)` : ''}`
         )}
-      </button>
+      </Button>
 
       {/* Insufficient Credits Warning */}
       {!canAfford && hasSelectedOptions && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="mt-3 p-3 bg-cozySemantic-error/10 border border-cozySemantic-error/30 rounded-cozy-lg">
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-cozySemantic-error flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
-            <span className="text-sm text-red-700">
+            <Body className="text-sm text-cozySemantic-error">
               Insufficient credits. You need {costBreakdown?.totalCost || 0} credits but only have {availableCredits.totalCredits}.
-            </span>
+            </Body>
           </div>
         </div>
       )}

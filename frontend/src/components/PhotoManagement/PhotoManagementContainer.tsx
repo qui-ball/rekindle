@@ -14,6 +14,9 @@ import { PhotoDetailDrawer } from './PhotoDetailDrawer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useJobEvents } from '../../hooks/useJobEvents';
 import { getSupabaseClient } from '@/lib/supabase';
+import { Headline } from '@/components/ui/Headline';
+import { Body } from '@/components/ui/Body';
+import { Button } from '@/components/ui/Button';
 
 /**
  * PhotoManagementContainer
@@ -374,8 +377,8 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     return (
       <div className="flex items-center justify-center min-h-[400px]" role="status" aria-live="polite">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" aria-hidden="true"></div>
-          <p className="text-gray-600">Loading your photos...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cozy-accent mx-auto mb-4" aria-hidden="true"></div>
+          <Body className="text-cozy-text">Loading your photos...</Body>
         </div>
       </div>
     );
@@ -387,16 +390,12 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       <div className="flex items-center justify-center min-h-[400px]" role="alert" aria-live="assertive">
         <div className="text-center">
           <div className="text-red-500 text-6xl mb-4" aria-hidden="true">⚠️</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h3>
-          <p className="text-gray-600 mb-4">{error.message}</p>
+          <Headline level={3} className="text-cozy-heading mb-2">Something went wrong</Headline>
+          <Body className="text-cozy-text mb-4">{error.message}</Body>
           {error.retryable && (
-            <button
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              aria-label="Retry loading photos"
-            >
+            <Button onClick={handleRefresh} variant="primary" aria-label="Retry loading photos">
               Try Again
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -408,16 +407,12 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
     return (
       <div className="flex items-center justify-center min-h-[400px]" role="status" aria-live="polite">
         <div className="text-center">
-          <div className="text-gray-400 text-6xl mb-4" aria-hidden="true">📸</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No photos yet</h3>
-          <p className="text-gray-600 mb-4">Upload your first photo to get started</p>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            aria-label="Refresh photo gallery"
-          >
+          <div className="text-cozy-textSecondary text-6xl mb-4" aria-hidden="true">📸</div>
+          <Headline level={3} className="text-cozy-heading mb-2">No photos yet</Headline>
+          <Body className="text-cozy-text mb-4">Upload your first photo to get started</Body>
+          <Button onClick={handleRefresh} variant="primary" aria-label="Refresh photo gallery">
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
     );

@@ -28,20 +28,20 @@ type ProcessingState = 'idle' | 'processing';
 
 /** Style configuration for different component states */
 const styles = {
-  base: 'relative border-2 border-dashed rounded-lg p-12 text-center transition-all duration-200 cursor-pointer',
+  base: 'relative border-2 border-dashed border-cozy-borderCard rounded-cozy-lg bg-cozy-surface p-12 text-center transition-all duration-200 cursor-pointer',
   states: {
-    disabled: 'border-gray-300 bg-gray-50 cursor-not-allowed opacity-50',
-    dragover: 'border-blue-500 bg-blue-50 scale-105 shadow-lg',
-    dragging: 'border-blue-400 bg-blue-50',
-    idle: 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
+    disabled: 'border-cozy-borderCard bg-cozy-mount cursor-not-allowed opacity-50',
+    dragover: 'border-cozy-accent bg-cozy-mount scale-105 shadow-cozy-card',
+    dragging: 'border-cozy-accent bg-cozy-mount',
+    idle: 'border-cozy-borderCard bg-cozy-surface hover:border-cozy-accent hover:bg-cozy-mount'
   },
   icon: {
     base: 'text-6xl transition-transform duration-200',
     scaled: 'scale-110'
   },
   title: {
-    active: 'text-blue-600',
-    default: 'text-gray-700'
+    active: 'text-cozy-accent',
+    default: 'text-cozy-text'
   }
 } as const;
 
@@ -269,9 +269,9 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
           </h3>
           
           {!isProcessing && (
-            <p className="text-gray-500 text-sm">
+            <p className="text-cozy-textSecondary text-sm">
               or{' '}
-              <span className={`font-medium underline ${disabled ? 'text-gray-400' : 'text-blue-600 hover:text-blue-700'}`}>
+              <span className={`font-medium underline ${disabled ? 'text-cozy-textSecondary opacity-70' : 'text-cozy-accent hover:text-cozy-accentDark'}`}>
                 browse files
               </span>
             </p>
@@ -280,7 +280,7 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
 
         {/* File requirements */}
         {!isProcessing && (
-          <div className="text-xs text-gray-400 space-y-1 mt-4">
+          <div className="text-xs text-cozy-textSecondary space-y-1 mt-4">
             <p>Supported formats: JPEG, PNG, HEIC, WebP</p>
             <p>Maximum size: {Math.round(maxSize / 1024 / 1024)}MB</p>
           </div>
@@ -288,7 +288,7 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
 
         {/* Processing indicator */}
         {isProcessing && (
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-cozy-textSecondary">
             Validating your photo...
           </div>
         )}
@@ -297,7 +297,7 @@ export const DragDropZone: React.FC<DragDropZoneProps> = ({
       {/* Drag overlay indicator */}
       {isActive && (
         <div 
-          className="absolute inset-0 bg-blue-500 bg-opacity-10 rounded-lg pointer-events-none" 
+          className="absolute inset-0 bg-cozy-accent/10 rounded-lg pointer-events-none" 
           aria-hidden="true"
         />
       )}

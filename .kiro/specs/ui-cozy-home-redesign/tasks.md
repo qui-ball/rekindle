@@ -297,16 +297,16 @@ Terms, privacy, sign-up success, subscription page to Cozy Home.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Align gallery layout and components with Cozy Home.
 
 **Subtasks:**
-- [ ] Page wrapper: Container and Cozy Home background **[FRONTEND]**
-- [ ] Credit balance and any top panels: Card and typography tokens **[FRONTEND]**
-- [ ] Photo grid/tiles: use Card or PhotoMount where appropriate; token borders/shadows **[FRONTEND]**
-- [ ] Buttons (e.g. upload, actions): Button component **[FRONTEND]** **_Requirements: Req 3, Req 5_**
+- [x] Page wrapper: Container and Cozy Home background **[FRONTEND]**
+- [x] Credit balance and any top panels: Card and typography tokens **[FRONTEND]**
+- [x] Photo grid/tiles: use Card or PhotoMount where appropriate; token borders/shadows **[FRONTEND]**
+- [x] Buttons (e.g. upload, actions): Button component **[FRONTEND]** **_Requirements: Req 3, Req 5_**
 
 ---
 
@@ -314,15 +314,15 @@ Align gallery layout and components with Cozy Home.
 
 **Type:** Frontend  
 **Priority:** P0  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Restyle upload zone, modals, and preview with tokens and primitives.
 
 **Subtasks:**
-- [ ] Upload zone: token borders, radius, background (replace gray/blue) **[FRONTEND]**
-- [ ] Modals and overlays: Card or surface token, Button **[FRONTEND]**
-- [ ] Preview and cropping UI: borders and controls with tokens **[FRONTEND]** **_Requirements: Req 3_**
+- [x] Upload zone: token borders, radius, background (replace gray/blue) **[FRONTEND]**
+- [x] Modals and overlays: Card or surface token, Button **[FRONTEND]**
+- [x] Preview and cropping UI: borders and controls with tokens **[FRONTEND]** **_Requirements: Req 3_**
 
 ---
 
@@ -330,15 +330,15 @@ Restyle upload zone, modals, and preview with tokens and primitives.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 Drawer and processing panels to Cozy Home.
 
 **Subtasks:**
-- [ ] Drawer panel: surface color, border/radius/shadow from tokens **[FRONTEND]**
-- [ ] Processing options panel: Card/typography/Button where applicable **[FRONTEND]**
-- [ ] Credit display and parameter controls: tokens and primitives **_Requirements: Req 3_**
+- [x] Drawer panel: surface color, border/radius/shadow from tokens **[FRONTEND]**
+- [x] Processing options panel: Card/typography/Button where applicable **[FRONTEND]**
+- [x] Credit display and parameter controls: tokens and primitives **_Requirements: Req 3_**
 
 ---
 
@@ -346,15 +346,15 @@ Drawer and processing panels to Cozy Home.
 
 **Type:** Frontend  
 **Priority:** P1  
-**Status:** Not Started
+**Status:** Done
 
 **Description:**  
 User menu, dev menu, and any remaining shared chrome to tokens and primitives.
 
 **Subtasks:**
-- [ ] UserMenu dropdown: surface, border, typography tokens **[FRONTEND]**
-- [ ] DevMenu (if visible): align with tokens **[FRONTEND]**
-- [ ] Any remaining global chrome (e.g. loading screen): Cozy Home background and typography **_Requirements: Req 4_**
+- [x] UserMenu dropdown: surface, border, typography tokens **[FRONTEND]**
+- [x] DevMenu (if visible): align with tokens **[FRONTEND]**
+- [x] Any remaining global chrome (e.g. loading screen): Cozy Home background and typography **_Requirements: Req 4_**
 
 ---
 

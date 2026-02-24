@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { Card, Button } from '@/components/ui';
 import { DragDropZone } from './DragDropZone';
 import { UploadError, ErrorType } from '../../types/upload';
 import { validateFile } from '../../utils/fileUtils';
@@ -190,21 +191,22 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       />
 
       {/* Modal Content */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto">
+      <Card className="relative max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto border border-cozy-borderCard rounded-cozy-lg shadow-cozy-card">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 id="file-upload-modal-title" className="text-xl font-semibold text-gray-800">
+        <div className="flex items-center justify-between p-4 border-b border-cozy-borderCard">
+          <h2 id="file-upload-modal-title" className="text-xl font-semibold text-cozy-heading">
             {isMobile ? 'Select Photo' : 'Upload Photo'}
           </h2>
-          <button
+          <Button
+            variant="ghost"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 rounded-full min-w-0"
             aria-label="Close modal"
           >
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-cozy-textSecondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Body */}
@@ -226,24 +228,26 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
             /* Mobile: Simple file picker UI */
             <div className="text-center space-y-6">
               <div className="text-6xl">📷</div>
-              
+
               <div className="space-y-2">
-                <p className="text-gray-600">
+                <p className="text-cozy-text">
                   Select a photo from your device
                 </p>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-cozy-textSecondary">
                   Supported formats: JPEG, PNG, HEIC, WebP
                 </p>
               </div>
 
-              <button
+              <Button
                 onClick={handleMobileUploadClick}
-                className="w-full bg-blue-600 text-white px-6 py-4 rounded-lg hover:bg-blue-700 transition-colors font-medium text-lg"
+                variant="primary"
+                size="large"
+                fullWidth
               >
                 📁 Choose from Photos
-              </button>
+              </Button>
 
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-cozy-textSecondary">
                 Maximum file size: {Math.round(maxSize / 1024 / 1024)}MB
               </p>
             </div>
@@ -259,15 +263,12 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
         </div>
 
         {/* Footer - Cancel button */}
-        <div className="flex justify-end p-4 border-t bg-gray-50">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-lg transition-colors"
-          >
+        <div className="flex justify-end p-4 border-t border-cozy-borderCard bg-cozy-surface">
+          <Button variant="secondary" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 

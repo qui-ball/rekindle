@@ -358,7 +358,7 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
     return (
       <div
         key={corner}
-        className="absolute w-8 h-8 bg-blue-500 border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-blue-600 active:bg-blue-700 transition-colors shadow-lg touch-none select-none"
+        className="absolute w-8 h-8 bg-cozy-accent border-2 border-white rounded-full cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:bg-cozy-accentDark active:opacity-90 transition-colors shadow-cozy-card touch-none select-none"
         style={{
           left: Math.round(point.x || 0),
           top: Math.round(point.y || 0),
@@ -531,11 +531,11 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
           mask="url(#cropMask)"
         />
 
-        {/* Crop area border */}
+        {/* Crop area border - use currentColor so parent can set text-cozy-accent */}
         <polygon
           points={points}
           fill="none"
-          stroke="#3b82f6"
+          className="stroke-cozy-accent"
           strokeWidth="2"
           strokeDasharray="5,5"
         />

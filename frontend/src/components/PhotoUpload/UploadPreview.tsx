@@ -16,6 +16,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import NextImage from 'next/image';
+import { Button } from '@/components/ui';
 import { perspectiveCorrectionService } from '../../services/perspectiveCorrectionService';
 import type { CornerPoints } from '../../types/jscanify';
 
@@ -114,10 +115,10 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({
 
   // Render loading state
   const renderProcessing = () => (
-    <div className="flex flex-col items-center justify-center h-full">
-      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mb-4"></div>
-      <p className="text-white text-lg font-medium">Processing photo...</p>
-      <p className="text-white/70 text-sm mt-2">Applying perspective correction</p>
+    <div className="flex flex-col items-center justify-center h-full bg-cozy-surface">
+      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-cozy-accent mb-4"></div>
+      <p className="text-cozy-heading text-lg font-medium">Processing photo...</p>
+      <p className="text-cozy-textSecondary text-sm mt-2">Applying perspective correction</p>
     </div>
   );
 
@@ -125,7 +126,7 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({
   const renderPreview = () => (
     <div className="flex flex-col h-full">
       {/* Preview Image */}
-      <div className="flex-1 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex-1 flex items-center justify-center bg-cozy-mount p-4">
         <div className="relative max-w-full max-h-full">
           <NextImage
             src={correctedImage || originalImage}
@@ -152,41 +153,46 @@ export const UploadPreview: React.FC<UploadPreviewProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="flex gap-4 p-6 bg-black/80">
-        <button
+      <div className="flex gap-4 p-6 bg-cozy-surface border-t border-cozy-borderCard">
+        <Button
+          variant="secondary"
+          size="large"
           onClick={onCancel}
-          className="flex-1 px-6 py-4 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 min-w-0"
         >
           {cornerPoints ? 'Retake' : 'Cancel'}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="primary"
+          size="large"
           onClick={handleConfirm}
           disabled={!correctedImage}
-          className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+          className="flex-1 min-w-0"
         >
           Confirm & Upload
-        </button>
+        </Button>
       </div>
     </div>
   );
 
   // Main render
   const content = (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-50 bg-cozy-background flex flex-col">
       {/* Header */}
-      <div className="bg-black/90 px-4 py-3 flex items-center justify-between border-b border-white/10">
-        <h2 className="text-white text-lg font-semibold">
+      <div className="bg-cozy-surface px-4 py-3 flex items-center justify-between border-b border-cozy-borderCard">
+        <h2 className="text-cozy-heading text-lg font-semibold">
           {cornerPoints ? 'Preview' : 'Review File'}
         </h2>
-        <button
+        <Button
+          variant="ghost"
           onClick={onCancel}
-          className="text-white/70 hover:text-white transition-colors p-2"
+          className="p-2 min-w-0 text-cozy-textSecondary hover:text-cozy-text"
           aria-label="Close preview"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {/* Content */}
