@@ -37,7 +37,7 @@ jest.mock('next/server', () => ({
       return new FormData();
     }
     
-    async json(): Promise<any> {
+    async json(): Promise<unknown> {
       if (this.body) {
         return JSON.parse(this.body as string);
       }
@@ -45,9 +45,9 @@ jest.mock('next/server', () => ({
     }
   },
   NextResponse: {
-    json: (data: any, init?: ResponseInit & { status?: number }) => {
+    json: (data: unknown, init?: ResponseInit & { status?: number }) => {
       // NextResponse.json accepts status in init object
-      const status = (init as any)?.status || 200;
+      const status = init?.status ?? 200;
       const response = {
         json: async () => data,
         status,

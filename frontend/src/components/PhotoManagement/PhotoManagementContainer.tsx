@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Photo,
+  PhotoResult,
   PhotoManagementContainerProps,
   ProcessingOptions,
   ManagementError,
@@ -344,6 +345,42 @@ export const PhotoManagementContainer: React.FC<PhotoManagementContainerProps> =
       // Skip credit deduction for now (mock data)
       console.log(`Mock: Deducted ${restoreCost} credits from user ${userId}`);
       
+      // Optimistically add a placeholder result so the user sees progress in the carousel
+      const now = new Date();
+      const placeholderResult: PhotoResult = {
+        id: job.resultIds[0] ?? job.id,
+        photoId: selectedPhoto.id,
+        resultType: 'restored',
+        fileKey: 'pending',
+        thumbnailKey: '',
+        status: 'processing',
+        createdAt: now,
+        processingJobId: job.id,
+        completedAt: undefined,
+        metadata: {
+          dimensions: {
+            width: selectedPhoto.metadata.dimensions.width,
+            height: selectedPhoto.metadata.dimensions.height
+          },
+          fileSize: selectedPhoto.metadata.fileSize,
+          format: selectedPhoto.metadata.format,
+          quality: options.quality,
+          processingTime: 0,
+          model: 'comfyui_default',
+          parameters: options.parameters ?? {}
+        }
+      };
+
+      // Update the selected photo in the drawer with the placeholder result
+      setSelectedPhoto(prev =>
+        prev && prev.id === selectedPhoto.id
+          ? {
+              ...prev,
+              results: [...prev.results, placeholderResult]
+            }
+          : prev
+      );
+
       // Start listening for SSE events on this job
       setActiveJobId(selectedPhoto.id);
       

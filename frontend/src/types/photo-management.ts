@@ -92,6 +92,8 @@ export interface RestoreParameters {
   colourize: boolean; // Common parameter - colourize is ONLY available as part of restore
   denoiseLevel?: number; // Advanced: 0.5-0.9 (default: 0.7) - denoise strength
   userPrompt?: string; // Advanced: custom instructions
+  // Optional: when re-processing, indicates which existing result is used as input
+  sourceResultId?: string;
 }
 
 export interface AnimateParameters {

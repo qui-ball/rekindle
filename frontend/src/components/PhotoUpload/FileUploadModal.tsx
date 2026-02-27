@@ -156,6 +156,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- onClose intentionally omitted; parent controls flow after selection
   }, [accept, maxSize, onFileSelect, onError, isMobile]);
 
   /**

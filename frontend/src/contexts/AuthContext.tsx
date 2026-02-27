@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -24,7 +24,7 @@ export interface AuthContextType {
   loading: boolean;
   error: AuthError | null;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   signInWithOAuth: (provider: 'google' | 'facebook' | 'apple') => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -65,7 +65,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   
   const [lastActivityTime, setLastActivityTime] = useState<number>(getStoredLastActivityTime());
-  
+  const lastActivityTimeRef = useRef(lastActivityTime);
+
+  // Keep ref in sync so subscription callback can read latest without being in effect deps (avoids infinite loop)
+  useEffect(() => {
+    lastActivityTimeRef.current = lastActivityTime;
+  }, [lastActivityTime]);
+
   // Update both state and localStorage when activity time changes
   const updateLastActivityTime = useCallback((time: number) => {
     setLastActivityTime(time);
@@ -266,11 +272,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // because automatic token refreshes should not extend the idle timeout
 
       // CRITICAL SECURITY: Check idle timeout when TOKEN_REFRESHED event fires
-      // If user is idle, we should NOT accept the refreshed token
+      // If user is idle, we should NOT accept the refreshed token (use ref to avoid effect deps → infinite loop)
       if (event === 'TOKEN_REFRESHED' && session) {
         const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
         const now = Date.now();
-        const timeSinceLastActivity = now - lastActivityTime;
+        const timeSinceLastActivity = now - lastActivityTimeRef.current;
         
         if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
           // User is idle but Supabase auto-refreshed the token
@@ -310,6 +316,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lastActivityTime/updateLastActivityTime omitted: callback uses lastActivityTimeRef; including them would re-run effect when getSession() calls updateLastActivityTime → infinite loop
   }, [supabase, getSession]);
 
 
@@ -334,7 +341,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         window.removeEventListener(event, updateActivity);
       });
     };
-  }, [user]);
+  }, [user, updateLastActivityTime]);
 
   // Check session expiration periodically and handle automatic logout
   useEffect(() => {
@@ -517,7 +524,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [supabase]);
 
   // Sign up with email and password
-  const signUp = useCallback(async (email: string, password: string, metadata?: Record<string, any>) => {
+  const signUp = useCallback(async (email: string, password: string, metadata?: Record<string, unknown>) => {
     if (!supabase) {
       return { error: { message: 'Authentication not available' } };
     }

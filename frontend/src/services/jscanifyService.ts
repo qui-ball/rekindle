@@ -273,7 +273,7 @@ export class JScanifyService {
                 
                 // Apply preprocessing
                 preprocessResult = imagePreprocessor.preprocessForDetection(src, preprocessOptions);
-                preprocessedSrc = preprocessResult.preprocessed as any;
+                preprocessedSrc = preprocessResult.preprocessed as typeof src;
                 
                 console.log('✅ Preprocessing applied for enhanced detection');
               } catch (error) {

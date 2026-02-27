@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+/** Backend API error payload (e.g. FastAPI validation/HTTP errors) */
+type ApiErrorPayload = { detail?: string; [key: string]: unknown };
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { path: string[] } }
@@ -59,12 +62,12 @@ export async function GET(
     });
 
     if (!response.ok) {
-      let errorData: any;
+      let errorData: ApiErrorPayload;
       try {
         const errorText = await response.text();
         try {
           // Try to parse as JSON (FastAPI returns JSON errors)
-          errorData = JSON.parse(errorText);
+          errorData = JSON.parse(errorText) as ApiErrorPayload;
         } catch {
           // If not JSON, wrap in error object with 'detail' field (FastAPI format)
           errorData = { detail: errorText || 'Backend API error' };
@@ -123,7 +126,7 @@ export async function POST(
       });
 
       if (!response.ok) {
-        let errorData: any;
+        let errorData: ApiErrorPayload;
         let errorText = '';
         try {
           errorText = await response.text();
@@ -136,7 +139,7 @@ export async function POST(
           
           try {
             // Try to parse as JSON (FastAPI returns JSON errors)
-            errorData = JSON.parse(errorText);
+            errorData = JSON.parse(errorText) as ApiErrorPayload;
           } catch {
             // If not JSON, wrap in error object with 'detail' field (FastAPI format)
             errorData = { detail: errorText || 'Backend API error' };
@@ -167,7 +170,7 @@ export async function POST(
       });
 
       if (!response.ok) {
-        let errorData: any;
+        let errorData: ApiErrorPayload;
         let errorText = '';
         try {
           errorText = await response.text();
@@ -180,7 +183,7 @@ export async function POST(
           
           try {
             // Try to parse as JSON (FastAPI returns JSON errors)
-            errorData = JSON.parse(errorText);
+            errorData = JSON.parse(errorText) as ApiErrorPayload;
           } catch {
             // If not JSON, wrap in error object with 'detail' field (FastAPI format)
             errorData = { detail: errorText || 'Backend API error' };
@@ -236,12 +239,12 @@ export async function DELETE(
     });
 
     if (!response.ok) {
-      let errorData: any;
+      let errorData: ApiErrorPayload;
       try {
         const errorText = await response.text();
         try {
           // Try to parse as JSON (FastAPI returns JSON errors)
-          errorData = JSON.parse(errorText);
+          errorData = JSON.parse(errorText) as ApiErrorPayload;
         } catch {
           // If not JSON, wrap in error object with 'detail' field (FastAPI format)
           errorData = { detail: errorText || 'Backend API error' };

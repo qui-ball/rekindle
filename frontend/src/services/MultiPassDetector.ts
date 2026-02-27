@@ -34,9 +34,9 @@ export interface MultiPassResult {
  * Multi-pass detector running multiple detection strategies
  */
 export class MultiPassDetector {
-  private scanner: any = null;
+  private scanner: unknown = null;
 
-  constructor(scanner: any) {
+  constructor(scanner: unknown) {
     this.scanner = scanner;
   }
 
@@ -44,7 +44,7 @@ export class MultiPassDetector {
    * Run all detection strategies and return the best result
    */
   async detectMultiPass(
-    src: any, // OpenCV Mat
+    src: unknown, // OpenCV Mat
     imageWidth: number,
     imageHeight: number
   ): Promise<MultiPassResult> {
@@ -91,7 +91,7 @@ export class MultiPassDetector {
    * Baseline accuracy ~85%
    */
   private async standardDetection(
-    src: any,
+    src: unknown,
     imageWidth: number,
     imageHeight: number
   ): Promise<DetectionCandidate | null> {
@@ -137,7 +137,7 @@ export class MultiPassDetector {
    * Expected accuracy ~90%
    */
   private async enhancedDetection(
-    src: any,
+    src: unknown,
     imageWidth: number,
     imageHeight: number
   ): Promise<DetectionCandidate | null> {

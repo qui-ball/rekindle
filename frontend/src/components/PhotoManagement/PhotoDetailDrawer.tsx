@@ -6,7 +6,7 @@ import { PhotoDetailDrawerProps, ProcessingOptions, PhotoResult } from '../../ty
 import { ProcessingOptionsPanel } from './ProcessingOptionsPanel';
 import { PhotoResultCard } from './PhotoResultCard';
 import { apiClient } from '../../services/apiClient';
-import { Headline, Body } from '@/components/ui';
+import { Headline, Body, PhotoMount } from '@/components/ui';
 
 /**
  * PhotoDetailDrawer Component
@@ -31,6 +31,14 @@ const scrollbarHideStyles = `
     scrollbar-width: none;
   }
 `;
+
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return '0 KB';
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${(bytes / 1024).toFixed(0)} KB`;
+};
 export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
   isOpen,
   photo,
@@ -41,16 +49,18 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentResultIndex, setCurrentResultIndex] = useState(0);
+  // Index of the currently selected carousel item:
+  // 0 = original photo, 1..n = processed results
+  const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const resultsContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // Reset result index when photo changes
+  // Reset selection when photo changes
   useEffect(() => {
-    setCurrentResultIndex(0);
+    setCurrentItemIndex(0);
   }, [photo?.id]);
 
-  // Scroll to specific result with smooth animation
-  const scrollToResult = (index: number) => {
+  // Scroll to specific carousel item with smooth animation
+  const scrollToItem = (index: number) => {
     if (!resultsContainerRef.current) return;
     const container = resultsContainerRef.current;
     const cardWidth = container.offsetWidth;
@@ -128,9 +138,36 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
 
   // Handle processing start
   const handleProcessingStart = async (options: ProcessingOptions) => {
+    if (!photo) return;
+
+    // Determine which item is currently selected in the carousel
+    const isOriginalSelected = currentItemIndex === 0;
+    const selectedResult: PhotoResult | undefined =
+      !isOriginalSelected && photo.results.length > 0
+        ? photo.results[currentItemIndex - 1]
+        : undefined;
+
+    // Attach selection context to processing parameters so the backend
+    // can distinguish between processing the original vs a prior result.
+    const enhancedOptions: ProcessingOptions = {
+      ...options,
+      parameters: {
+        ...options.parameters,
+        restore: {
+          colourize: options.parameters?.restore?.colourize ?? false,
+          denoiseLevel: options.parameters?.restore?.denoiseLevel,
+          userPrompt: options.parameters?.restore?.userPrompt,
+          // Optional ID of the source result when re-processing
+          sourceResultId: selectedResult?.id
+        },
+        animate: options.parameters?.animate,
+        bringTogether: options.parameters?.bringTogether
+      }
+    };
+
     setIsProcessing(true);
     try {
-      await onProcessingStart(options);
+      await onProcessingStart(enhancedOptions);
     } finally {
       setIsProcessing(false);
     }
@@ -223,12 +260,11 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
         const { photoManagementService } = await import('../../services/photoManagementService');
         const photoDetails = await photoManagementService.getPhotoDetails(photo.id);
         
-        // Adjust current result index if needed
+        // Adjust current carousel index if needed (keep selection in bounds)
         const updatedResults = photoDetails.results;
-        if (currentResultIndex >= updatedResults.length && updatedResults.length > 0) {
-          setCurrentResultIndex(updatedResults.length - 1);
-        } else if (updatedResults.length === 0) {
-          setCurrentResultIndex(0);
+        const maxIndex = 1 + updatedResults.length - 1; // 0 = original, then results
+        if (currentItemIndex > maxIndex) {
+          setCurrentItemIndex(Math.max(0, maxIndex));
         }
         
         // Notify parent to update the photo with fresh data
@@ -302,253 +338,272 @@ export const PhotoDetailDrawer: React.FC<PhotoDetailDrawerProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto drawer-content" style={{ maxHeight: 'calc(100vh - 80px)' }}>
-          {/* Original Photo */}
           <div className="p-4">
+            {/* Unified Photo & Results Carousel */}
             <div className="mb-4">
-              <Headline level={3} className="text-cozy-heading mb-2">Original Photo</Headline>
-              <div className="relative bg-cozy-mount border border-cozy-borderCard rounded-cozy-lg overflow-hidden" style={{ height: '24rem' }}>
-                {photo.metadata.originalUrl ? (
-                  <Image
-                    src={photo.metadata.originalUrl}
-                    alt={photo.originalFilename}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 60vw"
-                    className="object-contain"
-                    unoptimized
-                    priority={false}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-cozy-surface border border-cozy-borderCard flex items-center justify-center">
-                    <div className="text-center text-cozy-textSecondary">
-                      <svg className="w-12 h-12 mx-auto mb-2 text-cozy-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <Body className="text-sm">Loading image...</Body>
-                    </div>
-                  </div>
-                )}
-                <div className="absolute top-2 right-2 flex space-x-2">
-                  <button
-                    onClick={handleDownloadOriginal}
-                    className="bg-cozy-surface/90 hover:bg-cozy-surface border border-cozy-borderCard p-2 rounded-full shadow-cozy-card transition-all text-cozy-text"
-                    title="Download original photo"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={handleDeleteOriginal}
-                    className="bg-cozySemantic-error/90 hover:opacity-100 text-white p-2 rounded-full shadow-cozy-card transition-all"
-                    title="Delete photo and all results"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Results - Full-Width Horizontal Swiper */}
-            {photo.results.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3">
+                <div>
                   <Headline level={3} className="text-cozy-heading">
-                    Processed Results
+                    Photo & Results
                   </Headline>
-                  <span className="text-sm text-cozy-textSecondary">
-                    {currentResultIndex + 1} / {photo.results.length}
-                  </span>
-                </div>
-                <div 
-                  ref={resultsContainerRef}
-                  data-testid="results-container"
-                  className="hide-scrollbar flex overflow-hidden -mx-4 cursor-grab active:cursor-grabbing"
-                  style={{
-                    touchAction: 'auto', // Allow both directions, JavaScript will handle detection
-                    userSelect: 'none'
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault(); // Prevent text selection
-                    const startX = e.clientX;
-                    const container = resultsContainerRef.current;
-                    if (!container) return;
-
-                    let moved = false;
-
-                    const handleMouseMove = (moveEvent: MouseEvent) => {
-                      if (moved) return;
-
-                      const deltaX = startX - moveEvent.clientX;
-                      const threshold = 50; // Minimum drag distance
-
-                      if (Math.abs(deltaX) > threshold) {
-                        moved = true;
-                        
-                        if (deltaX > 0 && currentResultIndex < photo.results.length - 1) {
-                          // Drag left - next result
-                          const nextIndex = currentResultIndex + 1;
-                          setCurrentResultIndex(nextIndex);
-                          scrollToResult(nextIndex);
-                        } else if (deltaX < 0 && currentResultIndex > 0) {
-                          // Drag right - previous result
-                          const prevIndex = currentResultIndex - 1;
-                          setCurrentResultIndex(prevIndex);
-                          scrollToResult(prevIndex);
-                        }
-                        
-                        cleanup();
-                      }
-                    };
-
-                    const handleMouseUp = () => {
-                      cleanup();
-                    };
-
-                    const cleanup = () => {
-                      document.removeEventListener('mousemove', handleMouseMove);
-                      document.removeEventListener('mouseup', handleMouseUp);
-                    };
-
-                    document.addEventListener('mousemove', handleMouseMove);
-                    document.addEventListener('mouseup', handleMouseUp);
-                  }}
-                  onTouchStart={(e) => {
-                    const touch = e.touches[0];
-                    const startX = touch.clientX;
-                    const startY = touch.clientY;
-                    const container = resultsContainerRef.current;
-                    if (!container) return;
-
-                    let moved = false;
-                    let swipeDirection: 'horizontal' | 'vertical' | null = null;
-
-                    const handleTouchMove = (moveEvent: TouchEvent) => {
-                      if (moved) return;
-
-                      const currentTouch = moveEvent.touches[0];
-                      const deltaX = startX - currentTouch.clientX;
-                      const deltaY = startY - currentTouch.clientY;
-
-                      // Determine swipe direction on first significant movement
-                      if (swipeDirection === null) {
-                        const absDeltaX = Math.abs(deltaX);
-                        const absDeltaY = Math.abs(deltaY);
-                        
-                        if (absDeltaX > 10 || absDeltaY > 10) {
-                          // Determine if this is primarily horizontal or vertical
-                          if (absDeltaX > absDeltaY) {
-                            swipeDirection = 'horizontal';
-                            // Prevent default to stop vertical scrolling during horizontal swipe
-                            moveEvent.preventDefault();
-                          } else {
-                            swipeDirection = 'vertical';
-                            // This is a vertical scroll, clean up and let it through
-                            cleanup();
-                            return;
-                          }
-                        }
-                      }
-
-                      // Only handle horizontal swipes
-                      if (swipeDirection === 'horizontal') {
-                        // Continue preventing default for horizontal swipes
-                        moveEvent.preventDefault();
-                        
-                        const threshold = 50; // Minimum swipe distance
-                        if (Math.abs(deltaX) > threshold) {
-                          moved = true;
-                          
-                          if (deltaX > 0 && currentResultIndex < photo.results.length - 1) {
-                            // Swipe left - next result
-                            const nextIndex = currentResultIndex + 1;
-                            setCurrentResultIndex(nextIndex);
-                            scrollToResult(nextIndex);
-                          } else if (deltaX < 0 && currentResultIndex > 0) {
-                            // Swipe right - previous result
-                            const prevIndex = currentResultIndex - 1;
-                            setCurrentResultIndex(prevIndex);
-                            scrollToResult(prevIndex);
-                          }
-                          
-                          // Clean up listeners
-                          cleanup();
-                        }
-                      }
-                    };
-
-                    const handleTouchEnd = () => {
-                      cleanup();
-                    };
-
-                    const cleanup = () => {
-                      container.removeEventListener('touchmove', handleTouchMove);
-                      container.removeEventListener('touchend', handleTouchEnd);
-                      container.removeEventListener('touchcancel', handleTouchEnd);
-                    };
-
-                    // Use passive: false to allow preventDefault for horizontal swipes
-                    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-                    container.addEventListener('touchend', handleTouchEnd, { passive: true });
-                    container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-                  }}
-                >
-                  {photo.results.map((result) => (
-                    <div 
-                      key={result.id} 
-                      className="snap-center flex-shrink-0 px-4" 
-                      style={{ width: '100%' }}
-                    >
-                      <PhotoResultCard
-                        result={result}
-                        onDownload={handleDownloadResult}
-                        onDelete={handleDeleteResult}
-                      />
-                    </div>
-                  ))}
-                </div>
-                {/* Pagination Dots */}
-                {photo.results.length > 1 && (
-                  <div className="flex justify-center mt-3 space-x-2">
-                    {photo.results.map((_, index) => (
-                      <div 
-                        key={index} 
-                        className={`h-2 w-2 rounded-full transition-all ${
-                          index === currentResultIndex 
-                            ? 'bg-cozy-accent w-6' 
-                            : 'bg-cozy-borderCard'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Empty Results State */}
-            {photo.results.length === 0 && (
-              <div className="mb-4">
-                <div className="bg-cozy-mount border border-cozy-borderCard rounded-cozy-lg p-4 text-center">
-                  <svg 
-                    className="w-12 h-12 mx-auto mb-2 text-cozy-accent" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
-                    />
-                  </svg>
-                  <Headline level={3} as="h4" className="text-cozy-heading text-sm mb-1">No processed results yet</Headline>
-                  <Body className="text-cozy-textSecondary text-xs">
-                    Use the processing options below to restore, colourize, or animate this photo
+                  <Body className="text-xs text-cozy-textSecondary">
+                    {currentItemIndex === 0 ? 'Original photo selected' : 'Processed result selected'}
                   </Body>
                 </div>
+                <span className="text-sm text-cozy-textSecondary">
+                  {currentItemIndex + 1} / {1 + photo.results.length}
+                </span>
               </div>
+
+              <div
+                ref={resultsContainerRef}
+                data-testid="results-container"
+                className="hide-scrollbar flex overflow-hidden -mx-4 cursor-grab active:cursor-grabbing"
+                style={{
+                  touchAction: 'auto', // Allow both directions, JavaScript will handle detection
+                  userSelect: 'none'
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent text selection
+                  const startX = e.clientX;
+                  const container = resultsContainerRef.current;
+                  if (!container) return;
+
+                  let moved = false;
+
+                  const handleMouseMove = (moveEvent: MouseEvent) => {
+                    if (moved) return;
+
+                    const deltaX = startX - moveEvent.clientX;
+                    const threshold = 50; // Minimum drag distance
+
+                    if (Math.abs(deltaX) > threshold) {
+                      moved = true;
+
+                      const totalItems = 1 + photo.results.length;
+
+                      if (deltaX > 0 && currentItemIndex < totalItems - 1) {
+                        // Drag left - next item
+                        const nextIndex = currentItemIndex + 1;
+                        setCurrentItemIndex(nextIndex);
+                        scrollToItem(nextIndex);
+                      } else if (deltaX < 0 && currentItemIndex > 0) {
+                        // Drag right - previous item
+                        const prevIndex = currentItemIndex - 1;
+                        setCurrentItemIndex(prevIndex);
+                        scrollToItem(prevIndex);
+                      }
+
+                      cleanup();
+                    }
+                  };
+
+                  const handleMouseUp = () => {
+                    cleanup();
+                  };
+
+                  const cleanup = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                  };
+
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                }}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  const startX = touch.clientX;
+                  const startY = touch.clientY;
+                  const container = resultsContainerRef.current;
+                  if (!container) return;
+
+                  let moved = false;
+                  let swipeDirection: 'horizontal' | 'vertical' | null = null;
+
+                  const handleTouchMove = (moveEvent: TouchEvent) => {
+                    if (moved) return;
+
+                    const currentTouch = moveEvent.touches[0];
+                    const deltaX = startX - currentTouch.clientX;
+                    const deltaY = startY - currentTouch.clientY;
+
+                    // Determine swipe direction on first significant movement
+                    if (swipeDirection === null) {
+                      const absDeltaX = Math.abs(deltaX);
+                      const absDeltaY = Math.abs(deltaY);
+
+                      if (absDeltaX > 10 || absDeltaY > 10) {
+                        // Determine if this is primarily horizontal or vertical
+                        if (absDeltaX > absDeltaY) {
+                          swipeDirection = 'horizontal';
+                          // Prevent default to stop vertical scrolling during horizontal swipe
+                          moveEvent.preventDefault();
+                        } else {
+                          swipeDirection = 'vertical';
+                          // This is a vertical scroll, clean up and let it through
+                          cleanup();
+                          return;
+                        }
+                      }
+                    }
+
+                    // Only handle horizontal swipes
+                    if (swipeDirection === 'horizontal') {
+                      // Continue preventing default for horizontal swipes
+                      moveEvent.preventDefault();
+
+                      const threshold = 50; // Minimum swipe distance
+                      if (Math.abs(deltaX) > threshold) {
+                        moved = true;
+
+                        const totalItems = 1 + photo.results.length;
+
+                        if (deltaX > 0 && currentItemIndex < totalItems - 1) {
+                          // Swipe left - next item
+                          const nextIndex = currentItemIndex + 1;
+                          setCurrentItemIndex(nextIndex);
+                          scrollToItem(nextIndex);
+                        } else if (deltaX < 0 && currentItemIndex > 0) {
+                          // Swipe right - previous item
+                          const prevIndex = currentItemIndex - 1;
+                          setCurrentItemIndex(prevIndex);
+                          scrollToItem(prevIndex);
+                        }
+
+                        // Clean up listeners
+                        cleanup();
+                      }
+                    }
+                  };
+
+                  const handleTouchEnd = () => {
+                    cleanup();
+                  };
+
+                  const cleanup = () => {
+                    container.removeEventListener('touchmove', handleTouchMove);
+                    container.removeEventListener('touchend', handleTouchEnd);
+                    container.removeEventListener('touchcancel', handleTouchEnd);
+                  };
+
+                  // Use passive: false to allow preventDefault for horizontal swipes
+                  container.addEventListener('touchmove', handleTouchMove, { passive: false });
+                  container.addEventListener('touchend', handleTouchEnd, { passive: true });
+                  container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+                }}
+              >
+                {/* First item: Original photo */}
+                <div
+                  key="original"
+                  className="snap-center flex-shrink-0 px-4"
+                  style={{ width: '100%' }}
+                >
+                  <PhotoMount design="default" aspectRatio="4/3" className="rounded-cozy-lg">
+                    <div className="absolute inset-0 min-h-[300px]">
+                      {photo.metadata.originalUrl ? (
+                        <Image
+                          src={photo.metadata.originalUrl}
+                          alt={photo.originalFilename}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 60vw"
+                          className="object-contain"
+                          unoptimized
+                          priority={false}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-cozy-surface border border-cozy-borderCard flex items-center justify-center">
+                          <div className="text-center text-cozy-textSecondary">
+                            <svg className="w-12 h-12 mx-auto mb-2 text-cozy-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <Body className="text-sm">Loading image...</Body>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Original photo actions */}
+                      <div className="absolute top-2 right-2 flex space-x-2">
+                        <button
+                          onClick={handleDownloadOriginal}
+                          className="bg-cozy-surface/90 hover:bg-cozy-surface border border-cozy-borderCard p-2 rounded-full shadow-cozy-card transition-all text-cozy-text"
+                          title="Download original photo"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={handleDeleteOriginal}
+                          className="bg-cozySemantic-error/90 hover:opacity-100 text-white p-2 rounded-full shadow-cozy-card transition-all"
+                          title="Delete photo and all results"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Original badge */}
+                      <div className="absolute bottom-2 left-2">
+                        <span className="px-3 py-1 text-xs font-medium rounded-full bg-cozy-mount/90 text-cozy-heading border border-cozy-borderCard">
+                          Original photo
+                        </span>
+                      </div>
+                    </div>
+                  </PhotoMount>
+
+                  {/* Original photo metadata (mirrors processed result details) */}
+                  <div className="mt-2 text-xs text-cozy-textSecondary space-y-1">
+                    <div className="font-medium text-cozy-heading">
+                      {photo.metadata.dimensions.width} × {photo.metadata.dimensions.height}
+                    </div>
+                    <div>
+                      {formatFileSize(photo.metadata.fileSize)} • {photo.metadata.format.toUpperCase()}
+                    </div>
+                    <div className="text-cozy-textMuted">
+                      {new Date(photo.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Following items: processed results */}
+                {photo.results.map((result) => (
+                  <div
+                    key={result.id}
+                    className="snap-center flex-shrink-0 px-4"
+                    style={{ width: '100%' }}
+                  >
+                    <PhotoResultCard
+                      result={result}
+                      onDownload={handleDownloadResult}
+                      onDelete={handleDeleteResult}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Dots (for all items incl. original) */}
+              {1 + photo.results.length > 1 && (
+                <div className="flex justify-center mt-3 space-x-2">
+                  {Array.from({ length: 1 + photo.results.length }).map((_, index) => (
+                    <div
+                      key={index}
+                      className={`h-2 w-2 rounded-full transition-all ${
+                        index === currentItemIndex
+                          ? 'bg-cozy-accent w-6'
+                          : 'bg-cozy-borderCard'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Guidance when no results yet */}
+            {photo.results.length === 0 && (
+              <Body className="text-xs text-cozy-textSecondary mb-3">
+                Use the processing options below to restore, colourise, or animate this photo.
+              </Body>
             )}
 
             {/* Processing Options */}

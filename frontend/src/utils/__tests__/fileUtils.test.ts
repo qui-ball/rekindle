@@ -255,18 +255,24 @@ describe('fileToDataUrl', () => {
     
     // Mock FileReader to fail
     const originalFileReader = global.FileReader;
-    global.FileReader = jest.fn().mockImplementation(() => ({
-      readAsDataURL: jest.fn(function(this: any) {
+    interface MockFileReaderInstance {
+      readAsDataURL: jest.Mock;
+      result: string | null;
+      onload: (() => void) | null;
+      onerror: ((err: Error) => void) | null;
+    }
+    global.FileReader = jest.fn().mockImplementation(function (this: MockFileReaderInstance) {
+      this.readAsDataURL = jest.fn(function (this: MockFileReaderInstance) {
         setTimeout(() => {
           if (this.onerror) {
             this.onerror(new Error('Read failed'));
           }
         }, 0);
-      }),
-      result: null,
-      onload: null,
-      onerror: null
-    })) as any;
+      });
+      this.result = null;
+      this.onload = null;
+      this.onerror = null;
+    }) as unknown as typeof FileReader;
     
     await expect(fileToDataUrl(file)).rejects.toThrow('Failed to read file');
     

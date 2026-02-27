@@ -556,6 +556,7 @@ export const SmartCroppingInterface: React.FC<SmartCroppingInterfaceProps> = ({
           height: `${displayDimensions.height}px`
         }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element -- Crop preview needs ref and onLoad on the element; next/image does not forward ref */}
         <img
           ref={imageElementRef}
           src={image}

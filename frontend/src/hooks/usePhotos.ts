@@ -95,7 +95,7 @@ export const usePhotos = (options: UsePhotosOptions = {}): UsePhotosReturn => {
   // Initial load
   useEffect(() => {
     loadPhotos(true);
-  }, [status]); // Reload when status filter changes
+  }, [status, loadPhotos]); // Reload when status filter changes
 
   // Auto-refresh
   useEffect(() => {
