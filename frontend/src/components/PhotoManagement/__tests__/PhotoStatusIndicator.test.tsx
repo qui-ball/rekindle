@@ -279,7 +279,7 @@ describe('PhotoStatusIndicator', () => {
 
   describe('Edge Cases', () => {
     it('should handle undefined status gracefully', () => {
-      render(<PhotoStatusIndicator {...defaultProps} status={undefined as any} />);
+      render(<PhotoStatusIndicator {...defaultProps} status={undefined as unknown as ProcessingStatus} />);
       
       // Should fallback to ready status
       expect(screen.getByText('Ready to Process')).toBeInTheDocument();

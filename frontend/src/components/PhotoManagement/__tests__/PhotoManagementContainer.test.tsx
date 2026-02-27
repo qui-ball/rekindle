@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PhotoManagementContainer } from '../PhotoManagementContainer';
 import { photoManagementService, creditManagementService, processingJobService } from '../../../services/photoManagementService';
+import type { ProcessingOptions } from '../../../types/photo-management';
 
 // Mock EventSource for SSE tests
 global.EventSource = class EventSource {
@@ -10,16 +11,18 @@ global.EventSource = class EventSource {
   onmessage: ((event: MessageEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   readyState: number = 1; // OPEN
-  
+
   constructor(url: string) {
     this.url = url;
   }
-  
+
   close() {}
   addEventListener() {}
   removeEventListener() {}
-  dispatchEvent() { return true; }
-} as any;
+  dispatchEvent() {
+    return true;
+  }
+} as unknown as typeof EventSource;
 
 // Mock the services
 jest.mock('../../../services/photoManagementService', () => ({
@@ -95,7 +98,7 @@ jest.mock('../PhotoDetailDrawer', () => ({
     photo: { id: string; originalFilename: string } | null;
     onClose: () => void;
     onPhotoAction: (action: string, photo: { id: string; originalFilename: string }) => void;
-    onProcessingStart: (options: any) => void;
+    onProcessingStart: (options: ProcessingOptions) => void;
   }) => (
     isOpen ? (
       <div data-testid="photo-detail-drawer">

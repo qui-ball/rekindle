@@ -51,10 +51,10 @@ const DEFAULT_OPTIONS: AdaptiveDetectionOptions = {
  * Adaptive detection strategy that chooses between quick and full multi-pass
  */
 export class AdaptiveDetectionStrategy {
-  private scanner: any = null;
+  private scanner: unknown = null;
   private options: AdaptiveDetectionOptions;
 
-  constructor(scanner: any, options: Partial<AdaptiveDetectionOptions> = {}) {
+  constructor(scanner: unknown, options: Partial<AdaptiveDetectionOptions> = {}) {
     this.scanner = scanner;
     this.options = { ...DEFAULT_OPTIONS, ...options };
   }
@@ -67,7 +67,7 @@ export class AdaptiveDetectionStrategy {
    * - alwaysUseMultiPass: Skip to full multi-pass immediately
    */
   async detect(
-    src: any, // OpenCV Mat
+    src: unknown, // OpenCV Mat
     imageWidth: number,
     imageHeight: number
   ): Promise<AdaptiveDetectionResult> {
@@ -98,7 +98,7 @@ export class AdaptiveDetectionStrategy {
       // Fallback if multi-pass fails
       console.log(`⚠️ Multi-pass failed in test mode`);
       return {
-        cornerPoints: null as any,
+        cornerPoints: null,
         confidence: 0,
         metrics: { overall: 0, areaRatio: 0, rectangularity: 0, distribution: 0, straightness: 0 },
         method: 'multi-pass-failed',
@@ -200,7 +200,7 @@ export class AdaptiveDetectionStrategy {
    * Target: <500ms
    */
   private async quickDetection(
-    src: any,
+    src: unknown,
     imageWidth: number,
     imageHeight: number
   ): Promise<Omit<AdaptiveDetectionResult, 'processingTime' | 'usedMultiPass'>> {
@@ -282,7 +282,7 @@ export class AdaptiveDetectionStrategy {
    * Target: <1500ms
    */
   private async multiPassDetection(
-    src: any,
+    src: unknown,
     imageWidth: number,
     imageHeight: number
   ): Promise<MultiPassResult> {
@@ -296,7 +296,7 @@ export class AdaptiveDetectionStrategy {
    * Target: <800ms
    */
   private async runComplementaryValidation(
-    src: any,
+    src: unknown,
     imageWidth: number,
     imageHeight: number
   ): Promise<DetectionCandidate | null> {
@@ -321,7 +321,7 @@ export class AdaptiveDetectionStrategy {
   /**
    * Refine corner points using Shi-Tomasi
    */
-  private refineCornerPoints(src: any, cornerPoints: CornerPoints): CornerPoints {
+  private refineCornerPoints(src: unknown, cornerPoints: CornerPoints): CornerPoints {
     // Corner refinement not available in this build
     // Return original points without modification
     console.log('ℹ️ Corner refinement not available, using original points');

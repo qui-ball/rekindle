@@ -553,7 +553,7 @@ function createDragEvent(
     };
   };
   
-  (event as any).dataTransfer = {
+  (event as DragEvent & { dataTransfer: DataTransfer }).dataTransfer = {
     types: options.types || [],
     files: options.files ? createFileList(options.files) : createFileList([]),
     items: options.files

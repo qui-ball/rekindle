@@ -221,8 +221,8 @@ describe('PhotoDetailDrawer', () => {
   describe('Result Navigation Bounds', () => {
     it('should show result indicators', () => {
       renderDrawer();
-      // Should show result count (looking for "1 / 2" format)
-      expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument();
+      // Should show item count including original (looking for "1 / 3" format)
+      expect(screen.getByText(/1 \/ 3/)).toBeInTheDocument();
     });
 
     it('should display all results in container', () => {
@@ -299,24 +299,26 @@ describe('PhotoDetailDrawer', () => {
       expect(screen.getByTestId('processing-options-panel')).toBeInTheDocument();
     });
 
-    it('should not show swipe controls when no results', () => {
+    it('should show swipe controls for original photo even when no results', () => {
       const photoWithoutResults: Photo = {
         ...mockPhoto,
         results: []
       };
 
       renderDrawer({ photo: photoWithoutResults });
-      expect(screen.queryByTestId('results-container')).not.toBeInTheDocument();
+      expect(screen.getByTestId('results-container')).toBeInTheDocument();
     });
 
-    it('should show "No results yet" message', () => {
+    it('should show guidance text when there are no results', () => {
       const photoWithoutResults: Photo = {
         ...mockPhoto,
         results: []
       };
 
       renderDrawer({ photo: photoWithoutResults });
-      expect(screen.getByText(/no processed results yet/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/use the processing options below to restore, colourise, or animate this photo\./i)
+      ).toBeInTheDocument();
     });
   });
 

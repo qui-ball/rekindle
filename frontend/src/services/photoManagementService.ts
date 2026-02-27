@@ -278,8 +278,8 @@ export class PhotoManagementServiceImpl implements PhotoManagementService {
           created_at: string;
           url?: string;
         }>;
-        processingJobs: any[];
-        relatedPhotos: any[];
+        processingJobs: unknown[];
+        relatedPhotos: unknown[];
       }>(`/v1/photos/${photoId}`);
       
       // Transform the response to PhotoDetails format
@@ -448,13 +448,20 @@ export class ProcessingJobServiceImpl implements ProcessingJobService {
     try {
       // For now, only handle restore option
       if (options.restore) {
+        // Build restore parameters payload including quality and any custom parameters
+        const restoreParams: Record<string, unknown> = {
+          denoise: options.parameters?.restore?.denoiseLevel ?? 0.8,
+          megapixels: options.quality === 'hd' ? 2.0 : 1.0,
+          // Forward typed parameter models so the backend can inspect them
+          ...(options.parameters?.restore && { restore: options.parameters.restore }),
+          ...(options.parameters?.animate && { animate: options.parameters.animate }),
+          ...(options.parameters?.bringTogether && { bringTogether: options.parameters.bringTogether })
+        };
+
         // Use photos endpoint instead of jobs endpoint
         const restoreAttempt = await apiClient.post<BackendRestoreAttempt>(`/v1/photos/${photoId}/restore`, {
           model: 'comfyui_default',
-          params: {
-            denoise: 0.8,
-            megapixels: options.quality === 'hd' ? 2.0 : 1.0
-          }
+          params: restoreParams
         });
         
         // Transform to PhotoProcessingJob format

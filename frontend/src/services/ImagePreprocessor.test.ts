@@ -17,7 +17,27 @@ jest.mock('./opencvLoader', () => ({
 
 describe('ImagePreprocessor', () => {
   let preprocessor: ImagePreprocessor;
-  let mockCv: any;
+  let mockCv: {
+    Mat: jest.Mock;
+    cvtColor: jest.Mock;
+    mean: jest.Mock;
+    CLAHE: jest.Mock;
+    Size: jest.Mock;
+    bilateralFilter: jest.Mock;
+    GaussianBlur: jest.Mock;
+    addWeighted: jest.Mock;
+    ones: jest.Mock;
+    morphologyEx: jest.Mock;
+    adaptiveThreshold: jest.Mock;
+    COLOR_RGBA2GRAY: number;
+    COLOR_GRAY2RGBA: number;
+    BORDER_DEFAULT: number;
+    MORPH_CLOSE: number;
+    MORPH_OPEN: number;
+    ADAPTIVE_THRESH_MEAN_C: number;
+    THRESH_BINARY: number;
+    CV_8U: number;
+  };
 
   beforeEach(() => {
     preprocessor = new ImagePreprocessor();
@@ -96,7 +116,7 @@ describe('ImagePreprocessor', () => {
   });
 
   describe('preprocessForDetection', () => {
-    let mockSrc: any;
+    let mockSrc: { clone: jest.Mock; delete: jest.Mock };
 
     beforeEach(async () => {
       await preprocessor.initialize();

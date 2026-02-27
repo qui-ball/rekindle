@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -14,6 +15,7 @@ export const UserMenu: React.FC = () => {
   const { user, signOut, loading } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -46,9 +48,11 @@ export const UserMenu: React.FC = () => {
     || 'User';
 
   // Get user profile picture (from user_metadata or default)
-  const profilePicture = user.user_metadata?.avatar_url 
-    || user.user_metadata?.picture
-    || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=8b6f47&color=fff&size=128`;
+  const profilePicture = avatarError
+    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=8b6f47&color=fff&size=128`
+    : (user.user_metadata?.avatar_url
+      || user.user_metadata?.picture
+      || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=8b6f47&color=fff&size=128`);
 
   const handleSignOut = async () => {
     setIsOpen(false);
@@ -74,16 +78,15 @@ export const UserMenu: React.FC = () => {
         aria-haspopup="true"
       >
         {/* Profile Picture */}
-        <div className="w-8 h-8 rounded-full overflow-hidden bg-cozy-mount flex-shrink-0">
-          <img
+        <div className="relative w-8 h-8 rounded-full overflow-hidden bg-cozy-mount flex-shrink-0">
+          <Image
             src={profilePicture}
             alt={displayName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              // Fallback to default avatar if image fails to load
-              const target = e.target as HTMLImageElement;
-              target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=8b6f47&color=fff&size=128`;
-            }}
+            fill
+            sizes="32px"
+            className="object-cover"
+            onError={() => setAvatarError(true)}
+            unoptimized
           />
         </div>
         
